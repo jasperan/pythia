@@ -1,11 +1,41 @@
 -- setup_schema.sql
--- Run as SYS or admin: CREATE USER pythia IDENTIFIED BY pythia; GRANT CONNECT, RESOURCE, UNLIMITED TABLESPACE TO pythia;
+-- Oracle Database 26ai with ONNX in-database embeddings
+--
+-- Prerequisites:
+--   1. Oracle 26ai Free container running (docker compose up -d)
+--   2. Connect as ADMIN to create user and load ONNX model
+--
+-- Step 1: Create user (run as ADMIN)
+-- CREATE USER pythia IDENTIFIED BY pythia;
+-- GRANT CONNECT, RESOURCE, UNLIMITED TABLESPACE, DB_DEVELOPER_ROLE TO pythia;
+-- GRANT CREATE MINING MODEL TO pythia;
+
+-- Step 2: Load ONNX embedding model (run as PYTHIA user)
+-- The model is loaded once and used for all embedding operations.
+-- Oracle 26ai ships with pre-loaded models accessible via VECTOR_EMBEDDING().
+-- If using a custom ONNX model (e.g., all-MiniLM-L6-v2):
+--
+--   BEGIN
+--     DBMS_VECTOR.LOAD_ONNX_MODEL(
+--       'DM_DUMP',
+--       'all_MiniLM_L6_v2.onnx',
+--       'ALL_MINILM_L6_V2',
+--       JSON('{"function":"embedding","embeddingOutput":"embedding","input":{"input":["DATA"]}}')
+--     );
+--   END;
+--   /
+--
+-- For Oracle 26ai ADB-Free, you can use the built-in model directly:
+-- SELECT VECTOR_EMBEDDING(ALL_MINILM_L6_V2 USING 'test' AS data) FROM DUAL;
+
+-- Step 3: Create tables (run as PYTHIA user)
 
 -- Semantic search cache
+-- query_embedding is generated via VECTOR_EMBEDDING() at INSERT time
 CREATE TABLE pythia_cache (
     id              RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
     query           VARCHAR2(4000) NOT NULL,
-    query_embedding VECTOR(768, FLOAT64) NOT NULL,
+    query_embedding VECTOR         NOT NULL,
     answer          CLOB           NOT NULL,
     sources         CLOB           NOT NULL,
     model_used      VARCHAR2(100)  NOT NULL,

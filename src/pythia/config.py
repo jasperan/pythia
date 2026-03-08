@@ -15,7 +15,6 @@ class ServerConfig(BaseModel):
 class OllamaConfig(BaseModel):
     base_url: str = "http://localhost:11434"
     model: str = "qwen3.5:9b"
-    embedding_model: str = "nomic-embed-text"
 
 
 class SearxngConfig(BaseModel):
@@ -29,6 +28,7 @@ class OracleConfig(BaseModel):
     user: str = "pythia"
     password: str = "pythia"
     cache_similarity_threshold: float = 0.85
+    embedding_model: str = "ALL_MINILM_L6_V2"
 
 
 class TuiConfig(BaseModel):

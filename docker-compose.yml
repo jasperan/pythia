@@ -1,4 +1,23 @@
 services:
+  oracle:
+    image: container-registry.oracle.com/database/adb-free:latest
+    container_name: pythia-oracle
+    ports:
+      - "1521:1522"
+    environment:
+      - WORKLOAD_TYPE=ADB-S
+      - WALLET_PASSWORD=Pythia2026#
+      - ADMIN_PASSWORD=Pythia2026#
+    volumes:
+      - oracle-data:/u01/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "sql admin/Pythia2026#@localhost:1522/my_atp_low <<< 'SELECT 1 FROM DUAL;'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
   searxng:
     image: searxng/searxng:latest
     container_name: pythia-searxng
@@ -9,3 +28,6 @@ services:
     environment:
       - SEARXNG_BASE_URL=http://localhost:8888
     restart: unless-stopped
+
+volumes:
+  oracle-data:

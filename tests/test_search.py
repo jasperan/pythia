@@ -9,7 +9,7 @@ from pythia.server.oracle_cache import CacheEntry
 @pytest.mark.asyncio
 async def test_search_cache_hit():
     mock_ollama = AsyncMock()
-    mock_ollama.embed = AsyncMock(return_value=[0.1] * 768)
+    mock_ollama.model = "qwen3.5:9b"
 
     cached = CacheEntry(
         query="What is RLHF?",
@@ -30,6 +30,8 @@ async def test_search_cache_hit():
     async for event in orch.search("How does RLHF work?"):
         events.append(event)
 
+    # Embedding is done inside Oracle via VECTOR_EMBEDDING(), cache receives query text
+    mock_cache.lookup.assert_called_once_with("How does RLHF work?")
     mock_searxng.search.assert_not_called()
     types = [e.event_type for e in events]
     assert EventType.STATUS in types
@@ -39,7 +41,6 @@ async def test_search_cache_hit():
 @pytest.mark.asyncio
 async def test_search_cache_miss():
     mock_ollama = AsyncMock()
-    mock_ollama.embed = AsyncMock(return_value=[0.1] * 768)
     mock_ollama.model = "qwen3.5:9b"
 
     async def fake_stream(system, user):
@@ -66,6 +67,7 @@ async def test_search_cache_miss():
     async for event in orch.search("What is RLHF?"):
         events.append(event)
 
+    mock_cache.lookup.assert_called_once_with("What is RLHF?")
     mock_searxng.search.assert_called_once()
     types = [e.event_type for e in events]
     assert EventType.SOURCE in types

@@ -25,13 +25,13 @@ def create_app(config: PythiaConfig) -> FastAPI:
     ollama = OllamaClient(
         base_url=config.ollama.base_url,
         model=config.ollama.model,
-        embedding_model=config.ollama.embedding_model,
     )
     cache = OracleCache(
         dsn=config.oracle.dsn,
         user=config.oracle.user,
         password=config.oracle.password,
         similarity_threshold=config.oracle.cache_similarity_threshold,
+        embedding_model=config.oracle.embedding_model,
     )
     searxng = SearxngClient(
         base_url=config.searxng.base_url,

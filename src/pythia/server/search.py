@@ -40,11 +40,8 @@ class SearchOrchestrator:
             if model_override:
                 self.ollama.model = model_override
 
-            yield SearchEvent(EventType.STATUS, {"message": "Generating embedding..."})
-            embedding = await self.ollama.embed(query)
-
             yield SearchEvent(EventType.STATUS, {"message": "Checking cache..."})
-            cached = await self.cache.lookup(embedding)
+            cached = await self.cache.lookup(query)
 
             if cached:
                 elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -93,7 +90,7 @@ class SearchOrchestrator:
             elapsed_ms = int((time.monotonic() - start) * 1000)
 
             sources_dicts = [{"index": r.index, "title": r.title, "url": r.url, "snippet": r.snippet} for r in results]
-            await self.cache.store(query=query, query_embedding=embedding, answer=answer_text, sources=sources_dicts, model_used=model)
+            await self.cache.store(query=query, answer=answer_text, sources=sources_dicts, model_used=model)
             await self.cache.record_search(query, cache_hit=False, response_time_ms=elapsed_ms, model_used=model)
 
             yield SearchEvent(EventType.DONE, {"cache_hit": False, "response_time_ms": elapsed_ms, "sources_count": len(results)})

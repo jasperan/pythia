@@ -35,12 +35,11 @@ def build_search_prompt(query: str, results: list[SearchResult]) -> tuple[str, s
 
 
 class OllamaClient:
-    """Async client for Ollama API."""
+    """Async client for Ollama API — LLM inference only (embeddings handled by Oracle ONNX)."""
 
-    def __init__(self, base_url: str, model: str, embedding_model: str):
+    def __init__(self, base_url: str, model: str):
         self.base_url = base_url.rstrip("/")
         self.model = model
-        self.embedding_model = embedding_model
 
     async def generate_stream(self, system: str, user: str) -> AsyncIterator[str]:
         """Stream tokens from Ollama chat completion."""
@@ -64,21 +63,6 @@ class OllamaClient:
                         yield content
                     if chunk.get("done", False):
                         break
-
-    async def embed(self, text: str) -> list[float]:
-        """Generate embedding vector for text."""
-        payload = {
-            "model": self.embedding_model,
-            "input": text,
-        }
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(f"{self.base_url}/api/embed", json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-            embeddings = data.get("embeddings", [])
-            if embeddings:
-                return embeddings[0]
-            return []
 
     async def health(self) -> bool:
         """Check if Ollama is reachable."""

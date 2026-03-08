@@ -20,13 +20,17 @@ class CacheEntry:
 
 
 class OracleCache:
-    """Oracle AI Vector Search cache for search results."""
+    """Oracle AI Vector Search cache with ONNX in-database embeddings."""
 
-    def __init__(self, dsn: str, user: str, password: str, similarity_threshold: float = 0.85):
+    def __init__(
+        self, dsn: str, user: str, password: str, similarity_threshold: float = 0.85,
+        embedding_model: str = "ALL_MINILM_L6_V2",
+    ):
         self.dsn = dsn
         self.user = user
         self.password = password
         self.similarity_threshold = similarity_threshold
+        self.embedding_model = embedding_model
         self._pool: oracledb.AsyncConnectionPool | None = None
 
     async def connect(self) -> None:
@@ -44,22 +48,30 @@ class OracleCache:
         if self._pool:
             await self._pool.close()
 
-    async def lookup(self, query_embedding: list[float]) -> CacheEntry | None:
-        """Find semantically similar cached result."""
+    async def lookup(self, query: str) -> CacheEntry | None:
+        """Find semantically similar cached result using ONNX in-database embeddings."""
         if not self._pool:
             return None
 
-        sql = """
+        # VECTOR_EMBEDDING generates the embedding in-database using the ONNX model
+        sql = f"""
             SELECT id, query, answer, sources, model_used, hit_count, created_at,
-                   1 - VECTOR_DISTANCE(query_embedding, :1, COSINE) AS similarity
+                   1 - VECTOR_DISTANCE(
+                       query_embedding,
+                       VECTOR_EMBEDDING({self.embedding_model} USING :1 AS data),
+                       COSINE
+                   ) AS similarity
             FROM pythia_cache
-            ORDER BY VECTOR_DISTANCE(query_embedding, :2, COSINE)
+            ORDER BY VECTOR_DISTANCE(
+                query_embedding,
+                VECTOR_EMBEDDING({self.embedding_model} USING :2 AS data),
+                COSINE
+            )
             FETCH FIRST 1 ROW ONLY
         """
         async with self._pool.acquire() as conn:
             async with conn.cursor() as cur:
-                vec_str = json.dumps(query_embedding)
-                await cur.execute(sql, [vec_str, vec_str])
+                await cur.execute(sql, [query, query])
                 row = await cur.fetchone()
                 if not row:
                     return None
@@ -82,21 +94,21 @@ class OracleCache:
                 )
 
     async def store(
-        self, query: str, query_embedding: list[float], answer: str, sources: list[dict], model_used: str
+        self, query: str, answer: str, sources: list[dict], model_used: str
     ) -> None:
-        """Store a search result in the cache."""
+        """Store a search result in the cache with ONNX in-database embedding."""
         if not self._pool:
             return
 
-        sql = """
+        # VECTOR_EMBEDDING generates the embedding at INSERT time
+        sql = f"""
             INSERT INTO pythia_cache (query, query_embedding, answer, sources, model_used)
-            VALUES (:1, :2, :3, :4, :5)
+            VALUES (:1, VECTOR_EMBEDDING({self.embedding_model} USING :2 AS data), :3, :4, :5)
         """
         async with self._pool.acquire() as conn:
             async with conn.cursor() as cur:
-                vec_str = json.dumps(query_embedding)
                 sources_json = json.dumps(sources)
-                await cur.execute(sql, [query, vec_str, answer, sources_json, model_used])
+                await cur.execute(sql, [query, query, answer, sources_json, model_used])
                 await conn.commit()
 
     async def record_search(self, query: str, cache_hit: bool, response_time_ms: int, model_used: str) -> None:

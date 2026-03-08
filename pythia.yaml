@@ -5,7 +5,6 @@ server:
 ollama:
   base_url: "http://localhost:11434"
   model: "qwen3.5:9b"
-  embedding_model: "nomic-embed-text"
 
 searxng:
   base_url: "http://localhost:8888"
@@ -20,6 +19,7 @@ oracle:
   user: "pythia"
   password: "pythia"
   cache_similarity_threshold: 0.85
+  embedding_model: "ALL_MINILM_L6_V2"
 
 tui:
   theme: "dark"
