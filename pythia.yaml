@@ -1,0 +1,25 @@
+server:
+  host: "0.0.0.0"
+  port: 8900
+
+ollama:
+  base_url: "http://localhost:11434"
+  model: "qwen3.5:9b"
+  embedding_model: "nomic-embed-text"
+
+searxng:
+  base_url: "http://localhost:8888"
+  max_results: 8
+  categories:
+    - general
+    - science
+    - it
+
+oracle:
+  dsn: "localhost:1521/FREEPDB1"
+  user: "pythia"
+  password: "pythia"
+  cache_similarity_threshold: 0.85
+
+tui:
+  theme: "dark"
