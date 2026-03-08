@@ -31,6 +31,8 @@ class ActivityIndicator(Static):
 
     def set_label(self, label: str) -> None:
         self._label = label
+        if label and self._timer is not None and not self._timer._active:
+            self._timer.resume()
         self._rebuild()
 
     def _rebuild(self) -> None:
@@ -44,9 +46,7 @@ class ActivityIndicator(Static):
         self.update(line)
 
     def stop(self) -> None:
-        if self._timer:
-            self._timer.stop()
-            self._timer = None
+        self._label = ""
         self.update("")
 
     def on_unmount(self) -> None:

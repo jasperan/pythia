@@ -50,7 +50,7 @@ class OracleCache:
             return None
 
         sql = """
-            SELECT query, answer, sources, model_used, hit_count, created_at,
+            SELECT id, query, answer, sources, model_used, hit_count, created_at,
                    1 - VECTOR_DISTANCE(query_embedding, :1, COSINE) AS similarity
             FROM pythia_cache
             ORDER BY VECTOR_DISTANCE(query_embedding, :2, COSINE)
@@ -63,21 +63,21 @@ class OracleCache:
                 row = await cur.fetchone()
                 if not row:
                     return None
-                similarity = float(row[6])
+                similarity = float(row[7])
                 if not self._is_cache_hit(similarity):
                     return None
                 await cur.execute(
-                    "UPDATE pythia_cache SET hit_count = hit_count + 1, last_hit_at = SYSTIMESTAMP WHERE query = :1",
+                    "UPDATE pythia_cache SET hit_count = hit_count + 1, last_hit_at = SYSTIMESTAMP WHERE id = :1",
                     [row[0]],
                 )
                 await conn.commit()
                 return CacheEntry(
-                    query=row[0],
-                    answer=row[1],
-                    sources=json.loads(row[2]) if row[2] else [],
-                    model_used=row[3],
-                    hit_count=row[4] + 1,
-                    created_at=row[5],
+                    query=row[1],
+                    answer=row[2],
+                    sources=json.loads(row[3]) if row[3] else [],
+                    model_used=row[4],
+                    hit_count=row[5] + 1,
+                    created_at=row[6],
                     similarity=similarity,
                 )
 

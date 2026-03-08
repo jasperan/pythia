@@ -23,11 +23,15 @@ class PythiaStatusBar(Static):
         self._searxng_ok = False
         self._cache_size = 0
 
-    def update_status(self, model: str = "", oracle_ok: bool = False, searxng_ok: bool = False, cache_size: int = 0) -> None:
-        self._model = model or self._model
-        self._oracle_ok = oracle_ok
-        self._searxng_ok = searxng_ok
-        self._cache_size = cache_size
+    def update_status(self, model: str | None = None, oracle_ok: bool | None = None, searxng_ok: bool | None = None, cache_size: int | None = None) -> None:
+        if model is not None:
+            self._model = model
+        if oracle_ok is not None:
+            self._oracle_ok = oracle_ok
+        if searxng_ok is not None:
+            self._searxng_ok = searxng_ok
+        if cache_size is not None:
+            self._cache_size = cache_size
         self._rebuild()
 
     def _rebuild(self) -> None:

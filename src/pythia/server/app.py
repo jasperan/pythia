@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from pythia.config import PythiaConfig
@@ -17,7 +17,7 @@ from pythia.server.search import SearchOrchestrator
 
 
 class SearchRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=4000)
     model: str | None = None
 
 
@@ -50,11 +50,8 @@ def create_app(config: PythiaConfig) -> FastAPI:
 
     @app.post("/search")
     async def search(req: SearchRequest):
-        if req.model:
-            ollama.model = req.model
-
         async def event_generator():
-            async for event in orchestrator.search(req.query):
+            async for event in orchestrator.search(req.query, model_override=req.model):
                 yield {"event": event.event_type.value, "data": json.dumps(event.data)}
 
         return EventSourceResponse(event_generator())

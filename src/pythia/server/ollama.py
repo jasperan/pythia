@@ -1,6 +1,7 @@
 """Ollama client — LLM inference and embedding generation."""
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
@@ -54,7 +55,6 @@ class OllamaClient:
         async with httpx.AsyncClient(timeout=120.0) as client:
             async with client.stream("POST", f"{self.base_url}/api/chat", json=payload) as resp:
                 resp.raise_for_status()
-                import json
                 async for line in resp.aiter_lines():
                     if not line:
                         continue

@@ -5,7 +5,7 @@
 CREATE TABLE pythia_cache (
     id              RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
     query           VARCHAR2(4000) NOT NULL,
-    query_embedding VECTOR         NOT NULL,
+    query_embedding VECTOR(768, FLOAT64) NOT NULL,
     answer          CLOB           NOT NULL,
     sources         CLOB           NOT NULL,
     model_used      VARCHAR2(100)  NOT NULL,

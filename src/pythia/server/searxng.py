@@ -61,7 +61,7 @@ class SearxngClient:
         """Check if SearXNG is reachable."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{self.base_url}/search", params={"q": "test", "format": "json"})
+                resp = await client.get(self.base_url)
                 return resp.status_code == 200
         except Exception:
             return False
