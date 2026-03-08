@@ -1,0 +1,78 @@
+/* Pythia Dark Theme — Agent-Harness / Pi style */
+
+Screen {
+    layout: vertical;
+    background: #1e1e2e;
+}
+
+SearchScreen {
+    layout: vertical;
+    background: #1e1e2e;
+}
+
+LogoBanner {
+    padding: 1 0;
+    margin: 0 0 1 0;
+    content-align: center middle;
+}
+
+#results-area {
+    height: 1fr;
+    border: solid #5f87ff;
+    padding: 1 2;
+    overflow-y: auto;
+    background: #1e1e2e;
+}
+
+ResultCard {
+    padding: 0 1;
+    margin: 0;
+    height: auto;
+}
+
+SourceList {
+    height: auto;
+    padding: 0 1;
+    margin: 1 0 0 0;
+}
+
+CacheBadge {
+    height: 1;
+    padding: 0 1;
+    margin: 1 0 0 0;
+}
+
+ThinkingBlock {
+    height: auto;
+    min-height: 1;
+    padding: 0 1;
+    margin: 0;
+}
+
+ActivityIndicator {
+    height: 1;
+    padding: 0 1;
+    margin: 0;
+}
+
+SearchInput {
+    height: auto;
+    min-height: 3;
+    max-height: 5;
+    border-top: solid #5f87ff;
+    padding: 0 1;
+    background: #1a2535;
+}
+
+SearchInput TextArea {
+    background: #1a2535;
+    border: none;
+}
+
+PythiaStatusBar {
+    height: 1;
+    dock: bottom;
+    background: #333345;
+    color: #808080;
+    padding: 0 1;
+}
