@@ -21,6 +21,10 @@ class SearchRequest(BaseModel):
     model: str | None = None
 
 
+class EmbedRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=10000)
+
+
 def create_app(config: PythiaConfig) -> FastAPI:
     ollama = OllamaClient(
         base_url=config.ollama.base_url,
@@ -76,5 +80,11 @@ def create_app(config: PythiaConfig) -> FastAPI:
     async def clear_cache():
         deleted = await cache.clear_cache()
         return {"deleted": deleted}
+
+    @app.post("/embed")
+    async def embed_text(req: EmbedRequest):
+        from pythia.embeddings import generate_embedding_list, MODEL_NAME, DIMENSIONS
+        embedding = generate_embedding_list(req.text)
+        return {"text": req.text, "embedding": embedding, "dimensions": DIMENSIONS, "model": MODEL_NAME}
 
     return app
