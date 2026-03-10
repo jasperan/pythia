@@ -7,6 +7,9 @@ from datetime import datetime
 
 import oracledb
 
+# Return LOBs as strings/bytes instead of AsyncLOB objects
+oracledb.defaults.fetch_lobs = False
+
 # Lazy-load sentence-transformers to avoid import overhead
 _embedding_model = None
 
