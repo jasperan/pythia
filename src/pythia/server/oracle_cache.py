@@ -10,22 +10,7 @@ import oracledb
 # Return LOBs as strings/bytes instead of AsyncLOB objects
 oracledb.defaults.fetch_lobs = False
 
-# Lazy-load sentence-transformers to avoid import overhead
-_embedding_model = None
-
-def _get_embedding_model():
-    """Lazy-load the embedding model."""
-    global _embedding_model
-    if _embedding_model is None:
-        from sentence_transformers import SentenceTransformer
-        _embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-    return _embedding_model
-
-def _generate_embedding(text: str) -> str:
-    """Generate embedding vector as JSON array string."""
-    model = _get_embedding_model()
-    embedding = model.encode(text)
-    return '[' + ','.join(map(str, embedding.tolist())) + ']'
+from pythia.embeddings import generate_embedding as _generate_embedding
 
 
 @dataclass
