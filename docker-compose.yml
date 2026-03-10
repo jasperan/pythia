@@ -3,15 +3,15 @@ services:
     image: gvenzl/oracle-xe:21-slim
     container_name: pythia-oracle
     ports:
-      - "1521:1521"
+      - "1523:1521"
     environment:
       - ORACLE_PASSWORD=Pythia2026Pass
-      - ORACLE_DATABASE=FREETDB1
+      - ORACLE_DATABASE=FREEPDB1
     volumes:
       - oracle-data:/opt/oracle/oradata
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "sqlplus -s pythia/Pythia2026Pass@localhost:1521/FREETDB1 <<< 'SELECT 1 FROM DUAL;'"]
+      test: ["CMD-SHELL", "sqlplus -s pythia/Pythia2026Pass@localhost:1521/FREEPDB1 <<< 'SELECT 1 FROM DUAL;'"]
       interval: 30s
       timeout: 10s
       retries: 10

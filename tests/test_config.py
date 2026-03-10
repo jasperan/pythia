@@ -50,5 +50,5 @@ ollama:
         cfg = load_config(f.name)
 
     assert cfg.server.port == 8900
-    assert cfg.searxng.base_url == "http://localhost:8888"
+    assert cfg.searxng.base_url == "http://localhost:8889"
     assert cfg.oracle.cache_similarity_threshold == 0.85

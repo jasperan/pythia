@@ -52,12 +52,13 @@ class SearchScreen(Screen):
         """Try to get reference to service manager from app, retrying if not ready."""
         from pythia.tui.app import PythiaApp
         app = self.app
-        if isinstance(app, PythiaApp) and app._service_manager:
-            self._service_manager = app._service_manager
-            self._service_manager.register_status_callback(self._on_service_status_update)
-        else:
-            # Retry until service manager is available
-            self.set_timer(0.5, self._try_connect_service_manager)
+        if isinstance(app, PythiaApp):
+            if app._service_manager:
+                self._service_manager = app._service_manager
+                self._service_manager.register_status_callback(self._on_service_status_update)
+            elif app._auto_start:
+                # Service manager not yet created, retry
+                self.set_timer(0.5, self._try_connect_service_manager)
 
     def on_unmount(self) -> None:
         """Clean up health check interval when screen is unmounted."""

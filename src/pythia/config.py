@@ -18,7 +18,7 @@ class OllamaConfig(BaseModel):
 
 
 class SearxngConfig(BaseModel):
-    base_url: str = "http://localhost:8888"
+    base_url: str = "http://localhost:8889"
     max_results: int = 8
     categories: list[str] = Field(default_factory=lambda: ["general", "science", "it"])
 

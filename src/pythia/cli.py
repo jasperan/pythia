@@ -28,7 +28,7 @@ def search(
     model: str = typer.Option("", help="Override Ollama model"),
     no_auto_start: bool = typer.Option(False, help="Disable automatic service startup"),
     host: str = typer.Option("", help="Override API server host"),
-    port: str = typer.Option("", help="Override API server port"),
+    port: int = typer.Option(0, help="Override API server port"),
 ) -> None:
     """Launch the Pythia TUI with automatic service startup."""
     from pythia.config import load_config
@@ -37,11 +37,11 @@ def search(
     cfg = load_config(config)
     if model:
         cfg.ollama.model = model
-    
+
     auto_start = not no_auto_start
     host_override = host if host else None
-    port_override = int(port) if port else None
-    
+    port_override = port if port else None
+
     run_tui(cfg, auto_start=auto_start, host=host_override, port=port_override)
 
 

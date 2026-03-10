@@ -163,11 +163,11 @@ class ServiceManager:
 
     async def _wait_for_docker_services(self, timeout: float = 120.0) -> None:
         """Wait for Oracle and SearXNG to be ready."""
-        start = asyncio.get_event_loop().time()
+        start = asyncio.get_running_loop().time()
         oracle_ready = False
         searxng_ready = False
         
-        while asyncio.get_event_loop().time() - start < timeout:
+        while asyncio.get_running_loop().time() - start < timeout:
             if not oracle_ready:
                 oracle_ready = await self._check_oracle_ready()
                 if oracle_ready:
@@ -266,8 +266,8 @@ class ServiceManager:
 
     async def _wait_for_api_server(self, timeout: float = 30.0) -> None:
         """Wait for API server to be ready."""
-        start = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start < timeout:
+        start = asyncio.get_running_loop().time()
+        while asyncio.get_running_loop().time() - start < timeout:
             try:
                 async with httpx.AsyncClient() as client:
                     resp = await client.get(f"http://localhost:{self.port}/health", timeout=2.0)
