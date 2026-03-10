@@ -1,17 +1,16 @@
 services:
   oracle:
-    image: gvenzl/oracle-xe:21-slim
+    image: container-registry.oracle.com/database/free:latest-lite
     container_name: pythia-oracle
     ports:
       - "1523:1521"
     environment:
-      - ORACLE_PASSWORD=Pythia2026Pass
-      - ORACLE_DATABASE=FREEPDB1
+      - ORACLE_PWD=Welcome12345*
     volumes:
       - oracle-data:/opt/oracle/oradata
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "sqlplus -s pythia/Pythia2026Pass@localhost:1521/FREEPDB1 <<< 'SELECT 1 FROM DUAL;'"]
+      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -s pythia/pythia@localhost:1521/FREEPDB1"]
       interval: 30s
       timeout: 10s
       retries: 10

@@ -24,7 +24,7 @@ class SearxngConfig(BaseModel):
 
 
 class OracleConfig(BaseModel):
-    dsn: str = "localhost:1521/FREEPDB1"
+    dsn: str = "localhost:1523/FREEPDB1"
     user: str = "pythia"
     password: str = "pythia"
     cache_similarity_threshold: float = 0.85

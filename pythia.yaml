@@ -15,7 +15,7 @@ searxng:
     - it
 
 oracle:
-  dsn: "localhost:1521/FREEPDB1"
+  dsn: "localhost:1523/FREEPDB1"
   user: "pythia"
   password: "pythia"
   cache_similarity_threshold: 0.85

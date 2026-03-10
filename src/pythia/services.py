@@ -201,7 +201,7 @@ class ServiceManager:
         """Check if Oracle DB is ready by testing TCP connection."""
         try:
             _, writer = await asyncio.wait_for(
-                asyncio.open_connection("localhost", 1521),
+                asyncio.open_connection("localhost", 1523),
                 timeout=2.0
             )
             writer.close()

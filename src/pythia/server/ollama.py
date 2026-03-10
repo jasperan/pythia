@@ -50,6 +50,7 @@ class OllamaClient:
                 {"role": "user", "content": user},
             ],
             "stream": True,
+            "think": False,
         }
         async with httpx.AsyncClient(timeout=120.0) as client:
             async with client.stream("POST", f"{self.base_url}/api/chat", json=payload) as resp:
