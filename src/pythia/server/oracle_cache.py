@@ -1,4 +1,4 @@
-"""Oracle AI Vector Search cache — semantic search memory."""
+"""Oracle AI Vector Search cache — semantic search memory with Python embeddings."""
 from __future__ import annotations
 
 import json
@@ -6,6 +6,23 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 import oracledb
+
+# Lazy-load sentence-transformers to avoid import overhead
+_embedding_model = None
+
+def _get_embedding_model():
+    """Lazy-load the embedding model."""
+    global _embedding_model
+    if _embedding_model is None:
+        from sentence_transformers import SentenceTransformer
+        _embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+    return _embedding_model
+
+def _generate_embedding(text: str) -> str:
+    """Generate embedding vector as JSON array string."""
+    model = _get_embedding_model()
+    embedding = model.encode(text)
+    return '[' + ','.join(map(str, embedding.tolist())) + ']'
 
 
 @dataclass
@@ -20,7 +37,7 @@ class CacheEntry:
 
 
 class OracleCache:
-    """Oracle AI Vector Search cache with ONNX in-database embeddings."""
+    """Oracle AI Vector Search cache with Python-generated embeddings."""
 
     def __init__(
         self, dsn: str, user: str, password: str, similarity_threshold: float = 0.85,
@@ -49,29 +66,32 @@ class OracleCache:
             await self._pool.close()
 
     async def lookup(self, query: str) -> CacheEntry | None:
-        """Find semantically similar cached result using ONNX in-database embeddings."""
+        """Find semantically similar cached result using Python-generated embeddings."""
         if not self._pool:
             return None
 
-        # VECTOR_EMBEDDING generates the embedding in-database using the ONNX model
-        sql = f"""
+        # Generate embedding in Python
+        query_embedding = _generate_embedding(query)
+        
+        # Use VECTOR_DISTANCE for cosine similarity search
+        sql = """
             SELECT id, query, answer, sources, model_used, hit_count, created_at,
                    1 - VECTOR_DISTANCE(
                        query_embedding,
-                       VECTOR_EMBEDDING({self.embedding_model} USING :1 AS data),
+                       TO_VECTOR(:1, 384),
                        COSINE
                    ) AS similarity
             FROM pythia_cache
             ORDER BY VECTOR_DISTANCE(
                 query_embedding,
-                VECTOR_EMBEDDING({self.embedding_model} USING :2 AS data),
+                TO_VECTOR(:2, 384),
                 COSINE
             )
             FETCH FIRST 1 ROW ONLY
         """
         async with self._pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(sql, [query, query])
+                await cur.execute(sql, [query_embedding, query_embedding])
                 row = await cur.fetchone()
                 if not row:
                     return None
@@ -96,19 +116,21 @@ class OracleCache:
     async def store(
         self, query: str, answer: str, sources: list[dict], model_used: str
     ) -> None:
-        """Store a search result in the cache with ONNX in-database embedding."""
+        """Store a search result in the cache with Python-generated embedding."""
         if not self._pool:
             return
 
-        # VECTOR_EMBEDDING generates the embedding at INSERT time
-        sql = f"""
+        # Generate embedding in Python
+        query_embedding = _generate_embedding(query)
+        
+        sql = """
             INSERT INTO pythia_cache (query, query_embedding, answer, sources, model_used)
-            VALUES (:1, VECTOR_EMBEDDING({self.embedding_model} USING :2 AS data), :3, :4, :5)
+            VALUES (:1, TO_VECTOR(:2, 384), :3, :4, :5)
         """
         async with self._pool.acquire() as conn:
             async with conn.cursor() as cur:
                 sources_json = json.dumps(sources)
-                await cur.execute(sql, [query, query, answer, sources_json, model_used])
+                await cur.execute(sql, [query, query_embedding, answer, sources_json, model_used])
                 await conn.commit()
 
     async def record_search(self, query: str, cache_hit: bool, response_time_ms: int, model_used: str) -> None:
