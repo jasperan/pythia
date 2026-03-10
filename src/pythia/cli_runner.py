@@ -37,6 +37,7 @@ async def run_query(
     include_embedding: bool = False,
     use_cache: bool = True,
     model_override: str | None = None,
+    deep: bool = False,
     stream: bool = False,
 ) -> None:
     """Run a search query and print results to stdout."""
@@ -65,9 +66,9 @@ async def run_query(
 
     try:
         if stream:
-            await _stream_query(orchestrator, query, model_override)
+            await _stream_query(orchestrator, query, model_override, deep)
         else:
-            await _flat_query(orchestrator, query, model_override, include_embedding)
+            await _flat_query(orchestrator, query, model_override, deep, include_embedding)
     finally:
         if use_cache:
             await cache.close()
@@ -77,9 +78,10 @@ async def _stream_query(
     orchestrator: SearchOrchestrator,
     query: str,
     model_override: str | None,
+    deep: bool,
 ) -> None:
     """Print NDJSON events to stdout."""
-    async for event in orchestrator.search(query, model_override=model_override):
+    async for event in orchestrator.search(query, model_override=model_override, deep=deep):
         line = json.dumps({"event": event.event_type.value, "data": event.data})
         print(line, flush=True)
 
@@ -88,6 +90,7 @@ async def _flat_query(
     orchestrator: SearchOrchestrator,
     query: str,
     model_override: str | None,
+    deep: bool,
     include_embedding: bool,
 ) -> None:
     """Collect all events and print a single flat JSON object."""
@@ -95,7 +98,7 @@ async def _flat_query(
     tokens = []
     done_data = {}
 
-    async for event in orchestrator.search(query, model_override=model_override):
+    async for event in orchestrator.search(query, model_override=model_override, deep=deep):
         if event.event_type == EventType.SOURCE:
             sources.append(event.data)
         elif event.event_type == EventType.TOKEN:
