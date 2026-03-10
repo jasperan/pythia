@@ -83,6 +83,25 @@ class OllamaClient:
                     if chunk.get("done", False):
                         break
 
+    async def generate(self, system: str, user: str, json_mode: bool = False) -> str:
+        """Non-streaming generation. Returns complete response text."""
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "stream": False,
+            "think": False,
+        }
+        if json_mode:
+            payload["format"] = "json"
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(f"{self.base_url}/api/chat", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("message", {}).get("content", "")
+
     async def health(self) -> bool:
         """Check if Ollama is reachable."""
         try:

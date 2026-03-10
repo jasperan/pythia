@@ -12,6 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 from pythia.config import PythiaConfig
 from pythia.server.ollama import OllamaClient
 from pythia.server.oracle_cache import OracleCache
+from pythia.server.research import ResearchAgent
 from pythia.server.searxng import SearxngClient
 from pythia.server.search import SearchOrchestrator
 
@@ -19,6 +20,12 @@ from pythia.server.search import SearchOrchestrator
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=4000)
     model: str | None = None
+
+
+class ResearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=4000)
+    model: str | None = None
+    max_rounds: int | None = Field(None, ge=1, le=10)
 
 
 class EmbedRequest(BaseModel):
@@ -49,13 +56,26 @@ def create_app(config: PythiaConfig) -> FastAPI:
         yield
         await cache.close()
 
-    app = FastAPI(title="Pythia", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Pythia", version="0.2.0", lifespan=lifespan)
     orchestrator = SearchOrchestrator(ollama=ollama, cache=cache, searxng=searxng)
 
     @app.post("/search")
     async def search(req: SearchRequest):
         async def event_generator():
             async for event in orchestrator.search(req.query, model_override=req.model):
+                yield {"event": event.event_type.value, "data": json.dumps(event.data)}
+
+        return EventSourceResponse(event_generator())
+
+    @app.post("/research")
+    async def research(req: ResearchRequest):
+        research_config = config.research
+        if req.max_rounds is not None:
+            research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
+        agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
+
+        async def event_generator():
+            async for event in agent.research(req.query, model_override=req.model):
                 yield {"event": event.event_type.value, "data": json.dumps(event.data)}
 
         return EventSourceResponse(event_generator())

@@ -1,0 +1,231 @@
+"""Tests for deep research agent."""
+import json
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from pythia.config import ResearchConfig
+from pythia.server.research import ResearchAgent, ResearchEvent, ResearchEventType, Finding
+from pythia.server.searxng import SearchResult
+
+
+def _make_agent(
+    ollama_generate_return='{"sub_queries": ["sub q1", "sub q2"]}',
+    ollama_stream_tokens=None,
+    search_results=None,
+    recall_findings=None,
+    gap_analysis_return=None,
+    config_overrides=None,
+):
+    """Build a ResearchAgent with mocked dependencies."""
+    mock_ollama = AsyncMock()
+    mock_ollama.model = "qwen3.5:9b"
+
+    # Track calls to generate to return different responses
+    generate_responses = []
+    # First call: decompose query
+    generate_responses.append(ollama_generate_return)
+    # Second+ calls: summarize findings
+    generate_responses.append("Summary of findings from search results [1].")
+    generate_responses.append("Another summary [2].")
+    # Gap analysis call
+    gap = gap_analysis_return or '{"sufficient": true, "gaps": [], "reasoning": "All covered."}'
+    generate_responses.append(gap)
+
+    call_count = {"n": 0}
+
+    async def mock_generate(system, user, json_mode=False):
+        idx = min(call_count["n"], len(generate_responses) - 1)
+        call_count["n"] += 1
+        return generate_responses[idx]
+
+    mock_ollama.generate = mock_generate
+
+    # Streaming for report synthesis
+    tokens = ollama_stream_tokens or ["# Report\n\n", "This is ", "the research ", "report."]
+
+    async def mock_stream(system, user):
+        for t in tokens:
+            yield t
+
+    mock_ollama.generate_stream = mock_stream
+
+    mock_cache = AsyncMock()
+    mock_cache.recall_findings = AsyncMock(return_value=recall_findings or [])
+    mock_cache.store_research = AsyncMock(return_value="abc123def456")
+    mock_cache.store_finding = AsyncMock()
+    mock_cache.record_search = AsyncMock()
+
+    mock_searxng = AsyncMock()
+    results = search_results or [
+        SearchResult(index=1, title="Result 1", url="https://example.com/1", snippet="Snippet 1"),
+        SearchResult(index=2, title="Result 2", url="https://example.com/2", snippet="Snippet 2"),
+    ]
+    mock_searxng.search = AsyncMock(return_value=results)
+
+    cfg = ResearchConfig(**(config_overrides or {"max_rounds": 1, "deep_scrape": False}))
+
+    agent = ResearchAgent(
+        ollama=mock_ollama, cache=mock_cache,
+        searxng=mock_searxng, config=cfg,
+    )
+    return agent, mock_ollama, mock_cache, mock_searxng
+
+
+@pytest.mark.asyncio
+async def test_research_basic_flow():
+    """Research should decompose, search, summarize, and produce a report."""
+    agent, mock_ollama, mock_cache, mock_searxng = _make_agent()
+
+    events = []
+    async for event in agent.research("What are the tradeoffs of RISC-V vs ARM?"):
+        events.append(event)
+
+    types = [e.event_type for e in events]
+
+    # Should have all key phases
+    assert ResearchEventType.PLAN in types
+    assert ResearchEventType.ROUND_START in types
+    assert ResearchEventType.FINDING in types
+    assert ResearchEventType.TOKEN in types
+    assert ResearchEventType.DONE in types
+
+    # Check plan event has sub_queries
+    plan_event = next(e for e in events if e.event_type == ResearchEventType.PLAN)
+    assert len(plan_event.data["sub_queries"]) == 2
+
+    # Check done event has metrics
+    done_event = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done_event.data["rounds_used"] == 1
+    assert done_event.data["total_findings"] > 0
+    assert done_event.data["elapsed_ms"] >= 0
+
+    # Should have stored research and findings
+    mock_cache.store_research.assert_called_once()
+    assert mock_cache.store_finding.call_count > 0
+
+
+@pytest.mark.asyncio
+async def test_research_with_recall():
+    """Research should include recalled findings from past sessions."""
+    recalled = [
+        {
+            "sub_query": "ARM power efficiency",
+            "summary": "ARM is very power efficient.",
+            "sources": [],
+            "research_query": "ARM vs x86",
+            "similarity": 0.82,
+        }
+    ]
+    agent, _, mock_cache, _ = _make_agent(recall_findings=recalled)
+
+    events = []
+    async for event in agent.research("RISC-V vs ARM for edge AI"):
+        events.append(event)
+
+    types = [e.event_type for e in events]
+    assert ResearchEventType.RECALL in types
+
+    recall_event = next(e for e in events if e.event_type == ResearchEventType.RECALL)
+    assert recall_event.data["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_research_multi_round():
+    """Research should iterate when gap analysis says findings are insufficient."""
+    gap_round1 = '{"sufficient": false, "gaps": ["What about cost?"], "reasoning": "Cost not covered."}'
+    agent, _, mock_cache, mock_searxng = _make_agent(
+        gap_analysis_return=gap_round1,
+        config_overrides={"max_rounds": 2, "deep_scrape": False},
+    )
+
+    events = []
+    async for event in agent.research("RISC-V vs ARM comprehensive"):
+        events.append(event)
+
+    round_starts = [e for e in events if e.event_type == ResearchEventType.ROUND_START]
+    # Should have 2 rounds (gap analysis says insufficient, then max_rounds reached)
+    assert len(round_starts) == 2
+    assert round_starts[0].data["round"] == 1
+    assert round_starts[1].data["round"] == 2
+
+
+@pytest.mark.asyncio
+async def test_research_model_override():
+    """Model override should be passed through and restored."""
+    agent, mock_ollama, _, _ = _make_agent()
+
+    original_model = mock_ollama.model
+    events = []
+    async for event in agent.research("test query", model_override="llama3.3:70b"):
+        events.append(event)
+
+    # Model should be restored after research
+    assert mock_ollama.model == original_model
+
+
+@pytest.mark.asyncio
+async def test_research_decompose_fallback():
+    """If decomposition fails, should fallback to sensible defaults."""
+    agent, _, _, _ = _make_agent(ollama_generate_return="not valid json at all")
+
+    events = []
+    async for event in agent.research("test query"):
+        events.append(event)
+
+    plan_event = next(e for e in events if e.event_type == ResearchEventType.PLAN)
+    # Fallback should produce at least the original query
+    assert len(plan_event.data["sub_queries"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_research_search_failure_graceful():
+    """If SearXNG fails for a sub-query, research should continue with others."""
+    agent, _, _, mock_searxng = _make_agent()
+
+    call_count = {"n": 0}
+    original_search = mock_searxng.search
+
+    async def failing_search(query):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise ConnectionError("SearXNG down")
+        return [SearchResult(index=1, title="OK", url="https://ok.com", snippet="Works")]
+
+    mock_searxng.search = failing_search
+
+    events = []
+    async for event in agent.research("test query"):
+        events.append(event)
+
+    # Should still produce a report despite one failed search
+    assert ResearchEventType.DONE in [e.event_type for e in events]
+
+
+@pytest.mark.asyncio
+async def test_research_empty_search_results():
+    """Research should handle empty search results gracefully."""
+    agent, _, _, mock_searxng = _make_agent(search_results=[])
+
+    events = []
+    async for event in agent.research("obscure topic"):
+        events.append(event)
+
+    # Should complete without error
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["rounds_used"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_research_recall_failure_graceful():
+    """If recall fails (e.g. table doesn't exist yet), research should continue."""
+    agent, _, mock_cache, _ = _make_agent()
+    mock_cache.recall_findings = AsyncMock(side_effect=Exception("ORA-00942: table does not exist"))
+
+    events = []
+    async for event in agent.research("test query"):
+        events.append(event)
+
+    # Should still complete
+    assert ResearchEventType.DONE in [e.event_type for e in events]
+    # No recall event since it failed
+    assert ResearchEventType.RECALL not in [e.event_type for e in events]

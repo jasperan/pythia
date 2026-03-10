@@ -31,6 +31,14 @@ class OracleConfig(BaseModel):
     embedding_model: str = "ALL_MINILM_L6_V2"
 
 
+class ResearchConfig(BaseModel):
+    max_rounds: int = 3
+    max_sub_queries: int = 5
+    deep_scrape: bool = True
+    recall_threshold: float = 0.70
+    max_findings_per_round: int = 8
+
+
 class TuiConfig(BaseModel):
     theme: str = "dark"
 
@@ -40,6 +48,7 @@ class PythiaConfig(BaseModel):
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
     searxng: SearxngConfig = Field(default_factory=SearxngConfig)
     oracle: OracleConfig = Field(default_factory=OracleConfig)
+    research: ResearchConfig = Field(default_factory=ResearchConfig)
     tui: TuiConfig = Field(default_factory=TuiConfig)
 
 

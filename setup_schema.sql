@@ -60,6 +60,42 @@ CREATE TABLE pythia_history (
     created_at       TIMESTAMP      DEFAULT SYSTIMESTAMP
 );
 
+-- Research sessions
+CREATE TABLE pythia_research (
+    id              RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+    query           VARCHAR2(4000) NOT NULL,
+    query_embedding VECTOR         NOT NULL,
+    report          CLOB,
+    sub_queries     CLOB,
+    rounds_used     NUMBER         DEFAULT 0,
+    total_sources   NUMBER         DEFAULT 0,
+    model_used      VARCHAR2(100)  NOT NULL,
+    elapsed_ms      NUMBER,
+    created_at      TIMESTAMP      DEFAULT SYSTIMESTAMP
+);
+
+CREATE VECTOR INDEX pythia_research_vec_idx
+    ON pythia_research (query_embedding)
+    ORGANIZATION NEIGHBOR PARTITIONS
+    WITH DISTANCE COSINE;
+
+-- Individual research findings (for cross-session recall)
+CREATE TABLE pythia_findings (
+    id              RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+    research_id     RAW(16)        NOT NULL REFERENCES pythia_research(id),
+    sub_query       VARCHAR2(4000) NOT NULL,
+    finding_embedding VECTOR       NOT NULL,
+    summary         CLOB           NOT NULL,
+    sources         CLOB,
+    round_num       NUMBER         DEFAULT 1,
+    created_at      TIMESTAMP      DEFAULT SYSTIMESTAMP
+);
+
+CREATE VECTOR INDEX pythia_findings_vec_idx
+    ON pythia_findings (finding_embedding)
+    ORGANIZATION NEIGHBOR PARTITIONS
+    WITH DISTANCE COSINE;
+
 -- Analytics view
 CREATE OR REPLACE VIEW pythia_stats AS
 SELECT

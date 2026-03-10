@@ -1,54 +1,113 @@
 # Pythia
 
-**Self-hosted AI search engine** — a local Perplexity replacement combining SearXNG (free, unlimited web search), Ollama (local LLM inference), and Oracle AI Vector Search with ONNX in-database embeddings (semantic search cache).
+**Self-hosted AI search engine with autonomous deep research** — a local Perplexity + Deep Research replacement combining SearXNG (free, unlimited web search), Ollama (local LLM inference), and Oracle AI Vector Search (semantic caching and knowledge accumulation).
 
 Named after the priestess at the Oracle of Delphi who answered questions — a double meaning with Oracle Database as the backend.
+
+## Features
+
+### Single-Shot Search
+Ask a question, get a cited answer instantly — cached semantically so similar future queries return in milliseconds.
+
+- **Semantic cache** — Oracle AI Vector Search finds similar past queries (cosine similarity >= 0.85) and returns cached answers instantly
+- **Real-time streaming** — tokens appear as they're generated via SSE
+- **Source citations** — inline `[1]`, `[2]` citations from web results
+- **Deep scraping** — optional Scrapling integration scrapes full page content instead of snippets
+
+### Deep Research (NEW)
+Autonomous multi-step research agent that iteratively searches, analyzes gaps, and synthesizes comprehensive reports — like Perplexity Deep Research or Google Deep Research, but fully self-hosted.
+
+```
+pythia research "What are the tradeoffs between RISC-V and ARM for edge AI?"
+```
+
+**How it works:**
+
+1. **Decompose** — LLM breaks the question into 3-5 focused sub-queries
+2. **Search & Scrape** — each sub-query searched in parallel via SearXNG, top results scraped for full content
+3. **Summarize** — LLM extracts key findings from each sub-query's results
+4. **Analyze Gaps** — LLM reviews all findings and identifies what's still missing
+5. **Iterate** — generates follow-up searches autonomously (up to configurable max rounds)
+6. **Recall** — Oracle vector search finds related findings from *past* research sessions
+7. **Synthesize** — produces a structured, cited research report with sections
+
+**The knowledge accumulation advantage:** Every research session stores individual findings as embeddings in Oracle. Over time, your Pythia instance builds a personal knowledge base — when you research "RISC-V for edge AI" next month, it recalls relevant fragments from your previous research on "ARM vs x86 power efficiency". No stateless search engine can do this.
+
+### Full-Screen TUI
+Rich terminal interface built with Textual — real-time service status, search history, cache stats, and slash commands.
+
+### Programmatic CLI
+Machine-friendly JSON output for scripting and pipelines:
+- `pythia query` — single-shot search, returns JSON
+- `pythia research` — deep research, returns structured report
+- `pythia embed` — generate embeddings (single or batch)
+
+### API Server
+FastAPI server with SSE streaming for integration into other applications.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Pythia TUI (Textual)                           │
-│  Search results + AI answer + citations         │
-│  Service Status: API | Oracle | SearXNG         │
-│  Search input                                   │
-└──────────────┬──────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  Pythia TUI (Textual)                                │
+│  Search results + AI answer + citations              │
+│  Service Status: API | Oracle | SearXNG              │
+└──────────────┬───────────────────────────────────────┘
                │ HTTP (localhost:8900)
-┌──────────────▼──────────────────────────────────┐
-│  Pythia API Server (FastAPI)                    │
-│  POST /search → SSE stream                      │
-│  GET  /history, /health, /stats                 │
-│  DELETE /cache                                  │
-└───┬──────────┬──────────────┬───────────────────┘
+┌──────────────▼───────────────────────────────────────┐
+│  Pythia API Server (FastAPI)                         │
+│  POST /search    → SSE single-shot search            │
+│  POST /research  → SSE deep research                 │
+│  POST /embed     → embedding generation              │
+│  GET  /health, /history, /stats                      │
+│  DELETE /cache                                       │
+└───┬──────────┬──────────────┬────────────────────────┘
     │          │              │
     ▼          ▼              ▼
  SearXNG    Ollama      Oracle DB 26ai
- :8888      :11434     :1521/FREEPDB1
- (Docker)   (local)    (ONNX embeddings + Vector Search)
+ :8889      :11434     :1523/FREEPDB1
+ (Docker)   (local)    (Vector Search + ONNX Embeddings)
 ```
 
-**Auto-start:** When you run `pythia search`, the TUI automatically:
-- Starts Docker containers (Oracle DB + SearXNG)
-- Launches the API server
-- Monitors service health with real-time status updates
-- Shuts down gracefully on exit
+### Search Flow (Single-Shot)
 
-### Search Flow
+1. **Check cache** — generate embedding, cosine similarity search against cached queries
+2. **Cache HIT** (similarity >= 0.85) — return cached answer with `[from cache]` badge
+3. **Cache MISS** — query SearXNG for top 8 web results, synthesize via Ollama with citations, store in Oracle
+4. **Stream response** — tokens via SSE in real-time
 
-1. **Check cache** — Oracle generates an embedding for your query in-database using the ONNX model (`VECTOR_EMBEDDING()`), then performs cosine similarity search against cached queries
-2. **Cache HIT** (similarity >= 0.85) — Return cached answer instantly with `[from cache]` badge
-3. **Cache MISS** — Query SearXNG for top 8 web results, synthesize answer via Ollama with cited sources `[1]`, `[2]`, store result + embedding in Oracle for future hits
-4. **Stream response** — Tokens appear in real-time via SSE
+### Research Flow (Deep Research)
 
-### Key Design: ONNX In-Database Embeddings
+```
+ResearchAgent
+  ├── recall_knowledge()     → vector search Oracle for related past findings
+  ├── plan_research()        → LLM decomposes into sub-queries
+  │
+  │  ┌─── Round 1..N ──────────────────────────────┐
+  │  │  execute_round()      → parallel SearXNG search + scrape
+  │  │  summarize_findings() → LLM extracts key findings per sub-query
+  │  │  analyze_gaps()       → LLM identifies missing information
+  │  │  generate_follow_ups  → new sub-queries for next round
+  │  └─────────────────────────────────────────────┘
+  │
+  └── synthesize_report()    → structured markdown report with citations
+```
 
-Pythia uses Oracle's `VECTOR_EMBEDDING()` SQL function to generate embeddings **inside the database** using an ONNX model (default: `ALL_MINILM_L6_V2`). No external embedding service needed — the database handles both embedding generation and vector similarity search.
+### Oracle Storage Schema
+
+| Table | Purpose |
+|-------|---------|
+| `pythia_cache` | Semantic search cache (query + embedding + answer + sources) |
+| `pythia_history` | Search history with timing and cache hit stats |
+| `pythia_research` | Research sessions (query + report + metadata) |
+| `pythia_findings` | Individual research findings with embeddings for cross-session recall |
+| `pythia_stats` | Analytics view (hit rate, avg response time, active days) |
 
 ## Prerequisites
 
 - **Python 3.12+**
 - **Docker** (for Oracle 26ai Free and SearXNG containers)
-- **Ollama** installed and running locally (for LLM inference only)
+- **Ollama** installed and running locally
 - **Conda** (recommended for environment isolation)
 
 ## Quick Start
@@ -82,16 +141,12 @@ ollama pull qwen3.5:9b
 
 ### 4. Set up Oracle schema
 
-Connect to Oracle and create the Pythia user and tables:
-
 ```bash
 # Connect as ADMIN (password from docker-compose.yml: Pythia2026#)
-# For ADB-Free container, use the wallet or direct connection
-sql admin/Pythia2026#@localhost:1521/FREEPDB1
+sql admin/Pythia2026#@localhost:1523/FREEPDB1
 ```
 
 ```sql
--- Create user
 CREATE USER pythia IDENTIFIED BY pythia;
 GRANT CONNECT, RESOURCE, UNLIMITED TABLESPACE, DB_DEVELOPER_ROLE TO pythia;
 GRANT CREATE MINING MODEL TO pythia;
@@ -100,16 +155,12 @@ GRANT CREATE MINING MODEL TO pythia;
 Then connect as the `pythia` user and run the schema:
 
 ```bash
-sql pythia/pythia@localhost:1521/FREEPDB1 @setup_schema.sql
+sql pythia/pythia@localhost:1523/FREEPDB1 @setup_schema.sql
 ```
 
 #### Load ONNX Embedding Model
 
-The ONNX model must be loaded once before Pythia can generate embeddings. For Oracle 26ai ADB-Free, models may be pre-loaded. Otherwise:
-
 ```sql
--- Connect as PYTHIA user
--- Download all_MiniLM_L6_v2.onnx to an Oracle directory object first
 BEGIN
   DBMS_VECTOR.LOAD_ONNX_MODEL(
     'DM_DUMP',
@@ -121,7 +172,7 @@ END;
 /
 ```
 
-Verify the model works:
+Verify:
 
 ```sql
 SELECT VECTOR_EMBEDDING(ALL_MINILM_L6_V2 USING 'hello world' AS data) FROM DUAL;
@@ -130,79 +181,135 @@ SELECT VECTOR_EMBEDDING(ALL_MINILM_L6_V2 USING 'hello world' AS data) FROM DUAL;
 ### 5. Run Pythia
 
 ```bash
-# Launch the TUI - automatically starts API server, Oracle DB, and SearXNG
+# Launch the TUI (auto-starts API server, Oracle, SearXNG)
 pythia search
 ```
 
-The TUI will automatically:
-- Start Oracle DB and SearXNG containers via Docker Compose
-- Launch the FastAPI server
-- Monitor and display real-time status of all services
-- Gracefully shut down services when you exit (Ctrl+C twice)
+## CLI Commands
 
-**Optional:** Run the API server separately if you prefer manual control:
+### `pythia search` — Interactive TUI
 
 ```bash
-# Terminal 1: Start the API server manually
-pythia serve
-
-# Terminal 2: Launch the TUI (will connect to existing server)
-pythia search --no-auto-start
+pythia search                          # Launch TUI with auto-start
+pythia search --model llama3.3:70b     # Override LLM model
+pythia search --no-auto-start          # Connect to existing server
 ```
 
-## Usage
+### `pythia query` — Single-Shot Search (JSON)
 
-### TUI
+```bash
+pythia query "What is RLHF?"                    # Flat JSON output
+pythia query "What is RLHF?" --stream            # NDJSON event stream
+pythia query "What is RLHF?" --deep              # Scrape full page content
+pythia query "What is RLHF?" --no-cache          # Skip cache
+pythia query "What is RLHF?" --embed             # Include embedding in output
+echo "What is RLHF?" | pythia query              # Pipe via stdin
+```
 
-The TUI is a full-screen Textual application with an agent-harness dark theme:
+### `pythia research` — Deep Research (JSON)
 
-- Type your question in the search bar and press Enter
-- Watch the answer stream in real-time with source citations
-- Cache hits show a green badge with similarity score
-- Web searches show a cyan badge with response time
+```bash
+pythia research "RISC-V vs ARM for edge AI"                  # Flat JSON report
+pythia research "RISC-V vs ARM for edge AI" --stream         # NDJSON events
+pythia research "RISC-V vs ARM for edge AI" --max-rounds 5   # Override max rounds
+pythia research "RISC-V vs ARM" --model llama3.3:70b         # Override model
+```
 
-### Slash Commands
+**Output (flat mode):**
+```json
+{
+  "query": "RISC-V vs ARM for edge AI",
+  "report": "# Research Report\n\n## Executive Summary\n...",
+  "sub_queries": ["What is RISC-V?", "ARM edge AI performance", ...],
+  "findings": [...],
+  "recalled_findings": [...],
+  "rounds_used": 2,
+  "total_findings": 8,
+  "total_sources": 32,
+  "elapsed_ms": 45000
+}
+```
+
+**Output (stream mode):**
+```
+{"event": "status", "data": {"message": "Searching knowledge base..."}}
+{"event": "recall", "data": {"count": 2, "findings": [...]}}
+{"event": "plan", "data": {"sub_queries": ["...", "..."]}}
+{"event": "round_start", "data": {"round": 1, "max_rounds": 3}}
+{"event": "finding", "data": {"sub_query": "...", "summary_preview": "..."}}
+{"event": "gap_analysis", "data": {"sufficient": false, "gaps": ["..."]}}
+{"event": "round_start", "data": {"round": 2, "max_rounds": 3}}
+{"event": "token", "data": {"content": "# Research Report..."}}
+{"event": "done", "data": {"rounds_used": 2, "total_findings": 8, "elapsed_ms": 45000}}
+```
+
+### `pythia embed` — Embedding Generation
+
+```bash
+pythia embed "hello world"                        # Single text
+pythia embed --file texts.jsonl                    # Batch from JSONL
+pythia embed "hello world" --store                 # Store in Oracle
+```
+
+### `pythia serve` — API Server Only
+
+```bash
+pythia serve                                       # Default (0.0.0.0:8900)
+pythia serve --host 127.0.0.1 --port 9000          # Custom host/port
+```
+
+## TUI Slash Commands
 
 | Command | Action |
 |---------|--------|
 | `/history` | Show recent searches |
-| `/stats` | Show cache hit rate, total searches, avg response time |
+| `/stats` | Cache hit rate, total searches, avg response time |
 | `/model <name>` | Switch Ollama model (e.g., `/model llama3.3:70b`) |
 | `/cache clear` | Purge Oracle cache |
 | `/clear` | Clear screen |
 | `/help` | Show available commands |
 
-### API Endpoints
-
-The FastAPI server runs on `http://localhost:8900` by default.
+## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/search` | POST | Search with SSE streaming. Body: `{"query": "...", "model": "optional"}` |
-| `/health` | GET | Status of Oracle, SearXNG, Ollama + cache size |
-| `/history` | GET | Recent search history (default limit: 20) |
-| `/stats` | GET | Cache hit rate, total searches, avg response time |
+| `/search` | POST | Single-shot search with SSE streaming |
+| `/research` | POST | Deep research with SSE streaming |
+| `/embed` | POST | Generate embedding for text |
+| `/health` | GET | Service status + cache size |
+| `/history` | GET | Recent search history |
+| `/stats` | GET | Cache analytics |
 | `/cache` | DELETE | Clear all cached entries |
 
-#### SSE Stream Format
+### Research SSE Stream Format
 
 ```
 event: status
-data: {"message": "Checking cache..."}
+data: {"message": "Planning research strategy..."}
 
-event: source
-data: {"index": 1, "title": "...", "url": "...", "snippet": "..."}
+event: plan
+data: {"sub_queries": ["q1", "q2", "q3"]}
+
+event: round_start
+data: {"round": 1, "max_rounds": 3, "num_queries": 3}
+
+event: finding
+data: {"sub_query": "q1", "summary_preview": "...", "num_sources": 8, "round": 1}
+
+event: gap_analysis
+data: {"sufficient": false, "gaps": ["follow-up question"], "reasoning": "..."}
+
+event: recall
+data: {"count": 2, "findings": [{"sub_query": "...", "similarity": 0.82}]}
 
 event: token
-data: {"content": "RLHF is a technique"}
+data: {"content": "# Research Report\n\n"}
 
 event: done
-data: {"cache_hit": false, "response_time_ms": 3200, "sources_count": 8}
+data: {"rounds_used": 2, "total_findings": 8, "total_sources": 32, "elapsed_ms": 45000}
 ```
 
 ## Configuration
-
-Edit `pythia.yaml` to customize:
 
 ```yaml
 server:
@@ -211,10 +318,10 @@ server:
 
 ollama:
   base_url: "http://localhost:11434"
-  model: "qwen3.5:9b"          # LLM for answer synthesis
+  model: "qwen3.5:9b"
 
 searxng:
-  base_url: "http://localhost:8888"
+  base_url: "http://localhost:8889"
   max_results: 8
   categories:
     - general
@@ -222,35 +329,21 @@ searxng:
     - it
 
 oracle:
-  dsn: "localhost:1521/FREEPDB1"
+  dsn: "localhost:1523/FREEPDB1"
   user: "pythia"
   password: "pythia"
-  cache_similarity_threshold: 0.85   # cosine similarity for cache hit
-  embedding_model: "ALL_MINILM_L6_V2"  # ONNX model loaded in Oracle
+  cache_similarity_threshold: 0.85
+  embedding_model: "ALL_MINILM_L6_V2"
+
+research:
+  max_rounds: 3              # Max iterative search rounds
+  max_sub_queries: 5         # Max sub-questions per decomposition
+  deep_scrape: true          # Scrape full page content during research
+  recall_threshold: 0.70     # Similarity threshold for cross-session recall
+  max_findings_per_round: 8  # Max findings to keep per round
 
 tui:
   theme: "dark"
-```
-
-### Environment-Specific Overrides
-
-CLI flags override config values:
-
-```bash
-# Custom config file
-pythia serve --config /path/to/custom.yaml
-
-# Override host/port
-pythia serve --host 127.0.0.1 --port 9000
-
-# Override LLM model for TUI session
-pythia search --model llama3.3:70b
-
-# Disable automatic service startup (connect to existing server)
-pythia search --no-auto-start
-
-# Override API server host/port for TUI
-pythia search --host 127.0.0.1 --port 9000
 ```
 
 ## Development
@@ -267,44 +360,57 @@ pytest tests/ -v
 ```
 pythia/
 ├── pyproject.toml
-├── pythia.yaml              # Default config
-├── docker-compose.yml       # Oracle 26ai Free + SearXNG
-├── setup_schema.sql         # Oracle DDL + ONNX model setup
+├── pythia.yaml                 # Default config
+├── docker-compose.yml          # Oracle 26ai Free + SearXNG
+├── setup_schema.sql            # Oracle DDL (cache, history, research, findings)
 ├── searxng/
-│   └── settings.yml         # SearXNG config
+│   └── settings.yml            # SearXNG config
 ├── src/pythia/
-│   ├── cli.py               # Typer entry point
-│   ├── config.py            # YAML config loader
-│   ├── services.py          # Service manager (auto-start orchestration)
+│   ├── cli.py                  # Typer CLI (serve, search, query, research, embed)
+│   ├── cli_runner.py           # Async runners for CLI commands
+│   ├── config.py               # YAML config loader (Pydantic models)
+│   ├── embeddings.py           # Shared embedding generation (sentence-transformers)
+│   ├── scraper.py              # Optional deep scraping (Scrapling)
+│   ├── services.py             # Service manager (Docker + API server lifecycle)
 │   ├── server/
-│   │   ├── app.py           # FastAPI app factory
-│   │   ├── search.py        # Search orchestrator
-│   │   ├── oracle_cache.py  # Oracle ONNX embeddings + vector cache
-│   │   ├── searxng.py       # SearXNG client
-│   │   └── ollama.py        # Ollama LLM client
+│   │   ├── app.py              # FastAPI app factory
+│   │   ├── search.py           # SearchOrchestrator (single-shot)
+│   │   ├── research.py         # ResearchAgent (deep research)
+│   │   ├── oracle_cache.py     # Oracle Vector Search cache + research storage
+│   │   ├── searxng.py          # SearXNG client
+│   │   └── ollama.py           # Ollama LLM client
 │   └── tui/
-│       ├── app.py           # PythiaApp(App)
+│       ├── app.py              # PythiaApp (Textual)
 │       ├── screens/
-│       │   └── search.py    # Main search screen
-│       ├── widgets/
-│       │   ├── service_status.py  # Real-time service status indicator
-│       │   └── ...          # Logo, ResultCard, SourceList, etc.
+│       │   └── search.py       # Main search screen
+│       ├── widgets/            # Status, spinner, result card, sources, etc.
 │       └── themes/
-│           └── dark.tcss    # Agent-harness dark theme
+│           └── dark.tcss       # Dark theme
 └── tests/
+    ├── test_research.py        # Deep research agent tests
+    ├── test_search.py          # Search orchestrator tests
+    ├── test_cli_runner.py      # CLI command tests
+    ├── test_config.py          # Config loader tests
+    ├── test_embeddings.py      # Embedding tests
+    ├── test_ollama.py          # Prompt builder tests
+    ├── test_oracle_cache.py    # Cache tests
+    ├── test_scraper.py         # Scraper tests
+    └── test_searxng.py         # SearXNG client tests
 ```
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| TUI | Python 3.12+, Textual, Rich |
-| API Server | FastAPI, uvicorn, SSE |
-| Search | SearXNG (Docker) |
+| CLI | Typer |
+| TUI | Textual, Rich |
+| API Server | FastAPI, uvicorn, SSE-Starlette |
+| Web Search | SearXNG (Docker) |
 | LLM | Ollama (qwen3.5:9b default) |
-| Embeddings | Oracle ONNX in-database (`VECTOR_EMBEDDING()`) |
+| Embeddings | sentence-transformers (all-MiniLM-L6-v2, 384-dim) |
 | Database | Oracle Database 26ai Free (Docker) |
 | Vector Search | Oracle AI Vector Search (COSINE distance) |
+| Deep Scraping | Scrapling (optional) |
 
 ## License
 

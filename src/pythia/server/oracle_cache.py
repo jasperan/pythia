@@ -212,5 +212,79 @@ class OracleCache:
         except Exception:
             return False
 
+    async def recall_findings(self, query: str, threshold: float = 0.70, limit: int = 5) -> list[dict]:
+        """Recall related findings from past research sessions via vector similarity."""
+        if not self._pool:
+            return []
+        query_embedding = _generate_embedding(query)
+        sql = """
+            SELECT f.sub_query, f.summary, f.sources, r.query AS research_query,
+                   1 - VECTOR_DISTANCE(f.finding_embedding, TO_VECTOR(:1, 384), COSINE) AS similarity
+            FROM pythia_findings f
+            JOIN pythia_research r ON f.research_id = r.id
+            ORDER BY VECTOR_DISTANCE(f.finding_embedding, TO_VECTOR(:2, 384), COSINE)
+            FETCH FIRST :3 ROWS ONLY
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(sql, [query_embedding, query_embedding, limit])
+                rows = await cur.fetchall()
+                results = []
+                for row in rows:
+                    sim = float(row[4])
+                    if sim < threshold:
+                        continue
+                    results.append({
+                        "sub_query": row[0],
+                        "summary": row[1],
+                        "sources": json.loads(row[2]) if row[2] else [],
+                        "research_query": row[3],
+                        "similarity": sim,
+                    })
+                return results
+
+    async def store_research(
+        self, query: str, report: str, sub_queries: list[str],
+        rounds_used: int, total_sources: int, model_used: str, elapsed_ms: int,
+    ) -> str:
+        """Store a research session. Returns the research ID."""
+        if not self._pool:
+            return ""
+        query_embedding = _generate_embedding(query)
+        sql = """
+            INSERT INTO pythia_research (query, query_embedding, report, sub_queries, rounds_used, total_sources, model_used, elapsed_ms)
+            VALUES (:1, TO_VECTOR(:2, 384), :3, :4, :5, :6, :7, :8)
+            RETURNING id INTO :9
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                research_id_var = cur.var(oracledb.DB_TYPE_RAW)
+                await cur.execute(sql, [
+                    query, query_embedding, report, json.dumps(sub_queries),
+                    rounds_used, total_sources, model_used, elapsed_ms, research_id_var,
+                ])
+                await conn.commit()
+                return research_id_var.getvalue()[0].hex()
+
+    async def store_finding(
+        self, research_id: str, sub_query: str, summary: str,
+        sources: list[dict], round_num: int,
+    ) -> None:
+        """Store an individual research finding with embedding for future recall."""
+        if not self._pool:
+            return
+        finding_embedding = _generate_embedding(sub_query + " " + summary[:200])
+        sql = """
+            INSERT INTO pythia_findings (research_id, sub_query, finding_embedding, summary, sources, round_num)
+            VALUES (:1, :2, TO_VECTOR(:3, 384), :4, :5, :6)
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(sql, [
+                    bytes.fromhex(research_id), sub_query, finding_embedding,
+                    summary, json.dumps(sources), round_num,
+                ])
+                await conn.commit()
+
     def _is_cache_hit(self, similarity: float) -> bool:
         return similarity >= self.similarity_threshold

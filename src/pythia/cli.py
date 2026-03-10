@@ -82,6 +82,37 @@ def query(
 
 
 @app.command()
+def research(
+    text: str = typer.Argument("", help="Research question (reads stdin if omitted)"),
+    config: str = typer.Option("pythia.yaml", help="Config file path"),
+    model: str = typer.Option("", help="Override Ollama model"),
+    stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
+    max_rounds: int = typer.Option(0, "--max-rounds", help="Override max research rounds (0 = use config)"),
+) -> None:
+    """Run autonomous deep research on a topic. Returns structured report with citations."""
+    import asyncio
+    from pythia.config import load_config
+    from pythia.cli_runner import run_research as _run_research
+
+    query_text = text or sys.stdin.read().strip()
+    if not query_text:
+        print('{"error": "No query provided. Pass as argument or pipe via stdin."}', file=sys.stderr)
+        raise typer.Exit(1)
+
+    cfg = load_config(config)
+    model_override = model if model else None
+    rounds_override = max_rounds if max_rounds > 0 else None
+
+    asyncio.run(_run_research(
+        cfg,
+        query_text,
+        model_override=model_override,
+        stream=stream,
+        max_rounds=rounds_override,
+    ))
+
+
+@app.command()
 def embed(
     text: str = typer.Argument("", help="Text to embed (reads stdin if omitted)"),
     config: str = typer.Option("pythia.yaml", help="Config file path"),
