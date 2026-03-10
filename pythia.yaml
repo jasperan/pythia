@@ -7,7 +7,7 @@ ollama:
   model: "qwen3.5:9b"
 
 searxng:
-  base_url: "http://localhost:4000"
+  base_url: "http://localhost:8889"
   max_results: 8
   categories:
     - general
@@ -15,7 +15,7 @@ searxng:
     - it
 
 oracle:
-  dsn: "localhost:1521/FREEPDB1"
+  dsn: "localhost:1521/freetdb1"
   user: "pythia"
   password: "pythia"
   cache_similarity_threshold: 0.85

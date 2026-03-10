@@ -64,7 +64,7 @@ SearchInput {
     background: #1a2535;
 }
 
-SearchInput TextArea {
+SearchInput Input {
     background: #1a2535;
     border: none;
 }

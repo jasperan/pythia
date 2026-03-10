@@ -3,18 +3,20 @@ from __future__ import annotations
 
 from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import TextArea
+from textual.widgets import Input
 
 
 class SearchInput(Vertical):
     DEFAULT_CSS = """
     SearchInput {
-        height: auto;
-        min-height: 3;
-        max-height: 5;
+        height: 3;
         border-top: solid #5f87ff;
         padding: 0 1;
         background: #1a2535;
+    }
+    
+    SearchInput > Input {
+        width: 100%;
     }
     """
 
@@ -24,17 +26,15 @@ class SearchInput(Vertical):
             self.value = value
 
     def compose(self):
-        yield TextArea(id="search-textarea")
+        yield Input(id="search-input", placeholder="Ask anything...")
 
     def on_mount(self) -> None:
-        ta = self.query_one("#search-textarea", TextArea)
-        ta.focus()
+        inp = self.query_one("#search-input", Input)
+        inp.focus()
 
-    def on_key(self, event) -> None:
-        if event.key == "enter" and not event.shift:
-            event.prevent_default()
-            ta = self.query_one("#search-textarea", TextArea)
-            text = ta.text.strip()
-            if text:
-                self.post_message(self.Submitted(text))
-                ta.clear()
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle input submission."""
+        text = event.value.strip()
+        if text:
+            self.post_message(self.Submitted(text))
+            self.query_one("#search-input", Input).value = ""

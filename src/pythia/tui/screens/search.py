@@ -1,6 +1,7 @@
 """Main search screen — composes all widgets into the Pythia TUI."""
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
@@ -9,11 +10,13 @@ from textual.containers import VerticalScroll
 from textual.screen import Screen
 
 from pythia.config import PythiaConfig
+from pythia.services import ServiceManager, ServiceInfo
 from pythia.tui.widgets.activity_indicator import ActivityIndicator
 from pythia.tui.widgets.cache_badge import CacheBadge
 from pythia.tui.widgets.logo import LogoBanner
 from pythia.tui.widgets.result_card import ResultCard
 from pythia.tui.widgets.search_input import SearchInput
+from pythia.tui.widgets.service_status import ServiceStatusIndicator
 from pythia.tui.widgets.source_list import SourceList
 from pythia.tui.widgets.status_bar import PythiaStatusBar
 
@@ -25,6 +28,8 @@ class SearchScreen(Screen):
         self._api_base = f"http://{config.server.host}:{config.server.port}"
         if config.server.host == "0.0.0.0":
             self._api_base = f"http://127.0.0.1:{config.server.port}"
+        self._service_manager: ServiceManager | None = None
+        self._health_check_interval: float | None = None
 
     def compose(self) -> ComposeResult:
         yield LogoBanner()
@@ -34,10 +39,37 @@ class SearchScreen(Screen):
             yield CacheBadge()
         yield ActivityIndicator()
         yield SearchInput()
+        yield ServiceStatusIndicator(id="service-status")
         yield PythiaStatusBar()
 
-    async def on_mount(self) -> None:
-        await self._check_health()
+    def on_mount(self) -> None:
+        # Start periodic health checks immediately (they tolerate API being down)
+        self._health_check_interval = self.set_interval(2.0, self._check_health)
+        # Try to connect to service manager
+        self._try_connect_service_manager()
+
+    def _try_connect_service_manager(self) -> None:
+        """Try to get reference to service manager from app, retrying if not ready."""
+        from pythia.tui.app import PythiaApp
+        app = self.app
+        if isinstance(app, PythiaApp) and app._service_manager:
+            self._service_manager = app._service_manager
+            self._service_manager.register_status_callback(self._on_service_status_update)
+        else:
+            # Retry until service manager is available
+            self.set_timer(0.5, self._try_connect_service_manager)
+
+    def on_unmount(self) -> None:
+        """Clean up health check interval when screen is unmounted."""
+        if self._health_check_interval is not None:
+            self.clear_interval(self._health_check_interval)
+            self._health_check_interval = None
+
+    def _on_service_status_update(self, statuses: dict[str, ServiceInfo]) -> None:
+        """Update service status indicator."""
+        status_widget = self.query_one("#service-status", ServiceStatusIndicator)
+        if status_widget:
+            status_widget.update_services(statuses)
 
     async def _check_health(self) -> None:
         status = self.query_one(PythiaStatusBar)

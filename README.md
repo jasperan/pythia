@@ -10,7 +10,7 @@ Named after the priestess at the Oracle of Delphi who answered questions — a d
 ┌─────────────────────────────────────────────────┐
 │  Pythia TUI (Textual)                           │
 │  Search results + AI answer + citations         │
-│  Status bar: model | Oracle | SearXNG           │
+│  Service Status: API | Oracle | SearXNG         │
 │  Search input                                   │
 └──────────────┬──────────────────────────────────┘
                │ HTTP (localhost:8900)
@@ -26,6 +26,12 @@ Named after the priestess at the Oracle of Delphi who answered questions — a d
  :8888      :11434     :1521/FREEPDB1
  (Docker)   (local)    (ONNX embeddings + Vector Search)
 ```
+
+**Auto-start:** When you run `pythia search`, the TUI automatically:
+- Starts Docker containers (Oracle DB + SearXNG)
+- Launches the API server
+- Monitors service health with real-time status updates
+- Shuts down gracefully on exit
 
 ### Search Flow
 
@@ -124,11 +130,24 @@ SELECT VECTOR_EMBEDDING(ALL_MINILM_L6_V2 USING 'hello world' AS data) FROM DUAL;
 ### 5. Run Pythia
 
 ```bash
-# Terminal 1: Start the API server
+# Launch the TUI - automatically starts API server, Oracle DB, and SearXNG
+pythia search
+```
+
+The TUI will automatically:
+- Start Oracle DB and SearXNG containers via Docker Compose
+- Launch the FastAPI server
+- Monitor and display real-time status of all services
+- Gracefully shut down services when you exit (Ctrl+C twice)
+
+**Optional:** Run the API server separately if you prefer manual control:
+
+```bash
+# Terminal 1: Start the API server manually
 pythia serve
 
-# Terminal 2: Launch the TUI
-pythia search
+# Terminal 2: Launch the TUI (will connect to existing server)
+pythia search --no-auto-start
 ```
 
 ## Usage
@@ -226,6 +245,12 @@ pythia serve --host 127.0.0.1 --port 9000
 
 # Override LLM model for TUI session
 pythia search --model llama3.3:70b
+
+# Disable automatic service startup (connect to existing server)
+pythia search --no-auto-start
+
+# Override API server host/port for TUI
+pythia search --host 127.0.0.1 --port 9000
 ```
 
 ## Development
@@ -250,6 +275,7 @@ pythia/
 ├── src/pythia/
 │   ├── cli.py               # Typer entry point
 │   ├── config.py            # YAML config loader
+│   ├── services.py          # Service manager (auto-start orchestration)
 │   ├── server/
 │   │   ├── app.py           # FastAPI app factory
 │   │   ├── search.py        # Search orchestrator
@@ -260,7 +286,9 @@ pythia/
 │       ├── app.py           # PythiaApp(App)
 │       ├── screens/
 │       │   └── search.py    # Main search screen
-│       ├── widgets/         # Logo, ResultCard, SourceList, etc.
+│       ├── widgets/
+│       │   ├── service_status.py  # Real-time service status indicator
+│       │   └── ...          # Logo, ResultCard, SourceList, etc.
 │       └── themes/
 │           └── dark.tcss    # Agent-harness dark theme
 └── tests/
