@@ -340,7 +340,6 @@ research:
   max_sub_queries: 5         # Max sub-questions per decomposition
   deep_scrape: true          # Scrape full page content during research
   recall_threshold: 0.70     # Similarity threshold for cross-session recall
-  max_findings_per_round: 8  # Max findings to keep per round
 
 tui:
   theme: "dark"

@@ -91,6 +91,8 @@ CREATE TABLE pythia_findings (
     created_at      TIMESTAMP      DEFAULT SYSTIMESTAMP
 );
 
+CREATE INDEX pythia_findings_research_idx ON pythia_findings (research_id);
+
 CREATE VECTOR INDEX pythia_findings_vec_idx
     ON pythia_findings (finding_embedding)
     ORGANIZATION NEIGHBOR PARTITIONS

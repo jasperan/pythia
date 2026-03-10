@@ -26,7 +26,6 @@ research:
   max_sub_queries: 5
   deep_scrape: true
   recall_threshold: 0.70
-  max_findings_per_round: 8
 
 tui:
   theme: "dark"

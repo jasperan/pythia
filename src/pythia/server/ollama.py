@@ -59,10 +59,10 @@ class OllamaClient:
         self.base_url = base_url.rstrip("/")
         self.model = model
 
-    async def generate_stream(self, system: str, user: str) -> AsyncIterator[str]:
+    async def generate_stream(self, system: str, user: str, model: str | None = None) -> AsyncIterator[str]:
         """Stream tokens from Ollama chat completion."""
         payload = {
-            "model": self.model,
+            "model": model or self.model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -83,10 +83,10 @@ class OllamaClient:
                     if chunk.get("done", False):
                         break
 
-    async def generate(self, system: str, user: str, json_mode: bool = False) -> str:
+    async def generate(self, system: str, user: str, json_mode: bool = False, model: str | None = None) -> str:
         """Non-streaming generation. Returns complete response text."""
         payload = {
-            "model": self.model,
+            "model": model or self.model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},

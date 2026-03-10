@@ -14,9 +14,14 @@ def _make_agent(
     search_results=None,
     recall_findings=None,
     gap_analysis_return=None,
+    gap_analysis_sequence=None,
     config_overrides=None,
 ):
-    """Build a ResearchAgent with mocked dependencies."""
+    """Build a ResearchAgent with mocked dependencies.
+
+    gap_analysis_sequence: list of JSON strings for successive gap analysis calls.
+    If provided, overrides gap_analysis_return.
+    """
     mock_ollama = AsyncMock()
     mock_ollama.model = "qwen3.5:9b"
 
@@ -24,16 +29,26 @@ def _make_agent(
     generate_responses = []
     # First call: decompose query
     generate_responses.append(ollama_generate_return)
-    # Second+ calls: summarize findings
-    generate_responses.append("Summary of findings from search results [1].")
-    generate_responses.append("Another summary [2].")
-    # Gap analysis call
-    gap = gap_analysis_return or '{"sufficient": true, "gaps": [], "reasoning": "All covered."}'
-    generate_responses.append(gap)
+    # Second+ calls: summarize findings (enough for multiple rounds)
+    for _ in range(10):
+        generate_responses.append("Summary of findings from search results [1].")
+
+    # Gap analysis responses — either a sequence or a single repeated value
+    if gap_analysis_sequence:
+        gap_responses = list(gap_analysis_sequence)
+    else:
+        gap = gap_analysis_return or '{"sufficient": true, "gaps": [], "reasoning": "All covered."}'
+        gap_responses = [gap]
 
     call_count = {"n": 0}
+    gap_call_count = {"n": 0}
 
-    async def mock_generate(system, user, json_mode=False):
+    async def mock_generate(system, user, json_mode=False, model=None):
+        if json_mode and "gaps" in system.lower():
+            # Gap analysis call
+            idx = min(gap_call_count["n"], len(gap_responses) - 1)
+            gap_call_count["n"] += 1
+            return gap_responses[idx]
         idx = min(call_count["n"], len(generate_responses) - 1)
         call_count["n"] += 1
         return generate_responses[idx]
@@ -43,7 +58,7 @@ def _make_agent(
     # Streaming for report synthesis
     tokens = ollama_stream_tokens or ["# Report\n\n", "This is ", "the research ", "report."]
 
-    async def mock_stream(system, user):
+    async def mock_stream(system, user, model=None):
         for t in tokens:
             yield t
 
@@ -147,6 +162,36 @@ async def test_research_multi_round():
     assert len(round_starts) == 2
     assert round_starts[0].data["round"] == 1
     assert round_starts[1].data["round"] == 2
+
+
+@pytest.mark.asyncio
+async def test_research_gap_driven_early_stop():
+    """Research should stop early when gap analysis says findings are sufficient."""
+    agent, _, _, _ = _make_agent(
+        gap_analysis_sequence=[
+            '{"sufficient": false, "gaps": ["What about cost?"], "reasoning": "Cost not covered."}',
+            '{"sufficient": true, "gaps": [], "reasoning": "All covered now."}',
+        ],
+        config_overrides={"max_rounds": 5, "deep_scrape": False},
+    )
+
+    events = []
+    async for event in agent.research("RISC-V vs ARM comprehensive"):
+        events.append(event)
+
+    round_starts = [e for e in events if e.event_type == ResearchEventType.ROUND_START]
+    # Round 1: gap says insufficient → round 2. Round 2: gap says sufficient → stop.
+    # Should NOT reach rounds 3-5.
+    assert len(round_starts) == 2
+    assert round_starts[0].data["round"] == 1
+    assert round_starts[1].data["round"] == 2
+
+    gap_events = [e for e in events if e.event_type == ResearchEventType.GAP_ANALYSIS]
+    assert len(gap_events) == 2
+    assert gap_events[1].data["sufficient"] is True
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["rounds_used"] == 2
 
 
 @pytest.mark.asyncio

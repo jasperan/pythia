@@ -36,7 +36,6 @@ class ResearchConfig(BaseModel):
     max_sub_queries: int = 5
     deep_scrape: bool = True
     recall_threshold: float = 0.70
-    max_findings_per_round: int = 8
 
 
 class TuiConfig(BaseModel):

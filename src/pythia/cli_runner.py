@@ -90,8 +90,10 @@ async def run_research(
     """Run a deep research session and print results to stdout."""
     ollama, cache, searxng = _build_clients(cfg)
 
+    cache_connected = False
     try:
         await cache.connect()
+        cache_connected = True
     except Exception as e:
         print(f"Warning: Oracle cache unavailable ({e}), research recall disabled", file=sys.stderr)
 
@@ -107,7 +109,8 @@ async def run_research(
         else:
             await _flat_research(agent, query, model_override)
     finally:
-        await cache.close()
+        if cache_connected:
+            await cache.close()
 
 
 async def _stream_research(
