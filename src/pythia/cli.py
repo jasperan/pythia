@@ -138,7 +138,11 @@ async def _store_embeddings(cfg, texts: list[str]) -> None:
         similarity_threshold=cfg.oracle.cache_similarity_threshold,
         embedding_model=cfg.oracle.embedding_model,
     )
-    await cache.connect()
+    try:
+        await cache.connect()
+    except Exception as e:
+        print(f'{{"error": "Oracle connection failed: {e}"}}', file=sys.stderr)
+        return
     try:
         for t in texts:
             await cache.store(query=t, answer="", sources=[], model_used="embed-cli")

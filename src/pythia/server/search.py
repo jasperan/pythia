@@ -76,6 +76,8 @@ class SearchOrchestrator:
 
             if deep:
                 yield SearchEvent(EventType.STATUS, {"message": "Scraping pages for full content..."})
+                # Scrape top 3 URLs; build_deep_search_prompt falls back to snippets
+                # for non-scraped URLs via scraped_content.get(url, snippet)
                 urls_snippets = [(r.url, r.snippet) for r in results[:3]]
                 scraped = await scrape_urls(urls_snippets)
                 scraped_content = {s.url: s.content for s in scraped}

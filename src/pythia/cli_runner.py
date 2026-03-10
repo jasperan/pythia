@@ -1,13 +1,11 @@
 """Async runners for CLI commands — direct mode, no API server needed."""
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
-import time
 
 from pythia.config import PythiaConfig
-from pythia.embeddings import generate_embedding, generate_embedding_list, MODEL_NAME, DIMENSIONS
+from pythia.embeddings import generate_embedding_list, MODEL_NAME, DIMENSIONS
 from pythia.server.ollama import OllamaClient
 from pythia.server.oracle_cache import OracleCache
 from pythia.server.search import EventType, SearchOrchestrator

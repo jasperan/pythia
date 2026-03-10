@@ -82,7 +82,7 @@ def create_app(config: PythiaConfig) -> FastAPI:
         return {"deleted": deleted}
 
     @app.post("/embed")
-    async def embed_text(req: EmbedRequest):
+    def embed_text(req: EmbedRequest):
         from pythia.embeddings import generate_embedding_list, MODEL_NAME, DIMENSIONS
         embedding = generate_embedding_list(req.text)
         return {"text": req.text, "embedding": embedding, "dimensions": DIMENSIONS, "model": MODEL_NAME}
