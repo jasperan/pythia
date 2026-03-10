@@ -30,6 +30,9 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.6",
 ]
+deep = [
+    "scrapling>=0.2",
+]
 
 [project.scripts]
 pythia = "pythia.cli:main"
