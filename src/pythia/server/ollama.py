@@ -34,6 +34,24 @@ def build_search_prompt(query: str, results: list[SearchResult]) -> tuple[str, s
     return _SYSTEM_PROMPT, user
 
 
+def build_deep_search_prompt(
+    query: str, results: list[SearchResult], scraped_content: dict[str, str]
+) -> tuple[str, str]:
+    """Build prompt using full scraped page content where available, snippets as fallback."""
+    if not results:
+        user = f"Question: {query}\n\nNo search results were found. Answer based on general knowledge and note the lack of sources."
+        return _SYSTEM_PROMPT, user
+
+    context_parts = []
+    for r in results:
+        content = scraped_content.get(r.url, r.snippet)
+        context_parts.append(f"[{r.index}] {r.title}\nURL: {r.url}\n{content}")
+
+    context = "\n\n".join(context_parts)
+    user = f"Search Results:\n\n{context}\n\n---\n\nQuestion: {query}"
+    return _SYSTEM_PROMPT, user
+
+
 class OllamaClient:
     """Async client for Ollama API — LLM inference only (embeddings handled by Oracle ONNX)."""
 

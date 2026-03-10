@@ -7,9 +7,10 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import Enum
 
-from pythia.server.ollama import OllamaClient, build_search_prompt
+from pythia.server.ollama import OllamaClient, build_search_prompt, build_deep_search_prompt
 from pythia.server.oracle_cache import OracleCache
 from pythia.server.searxng import SearxngClient
+from pythia.scraper import scrape_urls
 
 
 class EventType(str, Enum):
@@ -31,7 +32,7 @@ class SearchOrchestrator:
         self.cache = cache
         self.searxng = searxng
 
-    async def search(self, query: str, model_override: str | None = None) -> AsyncIterator[SearchEvent]:
+    async def search(self, query: str, model_override: str | None = None, deep: bool = False) -> AsyncIterator[SearchEvent]:
         start = time.monotonic()
         model = model_override or self.ollama.model
         original_model = self.ollama.model
@@ -73,8 +74,18 @@ class SearchOrchestrator:
             for r in results:
                 yield SearchEvent(EventType.SOURCE, {"index": r.index, "title": r.title, "url": r.url, "snippet": r.snippet})
 
+            if deep:
+                yield SearchEvent(EventType.STATUS, {"message": "Scraping pages for full content..."})
+                urls_snippets = [(r.url, r.snippet) for r in results[:3]]
+                scraped = await scrape_urls(urls_snippets)
+                scraped_content = {s.url: s.content for s in scraped}
+                success_count = sum(1 for s in scraped if s.success)
+                yield SearchEvent(EventType.STATUS, {"message": f"Scraped {success_count}/{len(scraped)} pages"})
+                system, user = build_deep_search_prompt(query, results, scraped_content)
+            else:
+                system, user = build_search_prompt(query, results)
+
             yield SearchEvent(EventType.STATUS, {"message": "Synthesizing answer..."})
-            system, user = build_search_prompt(query, results)
 
             full_answer = []
             try:
