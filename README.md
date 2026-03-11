@@ -112,6 +112,29 @@ ResearchAgent
 
 ## Quick Start
 
+<!-- one-command-install -->
+> **One-command install** — clone, configure, and run in a single step:
+>
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/jasperan/pythia/master/install.sh | bash
+> ```
+>
+> <details><summary>Advanced options</summary>
+>
+> Override install location:
+> ```bash
+> PROJECT_DIR=/opt/myapp curl -fsSL https://raw.githubusercontent.com/jasperan/pythia/master/install.sh | bash
+> ```
+>
+> Or install manually:
+> ```bash
+> git clone https://github.com/jasperan/pythia.git
+> cd pythia
+> # See below for setup instructions
+> ```
+> </details>
+
+
 ### 1. Create conda environment
 
 ```bash
