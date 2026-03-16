@@ -6,6 +6,15 @@ build/
 *.pyc
 .venv/
 .env
+.worktrees/
+worktrees/
+.pi/
+.agents/
+.claude/
+.crush/
+.openhands/
+.serena/
+content/
 docs/plans/
 task_plan.md
 findings.md
