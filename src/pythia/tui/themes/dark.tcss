@@ -76,3 +76,42 @@ PythiaStatusBar {
     color: #808080;
     padding: 0 1;
 }
+
+/* Research tree node states */
+.node-pending { color: #666666; }
+.node-searching { color: #00d7ff; }
+.node-complete { color: #b5bd68; }
+.node-active { color: #e0e0e0; text-style: bold; }
+.node-dim { color: #808080; }
+
+/* Tab bar */
+TabBar { height: 1; dock: top; background: #333345; }
+.tab-active { background: #1e1e2e; color: #00d7ff; text-style: bold; }
+.tab-inactive { color: #808080; }
+
+/* Mode label */
+.mode-label { color: #ffab40; text-style: bold; }
+.mode-label-off { color: #666666; }
+
+/* Session divider */
+SessionDivider { height: 1; margin: 1 0; color: #5f87ff; }
+
+/* Research layout */
+#research-tree-pane { width: 30; border-right: solid #5f87ff; }
+#research-main-pane { width: 1fr; }
+ResearchProgressBar { height: 1; padding: 0 1; background: #2a2a3a; }
+
+/* History screen */
+HistoryList { height: 1fr; }
+.history-cache-hit { color: #b5bd68; }
+.history-web-search { color: #00d7ff; }
+.history-research { color: #b294bb; }
+
+/* Dashboard */
+StatsPanel { height: auto; padding: 1 2; border: solid #5f87ff; }
+SparklinePanel { height: 5; padding: 1 2; border: solid #5f87ff; }
+SettingsPanel { height: auto; padding: 1 2; border: solid #5f87ff; }
+ActionBar { height: 3; padding: 0 2; }
+
+/* Service status */
+ServiceStatusIndicator { height: auto; max-height: 2; dock: bottom; background: #2a2a3a; color: #808080; padding: 0 2; }

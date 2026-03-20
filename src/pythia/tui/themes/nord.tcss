@@ -1,0 +1,117 @@
+/* Pythia Nord Theme */
+
+Screen {
+    layout: vertical;
+    background: #2e3440;
+}
+
+SearchScreen {
+    layout: vertical;
+    background: #2e3440;
+}
+
+LogoBanner {
+    padding: 1 0;
+    margin: 0 0 1 0;
+    content-align: center middle;
+}
+
+#results-area {
+    height: 1fr;
+    border: solid #88c0d0;
+    padding: 1 2;
+    overflow-y: auto;
+    background: #2e3440;
+}
+
+ResultCard {
+    padding: 0 1;
+    margin: 0;
+    height: auto;
+}
+
+SourceList {
+    height: auto;
+    padding: 0 1;
+    margin: 1 0 0 0;
+}
+
+CacheBadge {
+    height: 1;
+    padding: 0 1;
+    margin: 1 0 0 0;
+}
+
+ThinkingBlock {
+    height: auto;
+    min-height: 1;
+    padding: 0 1;
+    margin: 0;
+}
+
+ActivityIndicator {
+    height: 1;
+    padding: 0 1;
+    margin: 0;
+}
+
+SearchInput {
+    height: auto;
+    min-height: 3;
+    max-height: 5;
+    border-top: solid #88c0d0;
+    padding: 0 1;
+    background: #3b4252;
+}
+
+SearchInput Input {
+    background: #3b4252;
+    border: none;
+}
+
+PythiaStatusBar {
+    height: 1;
+    dock: bottom;
+    background: #3b4252;
+    color: #4c566a;
+    padding: 0 1;
+}
+
+/* Research tree node states */
+.node-pending { color: #4c566a; }
+.node-searching { color: #88c0d0; }
+.node-complete { color: #a3be8c; }
+.node-active { color: #d8dee9; text-style: bold; }
+.node-dim { color: #4c566a; }
+
+/* Tab bar */
+TabBar { height: 1; dock: top; background: #3b4252; }
+.tab-active { background: #2e3440; color: #88c0d0; text-style: bold; }
+.tab-inactive { color: #4c566a; }
+
+/* Mode label */
+.mode-label { color: #b48ead; text-style: bold; }
+.mode-label-off { color: #4c566a; }
+
+/* Session divider */
+SessionDivider { height: 1; margin: 1 0; color: #88c0d0; }
+
+/* Research layout */
+#research-tree-pane { width: 30; border-right: solid #88c0d0; }
+#research-main-pane { width: 1fr; }
+ResearchProgressBar { height: 1; padding: 0 1; background: #3b4252; }
+
+/* History screen */
+HistoryList { height: 1fr; }
+.history-cache-hit { color: #a3be8c; }
+.history-web-search { color: #88c0d0; }
+.history-research { color: #b48ead; }
+
+/* Dashboard */
+StatsPanel { height: auto; padding: 1 2; border: solid #88c0d0; }
+SparklinePanel { height: 5; padding: 1 2; border: solid #88c0d0; }
+SettingsPanel { height: auto; padding: 1 2; border: solid #88c0d0; }
+ActionBar { height: 3; padding: 0 2; }
+
+/* Service status */
+ServiceStatusIndicator { height: auto; max-height: 2; dock: bottom; background: #3b4252; color: #4c566a; padding: 0 2; }
