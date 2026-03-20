@@ -23,9 +23,12 @@ class PythiaCommands(Provider):
 
         for name, help_text, action_name in commands:
             if query.lower() in name.lower():
+                cmd_fn = getattr(app, f"action_{action_name}", None)
+                if not callable(cmd_fn):
+                    continue
                 yield Hit(
-                    score=len(query) / len(name) if query else 0,
+                    score=len(query) / len(name) if query else 1.0,
                     match_display=name,
-                    command=getattr(app, f"action_{action_name}", None),
+                    command=cmd_fn,
                     help=help_text,
                 )

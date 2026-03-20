@@ -62,12 +62,17 @@ class PythiaApp(App):
     def _apply_theme(self) -> None:
         """Load the current theme CSS file and reparse the stylesheet."""
         css_path = _THEMES_DIR / f"{self._current_theme}.tcss"
-        self.__class__.CSS_PATH = f"themes/{self._current_theme}.tcss"
+        if not css_path.exists():
+            self.notify(f"Theme file not found: {css_path.name}", severity="error", timeout=3)
+            return
         try:
-            self.stylesheet.read_all([str(css_path)])
-            self.refresh_css(animate=False)
-        except Exception:
-            pass
+            css_text = css_path.read_text()
+            self.stylesheet.source.clear()
+            self.stylesheet.add_source(css_text, path=css_path, is_default_css=False)
+            self.stylesheet.reparse()
+            self.refresh(layout=True)
+        except Exception as e:
+            self.notify(f"Theme error: {e}", severity="error", timeout=3)
 
     def on_mount(self) -> None:
         self.install_screen(SearchScreen(self.config), name="search")
@@ -97,10 +102,27 @@ class PythiaApp(App):
         self._switch_to("dashboard")
 
     def action_clear_results(self) -> None:
-        self.notify("Clear (not yet wired)", timeout=1)
+        screen = self.screen
+        try:
+            from textual.containers import VerticalScroll
+            results_area = screen.query_one("#results-area", VerticalScroll)
+            results_area.remove_children()
+        except Exception:
+            self.notify("Nothing to clear", timeout=1)
 
     def action_export_results(self) -> None:
         self.notify("Export (not yet wired)", timeout=1)
+
+    async def action_clear_cache(self) -> None:
+        api_base = f"http://127.0.0.1:{self._port}"
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.delete(f"{api_base}/cache")
+                data = resp.json()
+                self.notify(f"Cache cleared: {data.get('deleted', 0)} entries", timeout=3)
+        except Exception as e:
+            self.notify(f"Error: {e}", severity="error", timeout=3)
 
     def action_toggle_deep(self) -> None:
         self._deep_mode = not self._deep_mode
@@ -132,8 +154,9 @@ class PythiaApp(App):
         # Number key screen switching (only when search input isn't focused)
         screen_keys = {"1": "search", "2": "research", "3": "history", "4": "dashboard"}
         if event.key in screen_keys:
+            from textual.widgets import Input
             focused = self.focused
-            if focused is None or not hasattr(focused, 'value'):
+            if focused is None or not isinstance(focused, Input):
                 self._switch_to(screen_keys[event.key])
                 return
 

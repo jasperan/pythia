@@ -27,6 +27,7 @@ class HistoryScreen(Screen):
         ("up", "move_up", "Up"),
         ("enter", "rerun", "Re-run"),
         ("r", "research", "Research"),
+        ("d", "delete_entry", "Delete"),
     ]
 
     def __init__(self, config: PythiaConfig) -> None:
@@ -113,3 +114,8 @@ class HistoryScreen(Screen):
             if isinstance(app, PythiaApp):
                 app._pending_research_query = selected.query
                 app._switch_to("research")
+
+    def action_delete_entry(self) -> None:
+        selected = self.query_one(HistoryList).get_selected()
+        if selected:
+            self.notify(f"Delete not yet supported by API", timeout=2)
