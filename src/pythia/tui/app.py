@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from textual.app import App
 from textual import work
@@ -9,6 +10,9 @@ from textual import work
 from pythia.config import PythiaConfig
 from pythia.services import ServiceManager, ServiceInfo, ServiceStatus
 from pythia.tui.screens.search import SearchScreen
+
+AVAILABLE_THEMES = ["dark", "light", "catppuccin-mocha", "nord"]
+_THEMES_DIR = Path(__file__).parent / "themes"
 
 
 class PythiaApp(App):
@@ -31,6 +35,25 @@ class PythiaApp(App):
         self._host = host or config.server.host
         self._port = port or config.server.port
         self._service_manager: ServiceManager | None = None
+        self._current_theme: str = getattr(getattr(config, "tui", None), "theme", None) or "dark"
+
+    def _cycle_theme(self) -> None:
+        """Advance to the next theme in AVAILABLE_THEMES, wrapping around."""
+        idx = AVAILABLE_THEMES.index(self._current_theme) if self._current_theme in AVAILABLE_THEMES else 0
+        self._current_theme = AVAILABLE_THEMES[(idx + 1) % len(AVAILABLE_THEMES)]
+        self._apply_theme()
+
+    def _apply_theme(self) -> None:
+        """Load the current theme CSS file and reparse the stylesheet."""
+        css_path = _THEMES_DIR / f"{self._current_theme}.tcss"
+        # Update the CSS_PATH so future reparsing picks up the right file
+        self.__class__.CSS_PATH = f"themes/{self._current_theme}.tcss"
+        try:
+            self.stylesheet.read_all([str(css_path)])
+            self.refresh_css(animate=False)
+        except Exception:
+            # App may not be mounted yet (e.g. in tests); state is still updated
+            pass
 
     def on_mount(self) -> None:
         self.push_screen(SearchScreen(self.config))
