@@ -51,15 +51,19 @@ class SearchScreen(Screen):
             app._pending_search_query = None
             self.call_later(lambda: self._run_search(query))
 
-    def _try_connect_service_manager(self) -> None:
+    _SERVICE_CONNECT_MAX_RETRIES = 60  # 30 seconds at 0.5s intervals
+
+    def _try_connect_service_manager(self, _retries: int = 0) -> None:
+        if not self.is_attached:
+            return
         from pythia.tui.app import PythiaApp
         app = self.app
         if isinstance(app, PythiaApp):
             if app._service_manager:
                 self._service_manager = app._service_manager
                 self._service_manager.register_status_callback(self._on_service_status_update)
-            elif app._auto_start:
-                self.set_timer(0.5, self._try_connect_service_manager)
+            elif app._auto_start and _retries < self._SERVICE_CONNECT_MAX_RETRIES:
+                self.set_timer(0.5, lambda: self._try_connect_service_manager(_retries + 1))
 
     def on_unmount(self) -> None:
         if self._health_check_interval is not None:

@@ -54,19 +54,19 @@ class HistoryList(Static):
     def load_entries(self, entries: list[HistoryEntry]) -> None:
         self._entries = entries
         self._selected_index = 0
-        if hasattr(self, '_node'):
+        if self.is_attached:
             self._rebuild()
 
     def set_filter(self, f: HistoryFilter) -> None:
         self._filter = f
         self._selected_index = 0
-        if hasattr(self, '_node'):
+        if self.is_attached:
             self._rebuild()
 
     def set_text_filter(self, text: str) -> None:
         self._text_filter = text.lower()
         self._selected_index = 0
-        if hasattr(self, '_node'):
+        if self.is_attached:
             self._rebuild()
 
     def _get_visible(self) -> list[HistoryEntry]:

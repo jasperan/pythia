@@ -64,8 +64,10 @@ class DashboardScreen(Screen):
                 history = history_resp.json()
                 self.query_one(SparklinePanel).update_data(history)
 
-        except Exception:
-            pass
+        except httpx.ConnectError:
+            pass  # API not running yet, will retry on next interval
+        except Exception as e:
+            self.notify(f"Dashboard refresh failed: {e}", severity="warning", timeout=3)
 
     async def on_action_bar_action_requested(self, event: ActionBar.ActionRequested) -> None:
         if event.action == "clear_cache":

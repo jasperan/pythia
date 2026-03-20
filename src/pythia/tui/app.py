@@ -60,17 +60,14 @@ class PythiaApp(App):
         self._apply_theme()
 
     def _apply_theme(self) -> None:
-        """Load the current theme CSS file and reparse the stylesheet."""
+        """Load the current theme CSS file by updating CSS_PATH and refreshing."""
         css_path = _THEMES_DIR / f"{self._current_theme}.tcss"
         if not css_path.exists():
             self.notify(f"Theme file not found: {css_path.name}", severity="error", timeout=3)
             return
         try:
-            css_text = css_path.read_text()
-            self.stylesheet.source.clear()
-            self.stylesheet.add_source(css_text, path=css_path, is_default_css=False)
-            self.stylesheet.reparse()
-            self.refresh(layout=True)
+            self.CSS_PATH = f"themes/{self._current_theme}.tcss"
+            self.refresh_css(animate=False)
         except Exception as e:
             self.notify(f"Theme error: {e}", severity="error", timeout=3)
 
@@ -110,8 +107,25 @@ class PythiaApp(App):
         except Exception:
             self.notify("Nothing to clear", timeout=1)
 
-    def action_export_results(self) -> None:
-        self.notify("Export (not yet wired)", timeout=1)
+    async def action_export_results(self) -> None:
+        from datetime import datetime
+        from pathlib import Path
+        import httpx
+        api_base = f"http://127.0.0.1:{self._port}"
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(f"{api_base}/history", params={"limit": 1000})
+                history = resp.json()
+            ts = datetime.now().strftime("%Y-%m-%d")
+            path = Path.home() / f"pythia-history-{ts}.md"
+            lines = ["# Pythia Search History\n"]
+            for h in history:
+                badge = "cache" if h.get("cache_hit") else "web"
+                lines.append(f"- **{h.get('query', '')}** ({badge}, {h.get('response_time_ms', 0)}ms)")
+            path.write_text("\n".join(lines))
+            self.notify(f"Exported to {path}", timeout=3)
+        except Exception as e:
+            self.notify(f"Export failed: {e}", severity="error", timeout=3)
 
     async def action_clear_cache(self) -> None:
         api_base = f"http://127.0.0.1:{self._port}"
