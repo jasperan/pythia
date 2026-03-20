@@ -8,6 +8,7 @@ from textual.app import App
 from textual import work
 
 from pythia.config import PythiaConfig
+from pythia.tui.commands import PythiaCommands
 from pythia.services import ServiceManager, ServiceInfo, ServiceStatus
 from pythia.tui.screens.search import SearchScreen
 from pythia.tui.screens.research import ResearchScreen
@@ -21,6 +22,7 @@ _THEMES_DIR = Path(__file__).parent / "themes"
 class PythiaApp(App):
     TITLE = "Pythia"
     CSS_PATH = "themes/dark.tcss"
+    COMMANDS = {PythiaCommands}
 
     _CTRL_C_WINDOW = 1.0
 
