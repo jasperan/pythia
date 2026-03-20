@@ -63,7 +63,7 @@ class SearchScreen(Screen):
 
     def on_unmount(self) -> None:
         if self._health_check_interval is not None:
-            self.clear_interval(self._health_check_interval)
+            self._health_check_interval.stop()
             self._health_check_interval = None
 
     def _on_service_status_update(self, statuses: dict[str, ServiceInfo]) -> None:

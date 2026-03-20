@@ -40,13 +40,13 @@ class DashboardScreen(Screen):
 
     def on_mount(self) -> None:
         self._refresh_interval = self.set_interval(5.0, self._refresh_data)
-        self._refresh_data()
+        self.call_later(self._refresh_data)
         settings = self.query_one(SettingsPanel)
-        settings.load_models()
+        self.call_later(settings.load_models)
 
     def on_unmount(self) -> None:
         if self._refresh_interval:
-            self.clear_interval(self._refresh_interval)
+            self._refresh_interval.stop()
 
     async def _refresh_data(self) -> None:
         try:

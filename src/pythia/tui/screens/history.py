@@ -45,7 +45,7 @@ class HistoryScreen(Screen):
         yield Static("", id="history-footer")
 
     def on_mount(self) -> None:
-        self._load_history()
+        self.call_later(self._load_history)
 
     async def _load_history(self) -> None:
         try:
