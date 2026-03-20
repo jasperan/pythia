@@ -4,6 +4,28 @@
 
 Named after the priestess at the Oracle of Delphi who answered questions — a double meaning with Oracle Database as the backend.
 
+## Screenshots
+
+### Search Screen
+Streaming answers with source citations, semantic cache hits, and result scrollback.
+
+![Search Screen](docs/screenshots/search.svg)
+
+### Research Theater
+Live visualization of the multi-round research agent. The tree (left) shows rounds, sub-queries, and findings updating in real-time as the agent thinks. The report streams on the right.
+
+![Research Screen](docs/screenshots/research.svg)
+
+### History Screen
+Browse, filter, and re-run past queries. Visual markers distinguish cache hits, web searches, and research sessions.
+
+![History Screen](docs/screenshots/history.svg)
+
+### Dashboard
+Cache stats, response time sparklines, model picker, and cache management.
+
+![Dashboard Screen](docs/screenshots/dashboard.svg)
+
 ## Features
 
 ### Single-Shot Search
@@ -34,30 +56,7 @@ pythia research "What are the tradeoffs between RISC-V and ARM for edge AI?"
 **The knowledge accumulation advantage:** Every research session stores individual findings as embeddings in Oracle. Over time, your Pythia instance builds a personal knowledge base — when you research "RISC-V for edge AI" next month, it recalls relevant fragments from your previous research on "ARM vs x86 power efficiency". No stateless search engine can do this.
 
 ### Full-Screen TUI
-Multi-screen terminal interface built with Textual. 4 screens (Search, Research, History, Dashboard), command palette, 4 themes, global keybindings.
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ [1] Search  [2] Research  [3] History  [4] Dashboard    │
-├────────────────────┬────────────────────────────────────┤
-│  RESEARCH TREE     │  MAIN PANEL                       │
-│                    │                                    │
-│  ● Round 1/3       │  ## Executive Summary              │
-│  ├─ ◉ sub-query 1  │  Quantum computing applies to...  │
-│  ├─ ◉ sub-query 2  │                                    │
-│  └─ ◎ sub-query 3  │  ## Key Findings                   │
-│     └ searching... │  Based on [1] and [3], the main   │
-│                    │  approaches are...                │
-│  ○ Round 2/3       │                                    │
-│    (pending)       │                                    │
-├────────────────────┴────────────────────────────────────┤
-│  ▰▰▰▰▰▱▱▱▱▱  Round 1/3 · 5 findings · 12 sources     │
-├─────────────────────────────────────────────────────────┤
-│  ?? _                                                    │
-├─────────────────────────────────────────────────────────┤
-│  ● Oracle  ● SearXNG  ● Ollama  │ qwen3.5:9b │ 42     │
-└─────────────────────────────────────────────────────────┘
-```
+Multi-screen terminal interface built with Textual. 4 screens (Search, Research, History, Dashboard), command palette, 4 themes, global keybindings. See [screenshots above](#screenshots).
 
 ### Programmatic CLI
 Machine-friendly JSON output for scripting and pipelines:
