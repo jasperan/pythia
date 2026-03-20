@@ -34,7 +34,30 @@ pythia research "What are the tradeoffs between RISC-V and ARM for edge AI?"
 **The knowledge accumulation advantage:** Every research session stores individual findings as embeddings in Oracle. Over time, your Pythia instance builds a personal knowledge base — when you research "RISC-V for edge AI" next month, it recalls relevant fragments from your previous research on "ARM vs x86 power efficiency". No stateless search engine can do this.
 
 ### Full-Screen TUI
-Rich terminal interface built with Textual — real-time service status, search history, cache stats, and slash commands.
+Multi-screen terminal interface built with Textual. 4 screens (Search, Research, History, Dashboard), command palette, 4 themes, global keybindings.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ [1] Search  [2] Research  [3] History  [4] Dashboard    │
+├────────────────────┬────────────────────────────────────┤
+│  RESEARCH TREE     │  MAIN PANEL                       │
+│                    │                                    │
+│  ● Round 1/3       │  ## Executive Summary              │
+│  ├─ ◉ sub-query 1  │  Quantum computing applies to...  │
+│  ├─ ◉ sub-query 2  │                                    │
+│  └─ ◎ sub-query 3  │  ## Key Findings                   │
+│     └ searching... │  Based on [1] and [3], the main   │
+│                    │  approaches are...                │
+│  ○ Round 2/3       │                                    │
+│    (pending)       │                                    │
+├────────────────────┴────────────────────────────────────┤
+│  ▰▰▰▰▰▱▱▱▱▱  Round 1/3 · 5 findings · 12 sources     │
+├─────────────────────────────────────────────────────────┤
+│  ?? _                                                    │
+├─────────────────────────────────────────────────────────┤
+│  ● Oracle  ● SearXNG  ● Ollama  │ qwen3.5:9b │ 42     │
+└─────────────────────────────────────────────────────────┘
+```
 
 ### Programmatic CLI
 Machine-friendly JSON output for scripting and pipelines:
@@ -208,15 +231,84 @@ SELECT VECTOR_EMBEDDING(ALL_MINILM_L6_V2 USING 'hello world' AS data) FROM DUAL;
 pythia search
 ```
 
-## CLI Commands
+## TUI Guide
 
-### `pythia search` — Interactive TUI
+### Launching
 
 ```bash
 pythia search                          # Launch TUI with auto-start
 pythia search --model llama3.3:70b     # Override LLM model
 pythia search --no-auto-start          # Connect to existing server
 ```
+
+### Screens
+
+Switch screens with number keys `1`-`4` or the command palette (`Ctrl+P`).
+
+| Key | Screen | What it does |
+|-----|--------|--------------|
+| `1` | **Search** | Ask questions, get cited answers. Results stack as you search (scrollback). |
+| `2` | **Research** | Deep multi-round research. Live tree shows rounds, sub-queries, findings as the agent thinks. |
+| `3` | **History** | Browse all past queries. Filter by type, fuzzy search, re-run or send to research. |
+| `4` | **Dashboard** | Cache stats, response time sparklines, model picker, deep search toggle, cache management. |
+
+### Keybindings
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+P` | Command palette (all actions searchable) |
+| `1`-`4` | Switch screens |
+| `Ctrl+D` | Toggle deep search mode |
+| `Ctrl+T` | Cycle theme (dark, light, catppuccin-mocha, nord) |
+| `Ctrl+L` | Clear current results |
+| `Ctrl+E` | Export search history as markdown |
+| `Ctrl+C` x2 | Quit (double-tap) |
+
+### Search Prefixes
+
+Type these in the search bar on any screen:
+
+| Prefix | Action |
+|--------|--------|
+| (plain text) | Normal search |
+| `!! query` | Deep search (scrapes full page content from top results) |
+| `?? query` | Research mode (switches to Research screen, runs multi-round research) |
+
+### History Screen Controls
+
+| Key | Action |
+|-----|--------|
+| `j`/`k` or `↑`/`↓` | Navigate entries |
+| `Enter` | Re-run selected query on Search screen |
+| `r` | Send selected query to Research screen |
+| `/` | Focus the text filter |
+
+### Themes
+
+4 built-in themes, cycle with `Ctrl+T`:
+- **dark** (default) — cyan accent on dark background
+- **light** — blue accent on light background
+- **catppuccin-mocha** — mauve/pink accent, Catppuccin palette
+- **nord** — frost blue accent, Nord palette
+
+Set a default theme in `pythia.yaml`:
+```yaml
+tui:
+  theme: "catppuccin-mocha"
+```
+
+### Slash Commands
+
+| Command | Action |
+|---------|--------|
+| `/history` | Switch to History screen |
+| `/stats` | Switch to Dashboard screen |
+| `/model <name>` | Switch Ollama model (e.g., `/model llama3.3:70b`) |
+| `/cache clear` | Purge Oracle cache |
+| `/clear` | Clear results |
+| `/help` | Show available commands |
+
+## CLI Commands
 
 ### `pythia query` — Single-Shot Search (JSON)
 
@@ -281,17 +373,6 @@ pythia serve                                       # Default (0.0.0.0:8900)
 pythia serve --host 127.0.0.1 --port 9000          # Custom host/port
 ```
 
-## TUI Slash Commands
-
-| Command | Action |
-|---------|--------|
-| `/history` | Show recent searches |
-| `/stats` | Cache hit rate, total searches, avg response time |
-| `/model <name>` | Switch Ollama model (e.g., `/model llama3.3:70b`) |
-| `/cache clear` | Purge Oracle cache |
-| `/clear` | Clear screen |
-| `/help` | Show available commands |
-
 ## API Endpoints
 
 | Endpoint | Method | Description |
@@ -354,7 +435,7 @@ searxng:
 oracle:
   dsn: "localhost:1523/FREEPDB1"
   user: "pythia"
-  password: "pythia"
+  password: "pythia"  # pragma: allowlist secret
   cache_similarity_threshold: 0.85
   embedding_model: "ALL_MINILM_L6_V2"
 
@@ -402,13 +483,41 @@ pythia/
 │   │   ├── searxng.py          # SearXNG client
 │   │   └── ollama.py           # Ollama LLM client
 │   └── tui/
-│       ├── app.py              # PythiaApp (Textual)
+│       ├── app.py              # PythiaApp (multi-screen, keybindings, themes)
+│       ├── commands.py         # Command palette provider
 │       ├── screens/
-│       │   └── search.py       # Main search screen
-│       ├── widgets/            # Status, spinner, result card, sources, etc.
+│       │   ├── search.py       # Search screen (scrollback, mode prefix)
+│       │   ├── research.py     # Research theater (split-pane, live tree)
+│       │   ├── history.py      # History screen (filterable, re-run)
+│       │   └── dashboard.py    # Dashboard (stats, settings, cache mgmt)
+│       ├── widgets/
+│       │   ├── tab_bar.py      # Screen navigation tabs
+│       │   ├── research_tree.py    # Live research visualization
+│       │   ├── research_progress.py # Round progress bar
+│       │   ├── finding_detail.py   # Research finding view
+│       │   ├── session_divider.py  # Query separator in scrollback
+│       │   ├── history_list.py     # Filterable history list
+│       │   ├── stats_panel.py      # Cache metrics display
+│       │   ├── sparkline_panel.py  # Response time charts
+│       │   ├── settings_panel.py   # Model picker, toggles
+│       │   ├── action_bar.py       # Dashboard action buttons
+│       │   ├── search_input.py     # Search bar with mode label
+│       │   ├── result_card.py      # Streaming markdown answer
+│       │   ├── source_list.py      # Numbered citations
+│       │   ├── cache_badge.py      # Cache hit/miss badge
+│       │   ├── activity_indicator.py # Spinner
+│       │   ├── status_bar.py       # Bottom status bar
+│       │   ├── service_status.py   # Service health dots
+│       │   ├── logo.py            # ASCII banner
+│       │   └── thinking_block.py  # Collapsible thinking indicator
 │       └── themes/
-│           └── dark.tcss       # Dark theme
+│           ├── dark.tcss           # Default dark theme
+│           ├── light.tcss          # Light theme
+│           ├── catppuccin-mocha.tcss # Catppuccin Mocha theme
+│           └── nord.tcss           # Nord theme
 └── tests/
+    ├── test_tui_integration.py # 24 Textual app integration tests
+    ├── test_tui_*.py           # Widget unit tests (21 tests)
     ├── test_research.py        # Deep research agent tests
     ├── test_search.py          # Search orchestrator tests
     ├── test_cli_runner.py      # CLI command tests
