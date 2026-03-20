@@ -20,6 +20,7 @@ from pythia.server.search import SearchOrchestrator
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=4000)
     model: str | None = None
+    deep: bool = False
 
 
 class ResearchRequest(BaseModel):
@@ -62,7 +63,7 @@ def create_app(config: PythiaConfig) -> FastAPI:
     @app.post("/search")
     async def search(req: SearchRequest):
         async def event_generator():
-            async for event in orchestrator.search(req.query, model_override=req.model):
+            async for event in orchestrator.search(req.query, model_override=req.model, deep=req.deep):
                 yield {"event": event.event_type.value, "data": json.dumps(event.data)}
 
         return EventSourceResponse(event_generator())

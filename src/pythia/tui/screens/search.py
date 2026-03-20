@@ -1,8 +1,8 @@
 """Main search screen — composes all widgets into the Pythia TUI."""
 from __future__ import annotations
 
-import asyncio
 import json
+from datetime import datetime
 
 import httpx
 from textual.app import ComposeResult
@@ -17,6 +17,7 @@ from pythia.tui.widgets.logo import LogoBanner
 from pythia.tui.widgets.result_card import ResultCard
 from pythia.tui.widgets.search_input import SearchInput
 from pythia.tui.widgets.service_status import ServiceStatusIndicator
+from pythia.tui.widgets.session_divider import SessionDivider
 from pythia.tui.widgets.source_list import SourceList
 from pythia.tui.widgets.status_bar import PythiaStatusBar
 
@@ -29,27 +30,28 @@ class SearchScreen(Screen):
         if config.server.host == "0.0.0.0":
             self._api_base = f"http://127.0.0.1:{config.server.port}"
         self._service_manager: ServiceManager | None = None
-        self._health_check_interval: float | None = None
+        self._health_check_interval = None
 
     def compose(self) -> ComposeResult:
         yield LogoBanner()
-        with VerticalScroll(id="results-area"):
-            yield ResultCard()
-            yield SourceList()
-            yield CacheBadge()
+        yield VerticalScroll(id="results-area")
         yield ActivityIndicator()
         yield SearchInput()
         yield ServiceStatusIndicator(id="service-status")
         yield PythiaStatusBar()
 
     def on_mount(self) -> None:
-        # Start periodic health checks immediately (they tolerate API being down)
         self._health_check_interval = self.set_interval(2.0, self._check_health)
-        # Try to connect to service manager
         self._try_connect_service_manager()
+        # Check for pending search query from history re-run
+        from pythia.tui.app import PythiaApp
+        app = self.app
+        if isinstance(app, PythiaApp) and app._pending_search_query:
+            query = app._pending_search_query
+            app._pending_search_query = None
+            self.call_later(lambda: self._run_search(query))
 
     def _try_connect_service_manager(self) -> None:
-        """Try to get reference to service manager from app, retrying if not ready."""
         from pythia.tui.app import PythiaApp
         app = self.app
         if isinstance(app, PythiaApp):
@@ -57,23 +59,26 @@ class SearchScreen(Screen):
                 self._service_manager = app._service_manager
                 self._service_manager.register_status_callback(self._on_service_status_update)
             elif app._auto_start:
-                # Service manager not yet created, retry
                 self.set_timer(0.5, self._try_connect_service_manager)
 
     def on_unmount(self) -> None:
-        """Clean up health check interval when screen is unmounted."""
         if self._health_check_interval is not None:
             self.clear_interval(self._health_check_interval)
             self._health_check_interval = None
 
     def _on_service_status_update(self, statuses: dict[str, ServiceInfo]) -> None:
-        """Update service status indicator."""
-        status_widget = self.query_one("#service-status", ServiceStatusIndicator)
-        if status_widget:
-            status_widget.update_services(statuses)
+        try:
+            status_widget = self.query_one("#service-status", ServiceStatusIndicator)
+            if status_widget:
+                status_widget.update_services(statuses)
+        except Exception:
+            pass
 
     async def _check_health(self) -> None:
-        status = self.query_one(PythiaStatusBar)
+        try:
+            status = self.query_one(PythiaStatusBar)
+        except Exception:
+            return
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(f"{self._api_base}/health")
@@ -92,23 +97,60 @@ class SearchScreen(Screen):
         if query.startswith("/"):
             await self._handle_command(query)
             return
-        await self._run_search(query)
 
-    async def _run_search(self, query: str) -> None:
-        result_card = self.query_one(ResultCard)
-        source_list = self.query_one(SourceList)
-        cache_badge = self.query_one(CacheBadge)
+        deep = False
+        if query.startswith("!!"):
+            query = query[2:].strip()
+            deep = True
+        elif query.startswith("??"):
+            query = query[2:].strip()
+            if query:
+                from pythia.tui.app import PythiaApp
+                app = self.app
+                if isinstance(app, PythiaApp):
+                    app._pending_research_query = query
+                    app._switch_to("research")
+            return
+
+        if not query:
+            return
+
+        # Get deep mode from app if not explicitly set by prefix
+        if not deep:
+            from pythia.tui.app import PythiaApp
+            app = self.app
+            if isinstance(app, PythiaApp):
+                deep = app._deep_mode
+
+        await self._run_search(query, deep=deep)
+
+    async def _run_search(self, query: str, deep: bool = False) -> None:
+        results_area = self.query_one("#results-area", VerticalScroll)
         activity = self.query_one(ActivityIndicator)
 
-        result_card.clear_content()
-        source_list.clear_sources()
-        cache_badge.clear_badge()
+        # Add session divider
+        timestamp = datetime.now().strftime("%-I:%M %p")
+        divider = SessionDivider(query=query, timestamp=timestamp)
+        await results_area.mount(divider)
+
+        # Create new result group
+        result_card = ResultCard()
+        source_list = SourceList()
+        cache_badge = CacheBadge()
+        await results_area.mount(result_card)
+        await results_area.mount(source_list)
+        await results_area.mount(cache_badge)
+
+        results_area.scroll_end()
         activity.set_label("Searching...")
 
         event_type = ""
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
-                async with client.stream("POST", f"{self._api_base}/search", json={"query": query}) as resp:
+                req_body = {"query": query}
+                if deep:
+                    req_body["deep"] = True
+                async with client.stream("POST", f"{self._api_base}/search", json=req_body) as resp:
                     async for line in resp.aiter_lines():
                         if not line:
                             continue
@@ -135,52 +177,41 @@ class SearchScreen(Screen):
                                 else:
                                     cache_badge.show_web_search(data.get("response_time_ms", 0), data.get("sources_count", 0))
                                 await self._check_health()
+                                results_area.scroll_end()
         except Exception as e:
             activity.stop()
             result_card.set_content(f"**Error:** {e}")
 
     async def _handle_command(self, command: str) -> None:
-        result_card = self.query_one(ResultCard)
+        results_area = self.query_one("#results-area", VerticalScroll)
+        # Mount a fresh ResultCard for command output
+        result_card = ResultCard()
+        await results_area.mount(result_card)
+        results_area.scroll_end()
+
         parts = command.strip().split(maxsplit=1)
         cmd = parts[0].lower()
 
         if cmd == "/clear":
-            result_card.clear_content()
-            self.query_one(SourceList).clear_sources()
-            self.query_one(CacheBadge).clear_badge()
+            await results_area.remove_children()
         elif cmd == "/history":
-            try:
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    resp = await client.get(f"{self._api_base}/history", params={"limit": 20})
-                    history = resp.json()
-                lines = ["## Recent Searches\n"]
-                for h in history:
-                    badge = "\u25cf" if h.get("cache_hit") else "\u25cb"
-                    lines.append(f"- {badge} **{h['query']}** ({h.get('response_time_ms', 0)}ms)")
-                result_card.set_content("\n".join(lines))
-            except Exception as e:
-                result_card.set_content(f"**Error:** {e}")
+            from pythia.tui.app import PythiaApp
+            app = self.app
+            if isinstance(app, PythiaApp):
+                app._switch_to("history")
         elif cmd == "/stats":
-            try:
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    resp = await client.get(f"{self._api_base}/stats")
-                    stats = resp.json()
-                text = (
-                    f"## Pythia Stats\n\n"
-                    f"- **Total searches:** {stats.get('total_searches', 0)}\n"
-                    f"- **Cache hits:** {stats.get('cache_hits', 0)}\n"
-                    f"- **Cache hit rate:** {stats.get('cache_hit_rate', 0)}%\n"
-                    f"- **Avg response:** {stats.get('avg_response_ms', 0)}ms\n"
-                    f"- **Active days:** {stats.get('active_days', 0)}\n"
-                )
-                result_card.set_content(text)
-            except Exception as e:
-                result_card.set_content(f"**Error:** {e}")
+            from pythia.tui.app import PythiaApp
+            app = self.app
+            if isinstance(app, PythiaApp):
+                app._switch_to("dashboard")
         elif cmd == "/model":
             if len(parts) > 1:
                 new_model = parts[1].strip()
                 self.config.ollama.model = new_model
-                self.query_one(PythiaStatusBar).update_status(model=new_model)
+                try:
+                    self.query_one(PythiaStatusBar).update_status(model=new_model)
+                except Exception:
+                    pass
                 result_card.set_content(f"Model switched to **{new_model}**")
             else:
                 result_card.set_content("Usage: `/model <model_name>`")
@@ -199,12 +230,15 @@ class SearchScreen(Screen):
         elif cmd == "/help":
             result_card.set_content(
                 "## Commands\n\n"
-                "- `/history` — Show recent searches\n"
-                "- `/stats` — Cache hit rate, total searches, avg response time\n"
+                "- `/history` — Switch to History screen\n"
+                "- `/stats` — Switch to Dashboard screen\n"
                 "- `/model <name>` — Switch Ollama model\n"
                 "- `/cache clear` — Purge Oracle cache\n"
                 "- `/clear` — Clear screen\n"
-                "- `/help` — Show this help\n"
+                "- `/help` — Show this help\n\n"
+                "## Search Prefixes\n\n"
+                "- `!! <query>` — Deep search (scrapes pages)\n"
+                "- `?? <query>` — Research mode (multi-round)\n"
             )
         else:
             result_card.set_content(f"Unknown command: `{cmd}`. Type `/help` for available commands.")
