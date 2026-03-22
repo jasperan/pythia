@@ -1,6 +1,8 @@
 """Search orchestrator — ties SearXNG, Ollama, and Oracle cache together."""
 from __future__ import annotations
 
+import asyncio
+import re
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -25,20 +27,59 @@ class SearchEvent:
     data: dict
 
 
+def _count_citations(text: str) -> int:
+    """Count unique [N] citation references in an answer."""
+    return len(set(re.findall(r'\[(\d+)\]', text)))
+
+
 class SearchOrchestrator:
     def __init__(self, ollama: OllamaClient, cache: OracleCache, searxng: SearxngClient):
         self.ollama = ollama
         self.cache = cache
         self.searxng = searxng
 
-    async def search(self, query: str, model_override: str | None = None, deep: bool = False) -> AsyncIterator[SearchEvent]:
+    async def rewrite_query(self, query: str, model: str | None = None) -> str:
+        """Use LLM to rewrite a conversational query into a search-optimized one."""
+        system = (
+            "Rewrite the user's question into a concise, search-engine-optimized query. "
+            "Return ONLY the rewritten query, nothing else. No quotes, no explanation."
+        )
+        try:
+            result = await self.ollama.generate(system, query, model=model)
+            rewritten = result.strip().strip('"').strip("'")
+            return rewritten if len(rewritten) > 2 else query
+        except Exception:
+            return query
+
+    async def search(
+        self, query: str, model_override: str | None = None,
+        deep: bool = False, rewrite: bool = False,
+    ) -> AsyncIterator[SearchEvent]:
         start = time.monotonic()
         model = model_override or self.ollama.model
+        original_query = query
 
-        yield SearchEvent(EventType.STATUS, {"message": "Checking cache..."})
-        cached, query_embedding = await self.cache.lookup(query)
+        # Innovation 1: Query rewriting for conversational inputs
+        if rewrite:
+            yield SearchEvent(EventType.STATUS, {"message": "Optimizing query..."})
+            query = await self.rewrite_query(query, model=model)
+            if query != original_query:
+                yield SearchEvent(EventType.STATUS, {"message": f"Rewritten: {query}"})
+
+        # Innovation 2: Parallel cache + web search prefetch
+        yield SearchEvent(EventType.STATUS, {"message": "Searching..."})
+        cache_task = asyncio.create_task(self.cache.lookup(query))
+        search_task = asyncio.create_task(self.searxng.search(query))
+
+        cached, query_embedding = await cache_task
 
         if cached:
+            search_task.cancel()
+            try:
+                await search_task
+            except (asyncio.CancelledError, Exception):
+                pass
+
             elapsed_ms = int((time.monotonic() - start) * 1000)
             yield SearchEvent(EventType.STATUS, {"message": f"Cache hit ({cached.similarity:.2f} similarity)"})
 
@@ -56,9 +97,10 @@ class SearchOrchestrator:
             )
             return
 
+        # Cache miss — web search is already running
         yield SearchEvent(EventType.STATUS, {"message": "Searching web..."})
         try:
-            results = await self.searxng.search(query)
+            results = await search_task
         except Exception as e:
             yield SearchEvent(EventType.STATUS, {"message": f"SearXNG error: {e}"})
             yield SearchEvent(EventType.DONE, {"cache_hit": False, "error": str(e), "response_time_ms": int((time.monotonic() - start) * 1000)})
@@ -94,8 +136,18 @@ class SearchOrchestrator:
         answer_text = "".join(full_answer)
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
+        # Innovation 3: Citation density metric — quality signal with zero extra latency
+        citation_count = _count_citations(answer_text)
+        citation_density = citation_count / max(len(results), 1)
+
         sources_dicts = [{"index": r.index, "title": r.title, "url": r.url, "snippet": r.snippet} for r in results]
         await self.cache.store(query=query, answer=answer_text, sources=sources_dicts, model_used=model, query_embedding=query_embedding)
         await self.cache.record_search(query, cache_hit=False, response_time_ms=elapsed_ms, model_used=model)
 
-        yield SearchEvent(EventType.DONE, {"cache_hit": False, "response_time_ms": elapsed_ms, "sources_count": len(results)})
+        yield SearchEvent(EventType.DONE, {
+            "cache_hit": False,
+            "response_time_ms": elapsed_ms,
+            "sources_count": len(results),
+            "citations_used": citation_count,
+            "citation_density": round(citation_density, 2),
+        })

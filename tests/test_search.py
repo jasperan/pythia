@@ -30,9 +30,8 @@ async def test_search_cache_hit():
     async for event in orch.search("How does RLHF work?"):
         events.append(event)
 
-    # Embedding is done inside Oracle via VECTOR_EMBEDDING(), cache receives query text
     mock_cache.lookup.assert_called_once_with("How does RLHF work?")
-    mock_searxng.search.assert_not_called()
+    # With parallel prefetch, web search starts concurrently but is cancelled on cache hit
     types = [e.event_type for e in events]
     assert EventType.STATUS in types
     assert EventType.DONE in types

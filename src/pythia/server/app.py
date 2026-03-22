@@ -21,6 +21,7 @@ class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=4000)
     model: str | None = None
     deep: bool = False
+    rewrite: bool = False
 
 
 class ResearchRequest(BaseModel):
@@ -76,7 +77,7 @@ def create_app(config: PythiaConfig) -> FastAPI:
     @app.post("/search")
     async def search(req: SearchRequest):
         return EventSourceResponse(_sse_wrap(
-            orchestrator.search(req.query, model_override=req.model, deep=req.deep)
+            orchestrator.search(req.query, model_override=req.model, deep=req.deep, rewrite=req.rewrite)
         ))
 
     @app.post("/research")
