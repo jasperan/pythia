@@ -43,7 +43,7 @@ async def test_search_cache_miss():
     mock_ollama = AsyncMock()
     mock_ollama.model = "qwen3.5:9b"
 
-    async def fake_stream(system, user):
+    async def fake_stream(system, user, model=None):
         for word in ["RLHF ", "is ", "great."]:
             yield word
 

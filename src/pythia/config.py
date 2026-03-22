@@ -1,10 +1,11 @@
 """Config loader — reads pythia.yaml into Pydantic models."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ServerConfig(BaseModel):
@@ -29,6 +30,21 @@ class OracleConfig(BaseModel):
     password: str = "pythia"
     cache_similarity_threshold: float = 0.85
     embedding_model: str = "ALL_MINILM_L6_V2"
+
+    @model_validator(mode="before")
+    @classmethod
+    def env_overrides(cls, data):
+        """Allow environment variables to override sensitive Oracle config."""
+        if isinstance(data, dict):
+            for field_name, env_var in [
+                ("dsn", "PYTHIA_ORACLE_DSN"),
+                ("user", "PYTHIA_ORACLE_USER"),
+                ("password", "PYTHIA_ORACLE_PASSWORD"),
+            ]:
+                val = os.environ.get(env_var)
+                if val:
+                    data[field_name] = val
+        return data
 
 
 class ResearchConfig(BaseModel):

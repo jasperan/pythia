@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Query
-from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
+
+logger = logging.getLogger(__name__)
 
 from pythia.config import PythiaConfig
 from pythia.server.ollama import OllamaClient
@@ -58,6 +61,12 @@ def create_app(config: PythiaConfig) -> FastAPI:
         await cache.close()
 
     app = FastAPI(title="Pythia", version="0.2.0", lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     orchestrator = SearchOrchestrator(ollama=ollama, cache=cache, searxng=searxng)
 
     @app.post("/search")

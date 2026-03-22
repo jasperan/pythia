@@ -227,14 +227,18 @@ class ResearchAgent:
                 model_used=model, elapsed_ms=elapsed_ms,
             )
             if research_id:
-                for finding in all_findings:
-                    await self.cache.store_finding(
-                        research_id=research_id,
-                        sub_query=finding.sub_query,
-                        summary=finding.summary,
-                        sources=finding.sources,
-                        round_num=finding.round_num,
-                    )
+                await self.cache.store_findings_batch(
+                    research_id=research_id,
+                    findings=[
+                        {
+                            "sub_query": f.sub_query,
+                            "summary": f.summary,
+                            "sources": f.sources,
+                            "round_num": f.round_num,
+                        }
+                        for f in all_findings
+                    ],
+                )
         except Exception as e:
             logger.warning(f"Failed to store research results: {e}")
 

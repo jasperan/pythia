@@ -1,11 +1,15 @@
 """Oracle AI Vector Search cache — semantic search memory with Python embeddings."""
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 
 import oracledb
+
+logger = logging.getLogger(__name__)
 
 # Return LOBs as strings/bytes instead of AsyncLOB objects
 oracledb.defaults.fetch_lobs = False
@@ -39,14 +43,18 @@ class OracleCache:
         self._pool: oracledb.AsyncConnectionPool | None = None
 
     async def connect(self) -> None:
-        """Create async connection pool."""
-        self._pool = oracledb.create_pool_async(
-            user=self.user,
-            password=self.password,
-            dsn=self.dsn,
-            min=1,
-            max=4,
-        )
+        """Create async connection pool. Logs warning and continues if Oracle is unreachable."""
+        try:
+            self._pool = oracledb.create_pool_async(
+                user=self.user,
+                password=self.password,
+                dsn=self.dsn,
+                min=1,
+                max=4,
+            )
+        except Exception as e:
+            logger.warning(f"Oracle connection pool creation failed: {e}")
+            self._pool = None
 
     async def close(self) -> None:
         """Close connection pool."""
@@ -58,9 +66,8 @@ class OracleCache:
         if not self._pool:
             return None
 
-        # Generate embedding in Python
-        query_embedding = _generate_embedding(query)
-        
+        query_embedding = await asyncio.to_thread(_generate_embedding, query)
+
         # Use VECTOR_DISTANCE for cosine similarity search
         sql = """
             SELECT id, query, answer, sources, model_used, hit_count, created_at,
@@ -108,9 +115,8 @@ class OracleCache:
         if not self._pool:
             return
 
-        # Generate embedding in Python
-        query_embedding = _generate_embedding(query)
-        
+        query_embedding = await asyncio.to_thread(_generate_embedding, query)
+
         sql = """
             INSERT INTO pythia_cache (query, query_embedding, answer, sources, model_used)
             VALUES (:1, TO_VECTOR(:2, 384), :3, :4, :5)
@@ -216,7 +222,7 @@ class OracleCache:
         """Recall related findings from past research sessions via vector similarity."""
         if not self._pool:
             return []
-        query_embedding = _generate_embedding(query)
+        query_embedding = await asyncio.to_thread(_generate_embedding, query)
         sql = """
             SELECT f.sub_query, f.summary, f.sources, r.query AS research_query,
                    1 - VECTOR_DISTANCE(f.finding_embedding, TO_VECTOR(:1, 384), COSINE) AS similarity
@@ -250,7 +256,7 @@ class OracleCache:
         """Store a research session. Returns the research ID."""
         if not self._pool:
             return ""
-        query_embedding = _generate_embedding(query)
+        query_embedding = await asyncio.to_thread(_generate_embedding, query)
         sql = """
             INSERT INTO pythia_research (query, query_embedding, report, sub_queries, rounds_used, total_sources, model_used, elapsed_ms)
             VALUES (:1, TO_VECTOR(:2, 384), :3, :4, :5, :6, :7, :8)
@@ -273,7 +279,7 @@ class OracleCache:
         """Store an individual research finding with embedding for future recall."""
         if not self._pool:
             return
-        finding_embedding = _generate_embedding(sub_query + " " + summary[:200])
+        finding_embedding = await asyncio.to_thread(_generate_embedding, sub_query + " " + summary[:200])
         sql = """
             INSERT INTO pythia_findings (research_id, sub_query, finding_embedding, summary, sources, round_num)
             VALUES (:1, :2, TO_VECTOR(:3, 384), :4, :5, :6)
@@ -284,6 +290,30 @@ class OracleCache:
                     bytes.fromhex(research_id), sub_query, finding_embedding,
                     summary, json.dumps(sources), round_num,
                 ])
+                await conn.commit()
+
+    async def store_findings_batch(
+        self, research_id: str, findings: list[dict],
+    ) -> None:
+        """Store multiple findings in a single transaction. Each dict needs: sub_query, summary, sources, round_num."""
+        if not self._pool or not findings:
+            return
+        sql = """
+            INSERT INTO pythia_findings (research_id, sub_query, finding_embedding, summary, sources, round_num)
+            VALUES (:1, :2, TO_VECTOR(:3, 384), :4, :5, :6)
+        """
+        rows = []
+        for f in findings:
+            embedding = await asyncio.to_thread(
+                _generate_embedding, f["sub_query"] + " " + f["summary"][:200]
+            )
+            rows.append([
+                bytes.fromhex(research_id), f["sub_query"], embedding,
+                f["summary"], json.dumps(f["sources"]), f["round_num"],
+            ])
+        async with self._pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.executemany(sql, rows)
                 await conn.commit()
 
     def _is_cache_hit(self, similarity: float) -> bool:

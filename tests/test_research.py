@@ -114,9 +114,9 @@ async def test_research_basic_flow():
     assert done_event.data["total_findings"] > 0
     assert done_event.data["elapsed_ms"] >= 0
 
-    # Should have stored research and findings
+    # Should have stored research and findings (batch)
     mock_cache.store_research.assert_called_once()
-    assert mock_cache.store_finding.call_count > 0
+    mock_cache.store_findings_batch.assert_called_once()
 
 
 @pytest.mark.asyncio
