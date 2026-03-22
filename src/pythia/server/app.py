@@ -58,6 +58,8 @@ def create_app(config: PythiaConfig) -> FastAPI:
     async def lifespan(app: FastAPI):
         await cache.connect()
         yield
+        await ollama.close()
+        await searxng.close()
         await cache.close()
 
     app = FastAPI(title="Pythia", version="0.2.0", lifespan=lifespan)

@@ -19,7 +19,7 @@ async def test_search_cache_hit():
         similarity=0.92,
     )
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=cached)
+    mock_cache.lookup = AsyncMock(return_value=(cached, "[0.1,0.2]"))
     mock_cache.record_search = AsyncMock()
 
     mock_searxng = AsyncMock()
@@ -50,7 +50,7 @@ async def test_search_cache_miss():
     mock_ollama.generate_stream = fake_stream
 
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=None)
+    mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
 

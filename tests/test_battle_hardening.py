@@ -23,7 +23,7 @@ async def test_search_concurrent_model_override_no_mutation():
 
     mock_ollama.generate_stream = fake_stream
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=None)
+    mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
@@ -50,7 +50,7 @@ async def test_search_searxng_connection_error():
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=None)
+    mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_searxng = AsyncMock()
     mock_searxng.search = AsyncMock(side_effect=ConnectionError("refused"))
 
@@ -71,7 +71,7 @@ async def test_search_searxng_timeout():
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=None)
+    mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_searxng = AsyncMock()
     mock_searxng.search = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
 
@@ -98,7 +98,7 @@ async def test_search_ollama_error_during_stream():
 
     mock_ollama.generate_stream = failing_stream
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=None)
+    mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_searxng = AsyncMock()
     mock_searxng.search = AsyncMock(return_value=[
         SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
@@ -128,7 +128,7 @@ async def test_search_ollama_empty_response():
 
     mock_ollama.generate_stream = empty_stream
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=None)
+    mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
@@ -160,7 +160,7 @@ async def test_search_deep_mode_with_scraper():
 
     mock_ollama.generate_stream = fake_stream
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=None)
+    mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
@@ -196,7 +196,7 @@ async def test_search_unicode_query():
 
     mock_ollama.generate_stream = fake_stream
     mock_cache = AsyncMock()
-    mock_cache.lookup = AsyncMock(return_value=None)
+    mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
@@ -219,7 +219,9 @@ async def test_search_unicode_query():
 async def test_cache_lookup_no_pool():
     cache = OracleCache.__new__(OracleCache)
     cache._pool = None
-    assert await cache.lookup("test") is None
+    entry, embedding = await cache.lookup("test")
+    assert entry is None
+    assert embedding == ""
 
 
 @pytest.mark.asyncio

@@ -61,12 +61,20 @@ class OracleCache:
         if self._pool:
             await self._pool.close()
 
-    async def lookup(self, query: str) -> CacheEntry | None:
-        """Find semantically similar cached result using Python-generated embeddings."""
-        if not self._pool:
-            return None
+    async def generate_embedding(self, text: str) -> str:
+        """Generate embedding string, offloaded to a thread."""
+        return await asyncio.to_thread(_generate_embedding, text)
 
-        query_embedding = await asyncio.to_thread(_generate_embedding, query)
+    async def lookup(self, query: str) -> tuple[CacheEntry | None, str]:
+        """Find semantically similar cached result. Returns (entry, query_embedding).
+
+        The embedding is returned so callers can reuse it for store() on cache miss,
+        avoiding a redundant embedding computation.
+        """
+        if not self._pool:
+            return None, ""
+
+        query_embedding = await self.generate_embedding(query)
 
         # Use VECTOR_DISTANCE for cosine similarity search
         sql = """
@@ -89,10 +97,10 @@ class OracleCache:
                 await cur.execute(sql, [query_embedding, query_embedding])
                 row = await cur.fetchone()
                 if not row:
-                    return None
+                    return None, query_embedding
                 similarity = float(row[7])
                 if not self._is_cache_hit(similarity):
-                    return None
+                    return None, query_embedding
                 await cur.execute(
                     "UPDATE pythia_cache SET hit_count = hit_count + 1, last_hit_at = SYSTIMESTAMP WHERE id = :1",
                     [row[0]],
@@ -106,16 +114,18 @@ class OracleCache:
                     hit_count=row[5] + 1,
                     created_at=row[6],
                     similarity=similarity,
-                )
+                ), query_embedding
 
     async def store(
-        self, query: str, answer: str, sources: list[dict], model_used: str
+        self, query: str, answer: str, sources: list[dict], model_used: str,
+        query_embedding: str | None = None,
     ) -> None:
-        """Store a search result in the cache with Python-generated embedding."""
+        """Store a search result in the cache. Accepts pre-computed embedding to avoid redundant work."""
         if not self._pool:
             return
 
-        query_embedding = await asyncio.to_thread(_generate_embedding, query)
+        if not query_embedding:
+            query_embedding = await self.generate_embedding(query)
 
         sql = """
             INSERT INTO pythia_cache (query, query_embedding, answer, sources, model_used)
@@ -302,15 +312,19 @@ class OracleCache:
             INSERT INTO pythia_findings (research_id, sub_query, finding_embedding, summary, sources, round_num)
             VALUES (:1, :2, TO_VECTOR(:3, 384), :4, :5, :6)
         """
-        rows = []
-        for f in findings:
-            embedding = await asyncio.to_thread(
-                _generate_embedding, f["sub_query"] + " " + f["summary"][:200]
-            )
-            rows.append([
-                bytes.fromhex(research_id), f["sub_query"], embedding,
+        # Generate all embeddings in parallel
+        embedding_tasks = [
+            self.generate_embedding(f["sub_query"] + " " + f["summary"][:200])
+            for f in findings
+        ]
+        embeddings = await asyncio.gather(*embedding_tasks)
+        rows = [
+            [
+                bytes.fromhex(research_id), f["sub_query"], emb,
                 f["summary"], json.dumps(f["sources"]), f["round_num"],
-            ])
+            ]
+            for f, emb in zip(findings, embeddings)
+        ]
         async with self._pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.executemany(sql, rows)

@@ -37,11 +37,13 @@ def app(mock_config):
 
         mock_ollama = MagicMock()
         mock_ollama.health = AsyncMock(return_value=True)
+        mock_ollama.close = AsyncMock()
         mock_ollama.model = "qwen3.5:9b"
         MockOllama.return_value = mock_ollama
 
         mock_searxng = MagicMock()
         mock_searxng.health = AsyncMock(return_value=True)
+        mock_searxng.close = AsyncMock()
         MockSearxng.return_value = mock_searxng
 
         application = create_app(mock_config)

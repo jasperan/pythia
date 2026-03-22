@@ -21,6 +21,18 @@ class SearxngClient:
         self.base_url = base_url.rstrip("/")
         self.max_results = max_results
         self.categories = categories or ["general"]
+        self._client: httpx.AsyncClient | None = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        """Lazy-init a reusable HTTP client with connection pooling."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=15.0)
+        return self._client
+
+    async def close(self) -> None:
+        """Close the HTTP client."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
 
     async def search(self, query: str) -> list[SearchResult]:
         """Search SearXNG and return parsed results."""
@@ -29,10 +41,10 @@ class SearxngClient:
             "format": "json",
             "categories": ",".join(self.categories),
         }
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(f"{self.base_url}/search", params=params)
-            resp.raise_for_status()
-            data = resp.json()
+        client = self._get_client()
+        resp = await client.get(f"{self.base_url}/search", params=params)
+        resp.raise_for_status()
+        data = resp.json()
         return self._parse_results(data)
 
     def _parse_results(self, data: dict) -> list[SearchResult]:
@@ -60,8 +72,8 @@ class SearxngClient:
     async def health(self) -> bool:
         """Check if SearXNG is reachable."""
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(self.base_url)
-                return resp.status_code == 200
+            client = self._get_client()
+            resp = await client.get(self.base_url)
+            return resp.status_code == 200
         except Exception:
             return False

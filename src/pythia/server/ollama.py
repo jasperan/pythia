@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
 
 import httpx
 
@@ -58,6 +57,20 @@ class OllamaClient:
     def __init__(self, base_url: str, model: str):
         self.base_url = base_url.rstrip("/")
         self.model = model
+        self._client: httpx.AsyncClient | None = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        """Lazy-init a reusable HTTP client with connection pooling."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                timeout=httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0),
+            )
+        return self._client
+
+    async def close(self) -> None:
+        """Close the HTTP client."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
 
     async def generate_stream(self, system: str, user: str, model: str | None = None) -> AsyncIterator[str]:
         """Stream tokens from Ollama chat completion."""
@@ -70,18 +83,18 @@ class OllamaClient:
             "stream": True,
             "think": False,
         }
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream("POST", f"{self.base_url}/api/chat", json=payload) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if not line:
-                        continue
-                    chunk = json.loads(line)
-                    content = chunk.get("message", {}).get("content", "")
-                    if content:
-                        yield content
-                    if chunk.get("done", False):
-                        break
+        client = self._get_client()
+        async with client.stream("POST", f"{self.base_url}/api/chat", json=payload) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line:
+                    continue
+                chunk = json.loads(line)
+                content = chunk.get("message", {}).get("content", "")
+                if content:
+                    yield content
+                if chunk.get("done", False):
+                    break
 
     async def generate(self, system: str, user: str, json_mode: bool = False, model: str | None = None) -> str:
         """Non-streaming generation. Returns complete response text."""
@@ -96,17 +109,17 @@ class OllamaClient:
         }
         if json_mode:
             payload["format"] = "json"
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{self.base_url}/api/chat", json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-            return data.get("message", {}).get("content", "")
+        client = self._get_client()
+        resp = await client.post(f"{self.base_url}/api/chat", json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("message", {}).get("content", "")
 
     async def health(self) -> bool:
         """Check if Ollama is reachable."""
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{self.base_url}/api/tags")
-                return resp.status_code == 200
+            client = self._get_client()
+            resp = await client.get(f"{self.base_url}/api/tags")
+            return resp.status_code == 200
         except Exception:
             return False
