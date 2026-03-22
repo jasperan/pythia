@@ -93,10 +93,10 @@ FastAPI server with SSE streaming for integration into other applications.
 
 ### Search Flow (Single-Shot)
 
-1. **Check cache** — generate embedding, cosine similarity search against cached queries
-2. **Cache HIT** (similarity >= 0.85) — return cached answer with `[from cache]` badge
-3. **Cache MISS** — query SearXNG for top 8 web results, synthesize via Ollama with citations, store in Oracle
-4. **Stream response** — tokens via SSE in real-time
+1. **Parallel prefetch** — cache lookup and SearXNG web search fire concurrently
+2. **Cache HIT** (similarity >= 0.85) — cancel web search, return cached answer instantly
+3. **Cache MISS** — web search is already running; synthesize via Ollama with citations, store in Oracle (reuses the embedding from the cache check)
+4. **Stream response** — tokens via SSE in real-time, with citation density metric in the DONE event
 
 ### Research Flow (Deep Research)
 
@@ -414,6 +414,8 @@ data: {"rounds_used": 2, "total_findings": 8, "total_sources": 32, "elapsed_ms":
 
 ## Configuration
 
+Oracle credentials support environment variable overrides: `PYTHIA_ORACLE_DSN`, `PYTHIA_ORACLE_USER`, `PYTHIA_ORACLE_PASSWORD`. Env vars take precedence over `pythia.yaml` values.
+
 ```yaml
 server:
   host: "0.0.0.0"
@@ -515,8 +517,12 @@ pythia/
 │           ├── catppuccin-mocha.tcss # Catppuccin Mocha theme
 │           └── nord.tcss           # Nord theme
 └── tests/
-    ├── test_tui_integration.py # 24 Textual app integration tests
-    ├── test_tui_*.py           # Widget unit tests (21 tests)
+    ├── test_tui_integration.py # Textual app integration tests
+    ├── test_tui_*.py           # Widget unit tests
+    ├── test_app.py             # FastAPI endpoint tests
+    ├── test_battle_hardening.py # Edge cases, failure modes, security
+    ├── test_http_clients.py    # Ollama/SearXNG HTTP client tests
+    ├── test_innovations.py     # Query rewriting, prefetch, citations
     ├── test_research.py        # Deep research agent tests
     ├── test_search.py          # Search orchestrator tests
     ├── test_cli_runner.py      # CLI command tests
