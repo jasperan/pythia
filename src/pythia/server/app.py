@@ -63,7 +63,7 @@ def create_app(config: PythiaConfig) -> FastAPI:
     app = FastAPI(title="Pythia", version="0.2.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=config.server.cors_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )

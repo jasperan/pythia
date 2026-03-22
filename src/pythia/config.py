@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 class ServerConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8900
+    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
 
 
 class OllamaConfig(BaseModel):
@@ -27,7 +28,7 @@ class SearxngConfig(BaseModel):
 class OracleConfig(BaseModel):
     dsn: str = "localhost:1523/FREEPDB1"
     user: str = "pythia"
-    password: str = "pythia"
+    password: str = ""
     cache_similarity_threshold: float = 0.85
     embedding_model: str = "ALL_MINILM_L6_V2"
 

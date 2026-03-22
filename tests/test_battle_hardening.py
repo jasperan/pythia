@@ -354,6 +354,18 @@ def test_oracle_config_env_partial_override():
         assert cfg.dsn == "localhost:1523/FREEPDB1"  # default unchanged
 
 
+def test_oracle_config_password_default_empty():
+    """Python default for password should be empty (force explicit config)."""
+    import os
+    from pythia.config import OracleConfig
+
+    # Clear any env vars that would override
+    env_clean = {k: v for k, v in os.environ.items() if not k.startswith("PYTHIA_ORACLE")}
+    with patch.dict(os.environ, env_clean, clear=True):
+        cfg = OracleConfig()
+        assert cfg.password == ""
+
+
 def test_oracle_config_yaml_override_env():
     """YAML values should be overridden by env vars."""
     import os
