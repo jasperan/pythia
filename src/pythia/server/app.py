@@ -2,15 +2,12 @@
 from __future__ import annotations
 
 import json
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
-
-logger = logging.getLogger(__name__)
 
 from pythia.config import PythiaConfig
 from pythia.server.ollama import OllamaClient
@@ -71,13 +68,16 @@ def create_app(config: PythiaConfig) -> FastAPI:
     )
     orchestrator = SearchOrchestrator(ollama=ollama, cache=cache, searxng=searxng)
 
+    async def _sse_wrap(event_stream):
+        """Convert an event stream into SSE-formatted dicts."""
+        async for event in event_stream:
+            yield {"event": event.event_type.value, "data": json.dumps(event.data)}
+
     @app.post("/search")
     async def search(req: SearchRequest):
-        async def event_generator():
-            async for event in orchestrator.search(req.query, model_override=req.model, deep=req.deep):
-                yield {"event": event.event_type.value, "data": json.dumps(event.data)}
-
-        return EventSourceResponse(event_generator())
+        return EventSourceResponse(_sse_wrap(
+            orchestrator.search(req.query, model_override=req.model, deep=req.deep)
+        ))
 
     @app.post("/research")
     async def research(req: ResearchRequest):
@@ -85,12 +85,9 @@ def create_app(config: PythiaConfig) -> FastAPI:
         if req.max_rounds is not None:
             research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
         agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
-
-        async def event_generator():
-            async for event in agent.research(req.query, model_override=req.model):
-                yield {"event": event.event_type.value, "data": json.dumps(event.data)}
-
-        return EventSourceResponse(event_generator())
+        return EventSourceResponse(_sse_wrap(
+            agent.research(req.query, model_override=req.model)
+        ))
 
     @app.get("/health")
     async def health():
