@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pythia - Self-Hosted AI Search Engine</title>
+
+    <!-- Fonts: Cormorant (display serif) + IBM Plex Sans (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES (DARK BOTANICAL + PYTHIA)
+           =========================================== */
+        :root {
+            /* Colors - Dark Botanical with mystical Pythia accents */
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #161616;
+            --text-primary: #e8e4df;
+            --text-secondary: #9a9590;
+            --text-muted: #6b6560;
+            --accent-purple: #7c3aed;
+            --accent-amber: #f59e0b;
+            --accent-emerald: #10b981;
+            --accent-warm: #d4a574;
+            --accent-pink: #e8b4b8;
+            --accent-gold: #c9b896;
+            --accent-purple-glow: rgba(124, 58, 237, 0.3);
+            --accent-amber-glow: rgba(245, 158, 11, 0.2);
+            --accent-emerald-glow: rgba(16, 185, 129, 0.2);
+
+            /* Typography - MUST use clamp() */
+            --font-display: 'Cormorant', Georgia, serif;
+            --font-body: 'IBM Plex Sans', sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
+            --title-size: clamp(2rem, 6vw, 5rem);
+            --subtitle-size: clamp(0.875rem, 2vw, 1.25rem);
+            --h2-size: clamp(1.25rem, 3.5vw, 2.5rem);
+            --h3-size: clamp(1rem, 2.5vw, 1.75rem);
+            --body-size: clamp(0.75rem, 1.2vw, 1rem);
+            --small-size: clamp(0.65rem, 1vw, 0.875rem);
+            --code-size: clamp(0.6rem, 0.9vw, 0.8rem);
+
+            /* Spacing - MUST use clamp() */
+            --slide-padding: clamp(1.5rem, 4vw, 4rem);
+            --content-gap: clamp(1rem, 2vw, 2rem);
+            --element-gap: clamp(0.25rem, 1vw, 1rem);
+
+            /* Animation */
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-normal: 0.6s;
+            --duration-slow: 1s;
+        }
+
+        /* ===========================================
+           BASE STYLES
+           =========================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-weight: 300;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3 {
+            font-family: var(--font-display);
+            font-weight: 500;
+            line-height: 1.15;
+            letter-spacing: -0.01em;
+        }
+
+        h2 { font-size: var(--h2-size); }
+        h3 { font-size: var(--h3-size); }
+
+        code, .mono {
+            font-family: var(--font-mono);
+            font-size: var(--code-size);
+        }
+
+        /* ===========================================
+           VIEWPORT FITTING: MANDATORY BASE STYLES
+           =========================================== */
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        html {
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-height: 100%;
+            overflow: hidden;
+            padding: var(--slide-padding);
+        }
+
+        .card, .container, .content-box {
+            max-width: min(90vw, 1000px);
+            max-height: min(80vh, 700px);
+        }
+
+        .feature-list, .bullet-list {
+            gap: clamp(0.4rem, 1vh, 1rem);
+        }
+
+        .feature-list li, .bullet-list li {
+            font-size: var(--body-size);
+            line-height: 1.4;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+        }
+
+        img, .image-container {
+            max-width: 100%;
+            max-height: min(50vh, 400px);
+            object-fit: contain;
+        }
+
+        /* Short viewports (< 700px height) */
+        @media (max-height: 700px) {
+            :root {
+                --slide-padding: clamp(0.75rem, 3vw, 2rem);
+                --content-gap: clamp(0.4rem, 1.5vw, 1rem);
+                --title-size: clamp(1.25rem, 4.5vw, 2.5rem);
+                --h2-size: clamp(1rem, 3vw, 1.75rem);
+            }
+        }
+
+        /* Very short viewports (< 600px height) */
+        @media (max-height: 600px) {
+            :root {
+                --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem);
+                --content-gap: clamp(0.3rem, 1vw, 0.75rem);
+                --title-size: clamp(1.1rem, 4vw, 2rem);
+                --body-size: clamp(0.7rem, 1.2vw, 0.95rem);
+            }
+            .nav-dots, .keyboard-hint, .decorative {
+                display: none;
+            }
+        }
+
+        /* Extremely short (landscape phones, < 500px height) */
+        @media (max-height: 500px) {
+            :root {
+                --slide-padding: clamp(0.4rem, 2vw, 1rem);
+                --title-size: clamp(1rem, 3.5vw, 1.5rem);
+                --h2-size: clamp(0.9rem, 2.5vw, 1.25rem);
+                --body-size: clamp(0.65rem, 1vw, 0.85rem);
+            }
+        }
+
+        /* Narrow viewports (< 600px width) */
+        @media (max-width: 600px) {
+            :root {
+                --title-size: clamp(1.25rem, 7vw, 2.5rem);
+            }
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+            html {
+                scroll-behavior: auto;
+            }
+        }
+
+        /* ===========================================
+           ANIMATIONS
+           =========================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .reveal-left {
+            opacity: 0;
+            transform: translateX(-50px);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .reveal-scale {
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .reveal-blur {
+            opacity: 0;
+            filter: blur(10px);
+            transition: opacity 0.8s var(--ease-out-expo),
+                        filter 0.8s var(--ease-out-expo);
+        }
+
+        .slide.visible .reveal,
+        .slide.visible .reveal-left,
+        .slide.visible .reveal-scale,
+        .slide.visible .reveal-blur {
+            opacity: 1;
+            transform: translateY(0) translateX(0) scale(1);
+            filter: blur(0);
+        }
+
+        /* Stagger children */
+        .reveal:nth-child(1), .reveal-left:nth-child(1) { transition-delay: 0.1s; }
+        .reveal:nth-child(2), .reveal-left:nth-child(2) { transition-delay: 0.2s; }
+        .reveal:nth-child(3), .reveal-left:nth-child(3) { transition-delay: 0.3s; }
+        .reveal:nth-child(4), .reveal-left:nth-child(4) { transition-delay: 0.4s; }
+        .reveal:nth-child(5), .reveal-left:nth-child(5) { transition-delay: 0.5s; }
+        .reveal:nth-child(6), .reveal-left:nth-child(6) { transition-delay: 0.6s; }
+
+        /* ===========================================
+           PROGRESS BAR
+           =========================================== */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-amber), var(--accent-emerald));
+            z-index: 1000;
+            width: 0%;
+            transition: width 0.3s var(--ease-out-expo);
+        }
+
+        /* ===========================================
+           NAVIGATION DOTS
+           =========================================== */
+        .nav-dots {
+            position: fixed;
+            right: clamp(0.5rem, 1.5vw, 1.5rem);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(4px, 0.5vh, 8px);
+            z-index: 1000;
+        }
+
+        .nav-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-out-expo);
+            padding: 0;
+        }
+
+        .nav-dot.active {
+            background: var(--accent-purple);
+            box-shadow: 0 0 8px var(--accent-purple-glow);
+            transform: scale(1.3);
+        }
+
+        .nav-dot:hover {
+            background: var(--accent-amber);
+        }
+
+        /* ===========================================
+           SLIDE COUNTER
+           =========================================== */
+        .slide-counter {
+            position: fixed;
+            top: clamp(0.5rem, 1.5vw, 1.5rem);
+            right: clamp(0.5rem, 1.5vw, 1.5rem);
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            z-index: 1000;
+        }
+
+        /* ===========================================
+           DARK BOTANICAL DECORATIONS
+           Abstract gradient orbs
+           =========================================== */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orb-purple {
+            background: radial-gradient(circle, var(--accent-purple) 0%, transparent 70%);
+        }
+
+        .orb-amber {
+            background: radial-gradient(circle, var(--accent-amber) 0%, transparent 70%);
+        }
+
+        .orb-emerald {
+            background: radial-gradient(circle, var(--accent-emerald) 0%, transparent 70%);
+        }
+
+        .orb-warm {
+            background: radial-gradient(circle, var(--accent-warm) 0%, transparent 70%);
+        }
+
+        .orb-pink {
+            background: radial-gradient(circle, var(--accent-pink) 0%, transparent 70%);
+        }
+
+        /* Thin accent lines */
+        .accent-line {
+            position: absolute;
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, var(--accent-purple), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ===========================================
+           SLIDE TYPES
+           =========================================== */
+
+        /* === TITLE SLIDE === */
+        .title-slide .slide-content {
+            align-items: center;
+            text-align: center;
+            gap: var(--content-gap);
+        }
+
+        .title-slide h1 {
+            font-size: var(--title-size);
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-gold) 50%, var(--accent-purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .title-slide .subtitle {
+            font-family: var(--font-display);
+            font-style: italic;
+            font-size: var(--subtitle-size);
+            color: var(--text-secondary);
+            max-width: min(70ch, 80vw);
+        }
+
+        .title-slide .author {
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .greek-symbol {
+            font-size: clamp(3rem, 10vw, 8rem);
+            font-family: var(--font-display);
+            font-weight: 400;
+            opacity: 0.15;
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--accent-purple);
+            pointer-events: none;
+        }
+
+        /* === CONTENT SLIDES === */
+        .content-slide .slide-content {
+            gap: var(--content-gap);
+            max-width: min(90vw, 900px);
+            margin: 0 auto;
+        }
+
+        .section-label {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .slide-description {
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+            line-height: 1.6;
+            max-width: 60ch;
+        }
+
+        /* === FEATURE CARDS === */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+            width: 100%;
+            max-width: min(90vw, 1000px);
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: clamp(0.75rem, 2vw, 1.5rem);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 20px var(--accent-purple-glow);
+        }
+
+        .feature-card .icon {
+            font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+            margin-bottom: clamp(0.25rem, 0.5vw, 0.5rem);
+        }
+
+        .feature-card h3 {
+            font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+            font-family: var(--font-display);
+            font-weight: 600;
+            margin-bottom: clamp(0.15rem, 0.3vw, 0.3rem);
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            font-size: var(--small-size);
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* === CODE BLOCKS === */
+        .code-block {
+            background: #0a0a0a;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: clamp(0.75rem, 2vw, 1.25rem);
+            font-family: var(--font-mono);
+            font-size: var(--code-size);
+            line-height: 1.6;
+            color: var(--text-secondary);
+            overflow: hidden;
+            max-width: min(90vw, 800px);
+        }
+
+        .code-block .keyword { color: var(--accent-purple); }
+        .code-block .string { color: var(--accent-emerald); }
+        .code-block .comment { color: var(--text-muted); font-style: italic; }
+        .code-block .function { color: var(--accent-amber); }
+        .code-block .flag { color: var(--accent-pink); }
+
+        /* === ARCHITECTURE DIAGRAMS === */
+        .arch-box {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: clamp(0.5rem, 1.5vw, 1rem);
+            text-align: center;
+            font-size: var(--small-size);
+        }
+
+        .arch-box.highlight {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 15px var(--accent-purple-glow);
+        }
+
+        .arch-box .arch-label {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: clamp(0.8rem, 1.3vw, 1rem);
+            color: var(--text-primary);
+        }
+
+        .arch-box .arch-desc {
+            font-size: var(--small-size);
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .arch-flow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: clamp(0.3rem, 0.8vw, 0.6rem);
+            width: 100%;
+            max-width: min(90vw, 800px);
+            margin: 0 auto;
+        }
+
+        .arch-row {
+            display: flex;
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+            justify-content: center;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .arch-arrow {
+            color: var(--accent-purple);
+            font-size: clamp(0.8rem, 1.5vw, 1.2rem);
+            text-align: center;
+        }
+
+        /* === TWO COLUMN LAYOUT === */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: clamp(1rem, 3vw, 2.5rem);
+            align-items: start;
+            width: 100%;
+            max-width: min(90vw, 1000px);
+            margin: 0 auto;
+        }
+
+        @media (max-width: 600px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* === BULLET LIST === */
+        .bullet-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.3rem, 0.8vh, 0.75rem);
+        }
+
+        .bullet-list li {
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+            line-height: 1.5;
+            padding-left: 1.2em;
+            position: relative;
+        }
+
+        .bullet-list li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.6em;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-purple);
+        }
+
+        .bullet-list li strong {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* === TABLE === */
+        .data-table {
+            width: 100%;
+            max-width: min(90vw, 800px);
+            border-collapse: collapse;
+            font-size: var(--small-size);
+            margin: 0 auto;
+        }
+
+        .data-table th {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: clamp(0.7rem, 1.2vw, 0.95rem);
+            color: var(--accent-purple);
+            text-align: left;
+            padding: clamp(0.3rem, 0.8vw, 0.6rem);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .data-table td {
+            padding: clamp(0.3rem, 0.8vw, 0.6rem);
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .data-table td:first-child {
+            color: var(--text-primary);
+            font-weight: 400;
+        }
+
+        /* === FLOW STEPS === */
+        .flow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.3rem, 0.6vh, 0.5rem);
+            max-width: min(90vw, 700px);
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.5rem, 1vw, 0.75rem);
+        }
+
+        .flow-step .step-num {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+            color: var(--accent-purple);
+            min-width: 2em;
+            text-align: center;
+        }
+
+        .flow-step .step-text {
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+        }
+
+        .flow-step .step-text strong {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* === CLOSING SLIDE === */
+        .closing-slide .slide-content {
+            align-items: center;
+            text-align: center;
+            gap: var(--content-gap);
+        }
+
+        .closing-slide h2 {
+            font-size: var(--title-size);
+            font-weight: 400;
+            letter-spacing: 0.03em;
+        }
+
+        .link-row {
+            display: flex;
+            gap: clamp(1rem, 3vw, 2rem);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .link-pill {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--accent-purple);
+            border: 1px solid var(--accent-purple);
+            border-radius: 20px;
+            padding: clamp(0.3rem, 0.6vw, 0.5rem) clamp(0.75rem, 1.5vw, 1.25rem);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .link-pill:hover {
+            background: var(--accent-purple);
+            color: var(--bg-primary);
+        }
+
+        /* === HIGHLIGHT ACCENT === */
+        .hl-purple { color: var(--accent-purple); }
+        .hl-amber { color: var(--accent-amber); }
+        .hl-emerald { color: var(--accent-emerald); }
+        .hl-gold { color: var(--accent-gold); }
+        .hl-pink { color: var(--accent-pink); }
+
+        /* === SLIDE SPECIFIC BACKGROUNDS === */
+        .slide-dark {
+            background: var(--bg-primary);
+        }
+
+        .slide-gradient {
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #1a1025 50%, var(--bg-primary) 100%);
+        }
+
+        .slide-gradient-amber {
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #1a1508 50%, var(--bg-primary) 100%);
+        }
+
+        .slide-gradient-emerald {
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #0a1a14 50%, var(--bg-primary) 100%);
+        }
+
+        /* === BADGE === */
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: clamp(0.55rem, 0.8vw, 0.7rem);
+            padding: 0.15em 0.6em;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .badge-purple {
+            color: var(--accent-purple);
+            border: 1px solid var(--accent-purple);
+        }
+
+        .badge-amber {
+            color: var(--accent-amber);
+            border: 1px solid var(--accent-amber);
+        }
+
+        .badge-emerald {
+            color: var(--accent-emerald);
+            border: 1px solid var(--accent-emerald);
+        }
+
+        /* === STAT ROW === */
+        .stat-row {
+            display: flex;
+            gap: clamp(1.5rem, 4vw, 3rem);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: clamp(1.5rem, 4vw, 3rem);
+            font-weight: 400;
+            color: var(--accent-purple);
+        }
+
+        .stat-label {
+            font-size: var(--small-size);
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* ===========================================
+           Z-INDEX LAYERING
+           =========================================== */
+        .slide-content { position: relative; z-index: 1; }
+    </style>
+</head>
+<body>
+    <!-- Progress bar -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Navigation dots -->
+    <nav class="nav-dots" id="navDots" aria-label="Slide navigation"></nav>
+
+    <!-- Slide counter -->
+    <div class="slide-counter" id="slideCounter">01 / 22</div>
+
+    <!-- ============================================
+         SLIDE 1: TITLE
+         ============================================ -->
+    <section class="slide title-slide slide-gradient" aria-label="Title">
+        <div class="greek-symbol">&Pi;</div>
+        <div class="orb orb-purple" style="width:300px;height:300px;top:-50px;right:-50px;"></div>
+        <div class="orb orb-amber" style="width:200px;height:200px;bottom:10%;left:5%;"></div>
+        <div class="accent-line" style="height:40%;top:30%;left:8%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Self-Hosted AI Search Engine</p>
+            <h1 class="reveal">Pythia</h1>
+            <p class="reveal subtitle">The Oracle of Delphi answered questions from mortals.<br>This one answers yours, with local LLMs and semantic memory.</p>
+            <p class="reveal author">jasperan/pythia</p>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 2: THE PROBLEM
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="The Problem">
+        <div class="orb orb-pink" style="width:250px;height:250px;bottom:-60px;right:10%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">The Problem</p>
+            <h2 class="reveal">Search engines got worse.<br><span class="hl-purple">AI wrappers got expensive.</span></h2>
+            <ul class="reveal bullet-list" style="margin-top:var(--content-gap);">
+                <li><strong>Perplexity Pro</strong> costs $20/month and sends your data to third-party APIs</li>
+                <li><strong>Google Deep Research</strong> is locked behind Gemini Advanced and can't be self-hosted</li>
+                <li><strong>ChatGPT Search</strong> returns hallucinated citations you can't verify</li>
+                <li>None of them <strong>remember</strong> what you searched last month</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 3: THE SOLUTION
+         ============================================ -->
+    <section class="slide content-slide slide-gradient" aria-label="The Solution">
+        <div class="orb orb-emerald" style="width:280px;height:280px;top:-40px;left:-60px;"></div>
+        <div class="orb orb-purple" style="width:180px;height:180px;bottom:15%;right:5%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">The Solution</p>
+            <h2 class="reveal">Pythia: your private oracle</h2>
+            <p class="reveal slide-description">
+                A self-hosted Perplexity + Deep Research replacement combining
+                <strong class="hl-emerald">SearXNG</strong> (free, unlimited web search),
+                <strong class="hl-amber">Ollama</strong> (local LLM inference), and
+                <strong class="hl-purple">Oracle AI Vector Search</strong> (semantic caching and knowledge accumulation).
+            </p>
+            <div class="reveal stat-row" style="margin-top:var(--content-gap);">
+                <div class="stat-item"><div class="stat-value">$0</div><div class="stat-label">Monthly cost</div></div>
+                <div class="stat-item"><div class="stat-value">0</div><div class="stat-label">Data sent externally</div></div>
+                <div class="stat-item"><div class="stat-value">&infin;</div><div class="stat-label">Memory retention</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 4: KEY FEATURES (1/2)
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="Key Features">
+        <div class="orb orb-amber" style="width:200px;height:200px;top:5%;right:-30px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Features</p>
+            <h2 class="reveal">What Pythia does</h2>
+            <div class="reveal feature-grid" style="margin-top:var(--content-gap);">
+                <div class="feature-card">
+                    <div class="icon">&#x1F50D;</div>
+                    <h3>Single-Shot Search</h3>
+                    <p>Ask a question, get a cited answer. Cached semantically so similar queries return instantly.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F9E0;</div>
+                    <h3>Deep Research</h3>
+                    <p>Multi-round autonomous agent that iterates, fills gaps, and writes cited reports.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x26A1;</div>
+                    <h3>Semantic Cache</h3>
+                    <p>Oracle AI Vector Search finds similar past queries (cosine >= 0.85) and returns cached answers in milliseconds.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F4E1;</div>
+                    <h3>Real-Time Streaming</h3>
+                    <p>Tokens appear as they generate via SSE. No waiting for the full response.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F4DA;</div>
+                    <h3>Knowledge Accumulation</h3>
+                    <p>Every research finding is stored as an embedding. Your Pythia gets smarter over time.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F3A8;</div>
+                    <h3>Full-Screen TUI</h3>
+                    <p>Multi-screen Textual interface. 4 screens, 4 themes, command palette, keybindings.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 5: KEY FEATURES (2/2)
+         ============================================ -->
+    <section class="slide content-slide slide-gradient-amber" aria-label="More Features">
+        <div class="orb orb-warm" style="width:220px;height:220px;bottom:-40px;left:10%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Features</p>
+            <h2 class="reveal">And also</h2>
+            <div class="reveal feature-grid" style="margin-top:var(--content-gap);">
+                <div class="feature-card">
+                    <div class="icon">&#x1F517;</div>
+                    <h3>Source Citations</h3>
+                    <p>Inline [1], [2] citations from web results. Every claim is traceable.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F578;&#xFE0F;</div>
+                    <h3>Deep Scraping</h3>
+                    <p>Optional Scrapling integration scrapes full page content instead of just snippets.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x2328;&#xFE0F;</div>
+                    <h3>Programmatic CLI</h3>
+                    <p>Machine-friendly JSON output: pythia query, pythia research, pythia embed.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F310;</div>
+                    <h3>FastAPI Server</h3>
+                    <p>REST API with SSE streaming. Integrate Pythia into any application.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 6: ARCHITECTURE OVERVIEW
+         ============================================ -->
+    <section class="slide content-slide slide-gradient" aria-label="Architecture Overview">
+        <div class="orb orb-purple" style="width:350px;height:350px;top:-80px;left:-80px;opacity:0.25;"></div>
+        <div class="accent-line" style="height:60%;top:20%;right:12%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Architecture</p>
+            <h2 class="reveal">Three layers, zero cloud dependencies</h2>
+            <div class="reveal arch-flow" style="margin-top:var(--content-gap);">
+                <div class="arch-box highlight" style="width:100%;max-width:500px;">
+                    <div class="arch-label">Pythia TUI <span class="hl-purple">(Textual)</span></div>
+                    <div class="arch-desc">Search, Research, History, Dashboard screens</div>
+                </div>
+                <div class="arch-arrow">&darr; HTTP localhost:8900</div>
+                <div class="arch-box highlight" style="width:100%;max-width:500px;">
+                    <div class="arch-label">Pythia API Server <span class="hl-amber">(FastAPI)</span></div>
+                    <div class="arch-desc">POST /search &bull; POST /research &bull; POST /embed &bull; GET /health</div>
+                </div>
+                <div class="arch-arrow">&darr; &darr; &darr;</div>
+                <div class="arch-row">
+                    <div class="arch-box" style="flex:1;min-width:120px;">
+                        <div class="arch-label hl-emerald">SearXNG</div>
+                        <div class="arch-desc">:8889 (Docker)</div>
+                    </div>
+                    <div class="arch-box" style="flex:1;min-width:120px;">
+                        <div class="arch-label hl-amber">Ollama</div>
+                        <div class="arch-desc">:11434 (local)</div>
+                    </div>
+                    <div class="arch-box" style="flex:1;min-width:120px;">
+                        <div class="arch-label hl-purple">Oracle 26ai</div>
+                        <div class="arch-desc">Vector Search + ONNX</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 7: SEARCH FLOW
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="Search Flow">
+        <div class="orb orb-emerald" style="width:200px;height:200px;bottom:10%;right:-40px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Single-Shot Search</p>
+            <h2 class="reveal">Cache-first, parallel-prefetch</h2>
+            <div class="reveal flow-steps" style="margin-top:var(--content-gap);">
+                <div class="flow-step">
+                    <span class="step-num">1</span>
+                    <span class="step-text"><strong>Parallel prefetch</strong> fires cache lookup and SearXNG search concurrently</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num">2</span>
+                    <span class="step-text"><strong class="hl-emerald">Cache HIT</strong> (similarity >= 0.85): cancel web search, return instantly</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num">3</span>
+                    <span class="step-text"><strong class="hl-amber">Cache MISS</strong>: web search is already running; synthesize via Ollama with citations</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num">4</span>
+                    <span class="step-text"><strong>Store</strong> answer + embedding in Oracle (reuses the embedding from cache check)</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num">5</span>
+                    <span class="step-text"><strong>Stream</strong> tokens via SSE in real-time with citation density in the DONE event</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 8: DEEP RESEARCH - OVERVIEW
+         ============================================ -->
+    <section class="slide content-slide slide-gradient" aria-label="Deep Research Overview">
+        <div class="orb orb-purple" style="width:300px;height:300px;top:-60px;right:-60px;"></div>
+        <div class="orb orb-amber" style="width:180px;height:180px;bottom:5%;left:8%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Deep Research</p>
+            <h2 class="reveal">Autonomous multi-step research agent</h2>
+            <p class="reveal slide-description">
+                Like Perplexity Deep Research or Google Deep Research, but fully self-hosted.
+                The agent iteratively searches, analyzes gaps, and synthesizes comprehensive reports.
+            </p>
+            <div class="reveal code-block" style="margin-top:var(--content-gap);">
+                <span class="function">pythia</span> <span class="string">research</span> <span class="flag">"What are the tradeoffs between RISC-V and ARM for edge AI?"</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 9: DEEP RESEARCH - 7 STEPS
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="Research Steps">
+        <div class="orb orb-warm" style="width:180px;height:180px;top:10%;left:-30px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Research Pipeline</p>
+            <h2 class="reveal">Seven steps to synthesis</h2>
+            <div class="reveal flow-steps" style="margin-top:var(--content-gap);">
+                <div class="flow-step">
+                    <span class="step-num hl-purple">1</span>
+                    <span class="step-text"><strong>Decompose</strong>: LLM breaks question into 3-5 focused sub-queries</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num hl-purple">2</span>
+                    <span class="step-text"><strong>Search &amp; Scrape</strong>: each sub-query searched in parallel via SearXNG</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num hl-purple">3</span>
+                    <span class="step-text"><strong>Summarize</strong>: LLM extracts key findings from each sub-query's results</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num hl-amber">4</span>
+                    <span class="step-text"><strong>Analyze Gaps</strong>: LLM reviews all findings, identifies what's missing</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num hl-amber">5</span>
+                    <span class="step-text"><strong>Iterate</strong>: generates follow-up searches autonomously (up to N rounds)</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num hl-emerald">6</span>
+                    <span class="step-text"><strong>Recall</strong>: Oracle vector search finds related findings from past sessions</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num hl-emerald">7</span>
+                    <span class="step-text"><strong>Synthesize</strong>: produces a structured, cited research report</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 10: KNOWLEDGE ACCUMULATION
+         ============================================ -->
+    <section class="slide content-slide slide-gradient-emerald" aria-label="Knowledge Accumulation">
+        <div class="orb orb-emerald" style="width:300px;height:300px;top:-50px;right:-70px;"></div>
+        <div class="orb orb-purple" style="width:150px;height:150px;bottom:20%;left:5%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">The Advantage</p>
+            <h2 class="reveal">Your Pythia gets <span class="hl-emerald">smarter</span> over time</h2>
+            <p class="reveal slide-description">
+                Every research session stores individual findings as embeddings in Oracle.
+                When you research "RISC-V for edge AI" next month, Pythia recalls relevant
+                fragments from your earlier research on "ARM vs x86 power efficiency".
+            </p>
+            <p class="reveal slide-description" style="color:var(--text-muted);font-style:italic;">
+                No stateless search engine can do this.
+            </p>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 11: ORACLE STORAGE SCHEMA
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="Oracle Storage">
+        <div class="orb orb-purple" style="width:200px;height:200px;bottom:-50px;left:-40px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Oracle Database</p>
+            <h2 class="reveal">Storage schema</h2>
+            <table class="reveal data-table" style="margin-top:var(--content-gap);">
+                <thead>
+                    <tr>
+                        <th>Table</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>pythia_cache</code></td>
+                        <td>Semantic cache: query + embedding + answer + sources</td>
+                    </tr>
+                    <tr>
+                        <td><code>pythia_history</code></td>
+                        <td>Search history with timing and cache hit stats</td>
+                    </tr>
+                    <tr>
+                        <td><code>pythia_research</code></td>
+                        <td>Research sessions: query + report + metadata</td>
+                    </tr>
+                    <tr>
+                        <td><code>pythia_findings</code></td>
+                        <td>Individual findings with embeddings for cross-session recall</td>
+                    </tr>
+                    <tr>
+                        <td><code>pythia_stats</code></td>
+                        <td>Analytics view: hit rate, avg response time, active days</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 12: TUI OVERVIEW
+         ============================================ -->
+    <section class="slide content-slide slide-gradient" aria-label="TUI Overview">
+        <div class="orb orb-amber" style="width:250px;height:250px;top:-40px;left:-50px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Terminal UI</p>
+            <h2 class="reveal">Four screens, built with Textual</h2>
+            <div class="reveal feature-grid" style="margin-top:var(--content-gap);">
+                <div class="feature-card">
+                    <div class="icon">1</div>
+                    <h3>Search</h3>
+                    <p>Ask questions, get cited answers. Results stack as scrollback.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">2</div>
+                    <h3>Research</h3>
+                    <p>Live tree shows rounds, sub-queries, and findings in real-time.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">3</div>
+                    <h3>History</h3>
+                    <p>Browse all past queries. Filter, fuzzy search, re-run, or send to research.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">4</div>
+                    <h3>Dashboard</h3>
+                    <p>Cache stats, sparklines, model picker, deep search toggle.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 13: TUI THEMES & KEYBINDINGS
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="TUI Themes">
+        <div class="orb orb-pink" style="width:180px;height:180px;top:8%;right:5%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Terminal UI</p>
+            <h2 class="reveal">Themes &amp; keybindings</h2>
+            <div class="reveal two-col" style="margin-top:var(--content-gap);">
+                <div>
+                    <h3 style="font-size:var(--body-size);color:var(--accent-amber);margin-bottom:0.5em;">4 Themes</h3>
+                    <ul class="bullet-list">
+                        <li><strong>Dark</strong> (default): cyan accent on dark</li>
+                        <li><strong>Light</strong>: blue accent on white</li>
+                        <li><strong>Catppuccin Mocha</strong>: mauve/pink accent</li>
+                        <li><strong>Nord</strong>: frost blue, Nordic palette</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="font-size:var(--body-size);color:var(--accent-amber);margin-bottom:0.5em;">Key Keybindings</h3>
+                    <ul class="bullet-list">
+                        <li><strong>Ctrl+P</strong>: command palette</li>
+                        <li><strong>1-4</strong>: switch screens</li>
+                        <li><strong>Ctrl+D</strong>: toggle deep search</li>
+                        <li><strong>Ctrl+T</strong>: cycle theme</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 14: SEARCH PREFIXES
+         ============================================ -->
+    <section class="slide content-slide slide-gradient-amber" aria-label="Search Prefixes">
+        <div class="orb orb-amber" style="width:220px;height:220px;bottom:-50px;right:-30px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Search Modes</p>
+            <h2 class="reveal">Three ways to search</h2>
+            <div class="reveal" style="margin-top:var(--content-gap);display:flex;flex-direction:column;gap:clamp(0.5rem,1.5vw,1rem);">
+                <div class="arch-box" style="text-align:left;max-width:600px;">
+                    <div class="arch-label"><code style="color:var(--accent-emerald);">what is RLHF?</code></div>
+                    <div class="arch-desc">Normal search with semantic cache</div>
+                </div>
+                <div class="arch-box" style="text-align:left;max-width:600px;">
+                    <div class="arch-label"><code style="color:var(--accent-amber);">!! what is RLHF?</code></div>
+                    <div class="arch-desc">Deep search: scrapes full page content from top results</div>
+                </div>
+                <div class="arch-box" style="text-align:left;max-width:600px;">
+                    <div class="arch-label"><code style="color:var(--accent-purple);">?? what is RLHF?</code></div>
+                    <div class="arch-desc">Research mode: multi-round iterative agent</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 15: CLI COMMANDS
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="CLI Commands">
+        <div class="orb orb-emerald" style="width:180px;height:180px;top:5%;left:-30px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">CLI</p>
+            <h2 class="reveal">Programmatic interface</h2>
+            <div class="reveal code-block" style="margin-top:var(--content-gap);">
+                <span class="comment"># Single-shot search (JSON output)</span><br>
+                <span class="function">pythia</span> <span class="string">query</span> <span class="flag">"What is RLHF?"</span> <span class="flag">--stream</span><br><br>
+                <span class="comment"># Deep research (structured report)</span><br>
+                <span class="function">pythia</span> <span class="string">research</span> <span class="flag">"RISC-V vs ARM"</span> <span class="flag">--max-rounds 5</span><br><br>
+                <span class="comment"># Generate embeddings</span><br>
+                <span class="function">pythia</span> <span class="string">embed</span> <span class="flag">"hello world"</span> <span class="flag">--store</span><br><br>
+                <span class="comment"># Launch API server standalone</span><br>
+                <span class="function">pythia</span> <span class="string">serve</span> <span class="flag">--port 9000</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 16: API ENDPOINTS
+         ============================================ -->
+    <section class="slide content-slide slide-gradient" aria-label="API Endpoints">
+        <div class="orb orb-purple" style="width:200px;height:200px;bottom:-40px;right:15%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">API Server</p>
+            <h2 class="reveal">FastAPI with SSE streaming</h2>
+            <table class="reveal data-table" style="margin-top:var(--content-gap);">
+                <thead>
+                    <tr>
+                        <th>Endpoint</th>
+                        <th>Method</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>/search</code></td>
+                        <td>POST</td>
+                        <td>Single-shot search with SSE streaming</td>
+                    </tr>
+                    <tr>
+                        <td><code>/research</code></td>
+                        <td>POST</td>
+                        <td>Deep research with SSE streaming</td>
+                    </tr>
+                    <tr>
+                        <td><code>/embed</code></td>
+                        <td>POST</td>
+                        <td>Generate embedding for text</td>
+                    </tr>
+                    <tr>
+                        <td><code>/health</code></td>
+                        <td>GET</td>
+                        <td>Service status + cache size</td>
+                    </tr>
+                    <tr>
+                        <td><code>/history</code></td>
+                        <td>GET</td>
+                        <td>Recent search history</td>
+                    </tr>
+                    <tr>
+                        <td><code>/cache</code></td>
+                        <td>DELETE</td>
+                        <td>Clear all cached entries</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 17: TECH STACK
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="Tech Stack">
+        <div class="orb orb-amber" style="width:250px;height:250px;top:-60px;right:-50px;"></div>
+        <div class="orb orb-emerald" style="width:150px;height:150px;bottom:15%;left:3%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Stack</p>
+            <h2 class="reveal">Tech stack</h2>
+            <table class="reveal data-table" style="margin-top:var(--content-gap);">
+                <thead>
+                    <tr>
+                        <th>Layer</th>
+                        <th>Technology</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>CLI</td><td>Typer</td></tr>
+                    <tr><td>TUI</td><td>Textual, Rich</td></tr>
+                    <tr><td>API Server</td><td>FastAPI, uvicorn, SSE-Starlette</td></tr>
+                    <tr><td>Web Search</td><td>SearXNG (Docker)</td></tr>
+                    <tr><td>LLM</td><td>Ollama (qwen3.5:9b default)</td></tr>
+                    <tr><td>Embeddings</td><td>sentence-transformers (all-MiniLM-L6-v2)</td></tr>
+                    <tr><td>Database</td><td>Oracle Database 26ai Free (Docker)</td></tr>
+                    <tr><td>Vector Search</td><td>Oracle AI Vector Search (COSINE)</td></tr>
+                    <tr><td>Scraping</td><td>Scrapling (optional)</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 18: CONFIGURATION
+         ============================================ -->
+    <section class="slide content-slide slide-gradient" aria-label="Configuration">
+        <div class="orb orb-warm" style="width:200px;height:200px;bottom:-30px;left:10%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Config</p>
+            <h2 class="reveal">pythia.yaml</h2>
+            <div class="reveal code-block" style="margin-top:var(--content-gap);">
+                <span class="keyword">server</span>:<br>
+                &nbsp;&nbsp;host: <span class="string">"0.0.0.0"</span> &nbsp; port: <span class="string">8900</span><br><br>
+                <span class="keyword">ollama</span>:<br>
+                &nbsp;&nbsp;model: <span class="string">"qwen3.5:9b"</span><br><br>
+                <span class="keyword">oracle</span>:<br>
+                &nbsp;&nbsp;dsn: <span class="string">"localhost:1523/FREEPDB1"</span><br>
+                &nbsp;&nbsp;cache_similarity_threshold: <span class="string">0.85</span><br><br>
+                <span class="keyword">research</span>:<br>
+                &nbsp;&nbsp;max_rounds: <span class="string">3</span> &nbsp; max_sub_queries: <span class="string">5</span><br>
+                &nbsp;&nbsp;recall_threshold: <span class="string">0.70</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 19: QUICK START
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="Quick Start">
+        <div class="orb orb-emerald" style="width:200px;height:200px;top:-40px;left:-40px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Getting Started</p>
+            <h2 class="reveal">5 steps to running Pythia</h2>
+            <div class="reveal flow-steps" style="margin-top:var(--content-gap);">
+                <div class="flow-step">
+                    <span class="step-num">1</span>
+                    <span class="step-text"><code>conda create -n pythia python=3.12 -y</code></span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num">2</span>
+                    <span class="step-text"><code>pip install -e ".[dev]"</code></span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num">3</span>
+                    <span class="step-text"><code>docker compose up -d</code> (Oracle 26ai + SearXNG)</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num">4</span>
+                    <span class="step-text">Run <code>setup_schema.sql</code> + load ONNX embedding model</span>
+                </div>
+                <div class="flow-step">
+                    <span class="step-num">5</span>
+                    <span class="step-text"><code>pythia search</code> (launches TUI with auto-start)</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 20: ONE-COMMAND INSTALL
+         ============================================ -->
+    <section class="slide content-slide slide-gradient-amber" aria-label="One Command Install">
+        <div class="orb orb-amber" style="width:250px;height:250px;bottom:-50px;right:-40px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Shortcut</p>
+            <h2 class="reveal">Or just run one command</h2>
+            <div class="reveal code-block" style="margin-top:var(--content-gap);">
+                <span class="function">curl</span> <span class="flag">-fsSL</span> https://raw.githubusercontent.com/<br>&nbsp;&nbsp;jasperan/pythia/master/install.sh <span class="flag">| bash</span>
+            </div>
+            <p class="reveal slide-description" style="margin-top:var(--element-gap);">
+                Clones, configures conda environment, starts Docker containers, and runs schema setup.
+            </p>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 21: PROJECT STRUCTURE
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="Project Structure">
+        <div class="orb orb-purple" style="width:180px;height:180px;top:5%;right:-20px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Codebase</p>
+            <h2 class="reveal">Project structure</h2>
+            <div class="reveal two-col" style="margin-top:var(--content-gap);">
+                <div>
+                    <h3 style="font-size:var(--body-size);color:var(--accent-purple);margin-bottom:0.5em;">Server</h3>
+                    <ul class="bullet-list">
+                        <li><strong>app.py</strong>: FastAPI app factory</li>
+                        <li><strong>search.py</strong>: SearchOrchestrator</li>
+                        <li><strong>research.py</strong>: ResearchAgent</li>
+                        <li><strong>oracle_cache.py</strong>: Oracle Vector Search</li>
+                        <li><strong>searxng.py</strong>: SearXNG client</li>
+                        <li><strong>ollama.py</strong>: Ollama LLM client</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="font-size:var(--body-size);color:var(--accent-amber);margin-bottom:0.5em;">TUI + CLI</h3>
+                    <ul class="bullet-list">
+                        <li><strong>cli.py</strong>: Typer CLI entry point</li>
+                        <li><strong>tui/app.py</strong>: PythiaApp (Textual)</li>
+                        <li><strong>screens/</strong>: search, research, history, dashboard</li>
+                        <li><strong>widgets/</strong>: 18 custom widgets</li>
+                        <li><strong>themes/</strong>: 4 TCSS theme files</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 22: RESEARCH SSE EVENTS
+         ============================================ -->
+    <section class="slide content-slide slide-gradient" aria-label="SSE Events">
+        <div class="orb orb-emerald" style="width:200px;height:200px;top:-30px;left:10%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Streaming Protocol</p>
+            <h2 class="reveal">Research SSE event stream</h2>
+            <div class="reveal code-block" style="margin-top:var(--content-gap);">
+                <span class="keyword">event:</span> <span class="string">status</span> &nbsp; <span class="comment"># "Planning research..."</span><br>
+                <span class="keyword">event:</span> <span class="string">plan</span> &nbsp;&nbsp;&nbsp; <span class="comment"># sub_queries: ["q1","q2","q3"]</span><br>
+                <span class="keyword">event:</span> <span class="string">round_start</span> <span class="comment"># round: 1, max_rounds: 3</span><br>
+                <span class="keyword">event:</span> <span class="string">finding</span> &nbsp; <span class="comment"># sub_query + summary_preview</span><br>
+                <span class="keyword">event:</span> <span class="string">gap_analysis</span> <span class="comment"># sufficient: false, gaps</span><br>
+                <span class="keyword">event:</span> <span class="string">recall</span> &nbsp;&nbsp; <span class="comment"># count: 2, past findings</span><br>
+                <span class="keyword">event:</span> <span class="string">token</span> &nbsp;&nbsp;&nbsp; <span class="comment"># streaming report content</span><br>
+                <span class="keyword">event:</span> <span class="string">done</span> &nbsp;&nbsp;&nbsp;&nbsp; <span class="comment"># rounds_used, findings, elapsed</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 23: WHY ORACLE
+         ============================================ -->
+    <section class="slide content-slide slide-dark" aria-label="Why Oracle">
+        <div class="orb orb-purple" style="width:280px;height:280px;bottom:-60px;left:-50px;"></div>
+        <div class="orb orb-gold" style="width:150px;height:150px;top:10%;right:8%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Why Oracle</p>
+            <h2 class="reveal">Not just a database. <span class="hl-purple">An AI engine.</span></h2>
+            <ul class="reveal bullet-list" style="margin-top:var(--content-gap);">
+                <li><strong>ONNX in-database embeddings</strong>: the model runs inside Oracle, zero external calls</li>
+                <li><strong>VECTOR column type</strong> with native COSINE distance (no pgvector extension drama)</li>
+                <li><strong>SQL + Vector in one query</strong>: join cache lookups with history filters in a single statement</li>
+                <li><strong>Oracle 26ai Free</strong>: runs in Docker, no license needed, full Vector Search included</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 24: ROADMAP
+         ============================================ -->
+    <section class="slide content-slide slide-gradient-emerald" aria-label="Roadmap">
+        <div class="orb orb-emerald" style="width:250px;height:250px;top:-50px;right:-50px;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Roadmap</p>
+            <h2 class="reveal">What's next</h2>
+            <div class="reveal feature-grid" style="margin-top:var(--content-gap);">
+                <div class="feature-card">
+                    <div class="icon">&#x1F4C8;</div>
+                    <h3>RAG Pipeline</h3>
+                    <p>Index local documents and PDFs into the Oracle vector store for hybrid search.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F5C2;&#xFE0F;</div>
+                    <h3>Collection Management</h3>
+                    <p>Save and organize research reports into named collections.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F916;</div>
+                    <h3>Multi-Model Support</h3>
+                    <p>Route different query types to specialized models via Ollama.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#x1F30D;</div>
+                    <h3>Web UI</h3>
+                    <p>Browser-based interface alongside the TUI for broader accessibility.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         SLIDE 25: CLOSING
+         ============================================ -->
+    <section class="slide closing-slide slide-gradient" aria-label="Closing">
+        <div class="greek-symbol" style="top:auto;bottom:10%;opacity:0.08;">&Pi;</div>
+        <div class="orb orb-purple" style="width:350px;height:350px;top:-80px;left:-80px;"></div>
+        <div class="orb orb-amber" style="width:250px;height:250px;bottom:-60px;right:-60px;"></div>
+        <div class="orb orb-emerald" style="width:150px;height:150px;top:40%;right:20%;"></div>
+        <div class="accent-line" style="height:50%;top:25%;left:6%;"></div>
+        <div class="accent-line" style="height:50%;top:25%;right:6%;"></div>
+        <div class="slide-content">
+            <p class="reveal section-label">Open Source &bull; MIT License</p>
+            <h2 class="reveal" style="background:linear-gradient(135deg,var(--text-primary) 0%,var(--accent-gold) 50%,var(--accent-purple) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Ask Pythia</h2>
+            <p class="reveal subtitle" style="font-family:var(--font-display);font-style:italic;font-size:var(--subtitle-size);color:var(--text-secondary);">Your private oracle, running on your hardware.</p>
+            <div class="reveal link-row" style="margin-top:var(--content-gap);">
+                <a href="https://github.com/jasperan/pythia" class="link-pill">GitHub</a>
+                <a href="https://github.com/jasperan/pythia#quick-start" class="link-pill">Quick Start</a>
+                <a href="https://github.com/jasperan/pythia#api-endpoints" class="link-pill">API Docs</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE PRESENTATION CONTROLLER
+         =========================================== -->
+    <script>
+        class SlidePresentation {
+            constructor() {
+                this.slides = document.querySelectorAll('.slide');
+                this.currentSlide = 0;
+                this.totalSlides = this.slides.length;
+                this.isScrolling = false;
+
+                this.setupIntersectionObserver();
+                this.setupKeyboardNav();
+                this.setupTouchNav();
+                this.setupProgressBar();
+                this.setupNavDots();
+                this.updateSlideCounter();
+            }
+
+            /* --- Intersection Observer: trigger .visible on scroll --- */
+            setupIntersectionObserver() {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('visible');
+                            const idx = Array.from(this.slides).indexOf(entry.target);
+                            if (idx !== -1) {
+                                this.currentSlide = idx;
+                                this.updateProgressBar();
+                                this.updateNavDots();
+                                this.updateSlideCounter();
+                            }
+                        }
+                    });
+                }, {
+                    threshold: 0.5
+                });
+
+                this.slides.forEach(slide => observer.observe(slide));
+            }
+
+            /* --- Keyboard Navigation --- */
+            setupKeyboardNav() {
+                document.addEventListener('keydown', (e) => {
+                    switch(e.key) {
+                        case 'ArrowDown':
+                        case 'ArrowRight':
+                        case ' ':
+                        case 'PageDown':
+                            e.preventDefault();
+                            this.goToSlide(this.currentSlide + 1);
+                            break;
+                        case 'ArrowUp':
+                        case 'ArrowLeft':
+                        case 'PageUp':
+                            e.preventDefault();
+                            this.goToSlide(this.currentSlide - 1);
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            this.goToSlide(0);
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            this.goToSlide(this.totalSlides - 1);
+                            break;
+                    }
+                });
+            }
+
+            /* --- Touch / Swipe Navigation --- */
+            setupTouchNav() {
+                let startY = 0;
+                let startX = 0;
+
+                document.addEventListener('touchstart', (e) => {
+                    startY = e.touches[0].clientY;
+                    startX = e.touches[0].clientX;
+                }, { passive: true });
+
+                document.addEventListener('touchend', (e) => {
+                    const deltaY = startY - e.changedTouches[0].clientY;
+                    const deltaX = startX - e.changedTouches[0].clientX;
+
+                    // Only handle vertical swipes (ignore horizontal)
+                    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 50) {
+                        if (deltaY > 0) {
+                            this.goToSlide(this.currentSlide + 1);
+                        } else {
+                            this.goToSlide(this.currentSlide - 1);
+                        }
+                    }
+                }, { passive: true });
+            }
+
+            /* --- Progress Bar --- */
+            setupProgressBar() {
+                this.progressBar = document.getElementById('progressBar');
+                this.updateProgressBar();
+            }
+
+            updateProgressBar() {
+                if (this.progressBar) {
+                    const progress = ((this.currentSlide + 1) / this.totalSlides) * 100;
+                    this.progressBar.style.width = progress + '%';
+                }
+            }
+
+            /* --- Navigation Dots --- */
+            setupNavDots() {
+                const nav = document.getElementById('navDots');
+                if (!nav) return;
+
+                this.slides.forEach((_, i) => {
+                    const dot = document.createElement('button');
+                    dot.classList.add('nav-dot');
+                    dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
+                    if (i === 0) dot.classList.add('active');
+                    dot.addEventListener('click', () => this.goToSlide(i));
+                    nav.appendChild(dot);
+                });
+
+                this.navDots = nav.querySelectorAll('.nav-dot');
+            }
+
+            updateNavDots() {
+                if (!this.navDots) return;
+                this.navDots.forEach((dot, i) => {
+                    dot.classList.toggle('active', i === this.currentSlide);
+                });
+            }
+
+            /* --- Slide Counter --- */
+            updateSlideCounter() {
+                const counter = document.getElementById('slideCounter');
+                if (counter) {
+                    const current = String(this.currentSlide + 1).padStart(2, '0');
+                    const total = String(this.totalSlides).padStart(2, '0');
+                    counter.textContent = `${current} / ${total}`;
+                }
+            }
+
+            /* --- Navigate to Slide --- */
+            goToSlide(index) {
+                if (index < 0 || index >= this.totalSlides) return;
+                this.slides[index].scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            new SlidePresentation();
+        });
+    </script>
+</body>
+</html>
