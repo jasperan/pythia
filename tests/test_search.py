@@ -10,6 +10,7 @@ from pythia.server.oracle_cache import CacheEntry
 async def test_search_cache_hit():
     mock_ollama = AsyncMock()
     mock_ollama.model = "qwen3.5:9b"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     cached = CacheEntry(
         query="What is RLHF?",
@@ -41,6 +42,7 @@ async def test_search_cache_hit():
 async def test_search_cache_miss():
     mock_ollama = AsyncMock()
     mock_ollama.model = "qwen3.5:9b"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def fake_stream(system, user, model=None):
         for word in ["RLHF ", "is ", "great."]:

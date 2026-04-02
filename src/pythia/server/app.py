@@ -22,6 +22,7 @@ class SearchRequest(BaseModel):
     model: str | None = None
     deep: bool = False
     rewrite: bool = False
+    conversation_history: list[dict] | None = None
 
 
 class ResearchRequest(BaseModel):
@@ -60,7 +61,7 @@ def create_app(config: PythiaConfig) -> FastAPI:
         await searxng.close()
         await cache.close()
 
-    app = FastAPI(title="Pythia", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="Pythia", version="0.3.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.server.cors_origins,
@@ -77,7 +78,10 @@ def create_app(config: PythiaConfig) -> FastAPI:
     @app.post("/search")
     async def search(req: SearchRequest):
         return EventSourceResponse(_sse_wrap(
-            orchestrator.search(req.query, model_override=req.model, deep=req.deep, rewrite=req.rewrite)
+            orchestrator.search(
+                req.query, model_override=req.model, deep=req.deep,
+                rewrite=req.rewrite, conversation_history=req.conversation_history,
+            )
         ))
 
     @app.post("/research")

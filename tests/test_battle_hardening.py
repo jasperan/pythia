@@ -14,6 +14,7 @@ async def test_search_concurrent_model_override_no_mutation():
     """Model override must not mutate shared OllamaClient.model."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "qwen3.5:9b"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def fake_stream(system, user, model=None):
         # During streaming, the shared model should NOT be changed
@@ -49,6 +50,7 @@ async def test_search_searxng_connection_error():
     """Search should yield error event when SearXNG is unreachable."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
     mock_cache = AsyncMock()
     mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_searxng = AsyncMock()
@@ -70,6 +72,7 @@ async def test_search_searxng_timeout():
     import httpx
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
     mock_cache = AsyncMock()
     mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_searxng = AsyncMock()
@@ -91,6 +94,7 @@ async def test_search_ollama_error_during_stream():
     """Search should handle Ollama errors during token streaming."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def failing_stream(system, user, model=None):
         yield "partial "
@@ -121,6 +125,7 @@ async def test_search_ollama_empty_response():
     """Search should handle Ollama returning empty tokens."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def empty_stream(system, user, model=None):
         return
@@ -154,6 +159,7 @@ async def test_search_deep_mode_with_scraper():
     """Deep mode should trigger scraping and use build_deep_search_prompt."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def fake_stream(system, user, model=None):
         yield "deep answer"
@@ -190,6 +196,7 @@ async def test_search_unicode_query():
     """Search should handle unicode queries without errors."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def fake_stream(system, user, model=None):
         yield "unicode response"

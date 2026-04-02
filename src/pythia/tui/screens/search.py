@@ -13,6 +13,7 @@ from pythia.config import PythiaConfig
 from pythia.services import ServiceManager, ServiceInfo
 from pythia.tui.widgets.activity_indicator import ActivityIndicator
 from pythia.tui.widgets.cache_badge import CacheBadge
+from pythia.tui.widgets.grounding_badge import GroundingBadge
 from pythia.tui.widgets.logo import LogoBanner
 from pythia.tui.widgets.result_card import ResultCard
 from pythia.tui.widgets.search_input import SearchInput
@@ -20,6 +21,7 @@ from pythia.tui.widgets.service_status import ServiceStatusIndicator
 from pythia.tui.widgets.session_divider import SessionDivider
 from pythia.tui.widgets.source_list import SourceList
 from pythia.tui.widgets.status_bar import PythiaStatusBar
+from pythia.tui.widgets.suggestions import Suggestions
 
 
 class SearchScreen(Screen):
@@ -31,6 +33,8 @@ class SearchScreen(Screen):
             self._api_base = f"http://127.0.0.1:{config.server.port}"
         self._service_manager: ServiceManager | None = None
         self._health_check_interval = None
+        # Multi-turn conversation state
+        self._conversation_history: list[dict] = []
 
     def compose(self) -> ComposeResult:
         yield LogoBanner()
@@ -141,19 +145,28 @@ class SearchScreen(Screen):
         result_card = ResultCard()
         source_list = SourceList()
         cache_badge = CacheBadge()
+        grounding_badge = GroundingBadge()
         await results_area.mount(result_card)
         await results_area.mount(source_list)
         await results_area.mount(cache_badge)
+        await results_area.mount(grounding_badge)
 
         results_area.scroll_end()
         activity.set_label("Searching...")
 
+        # Track the user query for conversation history
+        self._conversation_history.append({"role": "user", "content": query})
+
         event_type = ""
+        full_answer_tokens = []
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
-                req_body = {"query": query}
+                req_body: dict = {"query": query}
                 if deep:
                     req_body["deep"] = True
+                # Send conversation history for multi-turn context
+                if len(self._conversation_history) > 1:
+                    req_body["conversation_history"] = self._conversation_history[:-1]
                 async with client.stream("POST", f"{self._api_base}/search", json=req_body) as resp:
                     async for line in resp.aiter_lines():
                         if not line:
@@ -173,7 +186,16 @@ class SearchScreen(Screen):
                             elif event_type == "source":
                                 source_list.add_source(data)
                             elif event_type == "token":
-                                result_card.append_token(data.get("content", ""))
+                                token = data.get("content", "")
+                                full_answer_tokens.append(token)
+                                result_card.append_token(token)
+                            elif event_type == "grounding":
+                                grounding_badge.show_grounding(
+                                    score=data.get("score", 0),
+                                    grounded=data.get("grounded_claims", 0),
+                                    total=data.get("total_claims", 0),
+                                    label=data.get("label", ""),
+                                )
                             elif event_type == "done":
                                 activity.stop()
                                 if data.get("cache_hit"):
@@ -181,10 +203,27 @@ class SearchScreen(Screen):
                                 else:
                                     cache_badge.show_web_search(data.get("response_time_ms", 0), data.get("sources_count", 0))
                                 await self._check_health()
+                            elif event_type == "suggestions":
+                                suggestions_list = data.get("suggestions", [])
+                                if suggestions_list:
+                                    widget = Suggestions(suggestions_list)
+                                    await results_area.mount(widget)
                                 results_area.scroll_end()
         except Exception as e:
             activity.stop()
             result_card.set_content(f"**Error:** {e}")
+
+        # Store assistant response in conversation history
+        answer_text = "".join(full_answer_tokens)
+        if answer_text:
+            self._conversation_history.append({"role": "assistant", "content": answer_text})
+        # Cap history at 10 messages to prevent memory bloat
+        if len(self._conversation_history) > 10:
+            self._conversation_history = self._conversation_history[-10:]
+
+    async def on_suggestions_selected(self, event: Suggestions.Selected) -> None:
+        """Handle clicking a follow-up suggestion."""
+        await self._run_search(event.query)
 
     async def _handle_command(self, command: str) -> None:
         results_area = self.query_one("#results-area", VerticalScroll)
@@ -231,6 +270,9 @@ class SearchScreen(Screen):
                     result_card.set_content(f"**Error:** {e}")
             else:
                 result_card.set_content("Usage: `/cache clear`")
+        elif cmd == "/new":
+            self._conversation_history = []
+            result_card.set_content("Conversation cleared. Starting fresh.")
         elif cmd == "/help":
             result_card.set_content(
                 "## Commands\n\n"
@@ -238,11 +280,16 @@ class SearchScreen(Screen):
                 "- `/stats` — Switch to Dashboard screen\n"
                 "- `/model <name>` — Switch Ollama model\n"
                 "- `/cache clear` — Purge Oracle cache\n"
+                "- `/new` — Start new conversation (clear context)\n"
                 "- `/clear` — Clear screen\n"
                 "- `/help` — Show this help\n\n"
                 "## Search Prefixes\n\n"
                 "- `!! <query>` — Deep search (scrapes pages)\n"
-                "- `?? <query>` — Research mode (multi-round)\n"
+                "- `?? <query>` — Research mode (multi-round)\n\n"
+                "## New Features\n\n"
+                "- **Multi-turn** — Follow-up queries use conversation context\n"
+                "- **Grounding** — Each answer shows source verification score\n"
+                "- **Suggestions** — Click follow-up questions below answers\n"
             )
         else:
             result_card.set_content(f"Unknown command: `{cmd}`. Type `/help` for available commands.")

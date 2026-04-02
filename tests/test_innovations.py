@@ -39,6 +39,7 @@ async def test_citation_density_in_done_event():
     """Cache miss search should include citation metrics in DONE event."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def fake_stream(system, user, model=None):
         yield "Answer based on [1] and [2] sources. Also [1] again."
@@ -127,6 +128,7 @@ async def test_search_with_rewrite_flag():
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
     mock_ollama.generate = AsyncMock(return_value="rewritten query")
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def fake_stream(system, user, model=None):
         yield "answer"
@@ -161,6 +163,7 @@ async def test_parallel_prefetch_cache_hit_cancels_search():
     """On cache hit, web search should be cancelled (not awaited to completion)."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     cached = CacheEntry(
         query="test", answer="cached answer", sources=[],
@@ -197,6 +200,7 @@ async def test_parallel_prefetch_cache_miss_uses_search():
     """On cache miss, already-running web search should be awaited."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     async def fake_stream(system, user, model=None):
         yield "answer"
@@ -227,6 +231,7 @@ async def test_parallel_prefetch_search_error_after_cache_miss():
     """If web search fails after cache miss, error should be reported."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
+    mock_ollama.generate_suggestions = AsyncMock(return_value=[])
     mock_cache = AsyncMock()
     mock_cache.lookup = AsyncMock(return_value=(None, "[0.1]"))
 
