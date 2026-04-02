@@ -39,7 +39,7 @@ def _extract_claims(answer: str) -> list[GroundedClaim]:
 
 
 def _word_overlap(claim_text: str, source_text: str) -> float:
-    """Compute word-level Jaccard overlap between claim and source."""
+    """Compute word-level recall: fraction of claim keywords found in source."""
     claim_words = set(claim_text.lower().split())
     source_words = set(source_text.lower().split())
     # Remove stop words for better signal

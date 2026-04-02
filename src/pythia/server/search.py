@@ -104,15 +104,16 @@ class SearchOrchestrator:
             })
 
             await self.cache.record_search(query, cache_hit=True, response_time_ms=elapsed_ms, model_used=cached.model_used)
+
+            # Innovation 5: Follow-up suggestions (before DONE so clients don't close early)
+            suggestions = await self.ollama.generate_suggestions(query, cached.answer, model=model)
+            if suggestions:
+                yield SearchEvent(EventType.SUGGESTIONS, {"suggestions": suggestions})
+
             yield SearchEvent(
                 EventType.DONE,
                 {"cache_hit": True, "similarity": cached.similarity, "response_time_ms": elapsed_ms, "sources_count": len(cached.sources)},
             )
-
-            # Innovation 5: Follow-up suggestions (fire-and-forget, non-blocking)
-            suggestions = await self.ollama.generate_suggestions(query, cached.answer, model=model)
-            if suggestions:
-                yield SearchEvent(EventType.SUGGESTIONS, {"suggestions": suggestions})
             return
 
         # Cache miss — web search is already running
@@ -172,6 +173,11 @@ class SearchOrchestrator:
         await self.cache.store(query=query, answer=answer_text, sources=sources_dicts, model_used=model, query_embedding=query_embedding)
         await self.cache.record_search(query, cache_hit=False, response_time_ms=elapsed_ms, model_used=model)
 
+        # Innovation 5: Follow-up suggestions (before DONE so clients don't close early)
+        suggestions = await self.ollama.generate_suggestions(query, answer_text, model=model)
+        if suggestions:
+            yield SearchEvent(EventType.SUGGESTIONS, {"suggestions": suggestions})
+
         yield SearchEvent(EventType.DONE, {
             "cache_hit": False,
             "response_time_ms": elapsed_ms,
@@ -181,8 +187,3 @@ class SearchOrchestrator:
             "grounding_score": grounding.score,
             "grounding_label": grounding.label,
         })
-
-        # Innovation 5: Follow-up suggestions
-        suggestions = await self.ollama.generate_suggestions(query, answer_text, model=model)
-        if suggestions:
-            yield SearchEvent(EventType.SUGGESTIONS, {"suggestions": suggestions})

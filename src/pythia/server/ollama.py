@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncIterator
 
 import httpx
 
 from pythia.server.searxng import SearchResult
+
+logger = logging.getLogger(__name__)
 
 
 _SYSTEM_PROMPT = """You are Pythia, an AI search engine. Answer the user's question using ONLY the provided search results. Follow these rules strictly:
@@ -171,6 +174,7 @@ class OllamaClient:
                 return [str(s) for s in parsed["suggestions"][:3]]
             return []
         except Exception:
+            logger.debug("Suggestion generation failed", exc_info=True)
             return []
 
     async def health(self) -> bool:

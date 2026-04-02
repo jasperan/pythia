@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from contextlib import asynccontextmanager
 
+from typing import Literal
+
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -17,12 +19,17 @@ from pythia.server.searxng import SearxngClient
 from pythia.server.search import SearchOrchestrator
 
 
+class ConversationMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=2000)
+
+
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=4000)
     model: str | None = None
     deep: bool = False
     rewrite: bool = False
-    conversation_history: list[dict] | None = None
+    conversation_history: list[ConversationMessage] | None = Field(None, max_length=20)
 
 
 class ResearchRequest(BaseModel):
@@ -77,10 +84,11 @@ def create_app(config: PythiaConfig) -> FastAPI:
 
     @app.post("/search")
     async def search(req: SearchRequest):
+        history = [m.model_dump() for m in req.conversation_history] if req.conversation_history else None
         return EventSourceResponse(_sse_wrap(
             orchestrator.search(
                 req.query, model_override=req.model, deep=req.deep,
-                rewrite=req.rewrite, conversation_history=req.conversation_history,
+                rewrite=req.rewrite, conversation_history=history,
             )
         ))
 
