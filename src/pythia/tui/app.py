@@ -47,6 +47,7 @@ class PythiaApp(App):
         self._auto_start = auto_start
         self._host = host or config.server.host
         self._port = port or config.server.port
+        self._api_base = self._build_api_base(self._host, self._port)
         self._config_path = config_path
         self._service_manager: ServiceManager | None = None
         self._current_theme: str = getattr(getattr(config, "tui", None), "theme", None) or "dark"
@@ -54,6 +55,12 @@ class PythiaApp(App):
         self._pending_search_query: str | None = None
         self._pending_research_query: str | None = None
         self._current_screen_name: str = "search"
+
+    @staticmethod
+    def _build_api_base(host: str, port: int) -> str:
+        """Normalize app-facing API URLs so 0.0.0.0 becomes reachable localhost."""
+        api_host = "127.0.0.1" if host == "0.0.0.0" else host
+        return f"http://{api_host}:{port}"
 
     def _cycle_theme(self) -> None:
         """Advance to the next theme in AVAILABLE_THEMES, wrapping around."""
@@ -113,10 +120,9 @@ class PythiaApp(App):
         from datetime import datetime
         from pathlib import Path
         import httpx
-        api_base = f"http://127.0.0.1:{self._port}"
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{api_base}/history", params={"limit": 1000})
+                resp = await client.get(f"{self._api_base}/history", params={"limit": 1000})
                 history = resp.json()
             ts = datetime.now().strftime("%Y-%m-%d")
             path = Path.home() / f"pythia-history-{ts}.md"
@@ -130,11 +136,10 @@ class PythiaApp(App):
             self.notify(f"Export failed: {e}", severity="error", timeout=3)
 
     async def action_clear_cache(self) -> None:
-        api_base = f"http://127.0.0.1:{self._port}"
         try:
             import httpx
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.delete(f"{api_base}/cache")
+                resp = await client.delete(f"{self._api_base}/cache")
                 data = resp.json()
                 self.notify(f"Cache cleared: {data.get('deleted', 0)} entries", timeout=3)
         except Exception as e:

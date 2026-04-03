@@ -1,19 +1,23 @@
 -- setup_schema.sql
--- Oracle Database 26ai with ONNX in-database embeddings
+-- Oracle Database 26ai vector schema for Pythia
 --
 -- Prerequisites:
 --   1. Oracle 26ai Free container running (docker compose up -d)
---   2. Connect as ADMIN to create user and load ONNX model
+--   2. Connect as ADMIN to create the pythia user
 --
 -- Step 1: Create user (run as ADMIN)
 -- CREATE USER pythia IDENTIFIED BY pythia;
 -- GRANT CONNECT, RESOURCE, UNLIMITED TABLESPACE, DB_DEVELOPER_ROLE TO pythia;
 -- GRANT CREATE MINING MODEL TO pythia;
 
--- Step 2: Load ONNX embedding model (run as PYTHIA user)
--- The model is loaded once and used for all embedding operations.
--- Oracle 26ai ships with pre-loaded models accessible via VECTOR_EMBEDDING().
--- If using a custom ONNX model (e.g., all-MiniLM-L6-v2):
+-- Optional Step: Load an ONNX embedding model (run as PYTHIA user)
+-- The default Pythia runtime does NOT depend on this step.
+-- Pythia generates embeddings in Python with sentence-transformers and stores
+-- them in Oracle using TO_VECTOR(...).
+--
+-- If you want to experiment with Oracle-side VECTOR_EMBEDDING(), Oracle 26ai
+-- ships with pre-loaded models and also supports custom ONNX loading.
+-- Example custom ONNX load:
 --
 --   BEGIN
 --     DBMS_VECTOR.LOAD_ONNX_MODEL(
@@ -25,13 +29,13 @@
 --   END;
 --   /
 --
--- For Oracle 26ai ADB-Free, you can use the built-in model directly:
+-- Example built-in model verification:
 -- SELECT VECTOR_EMBEDDING(ALL_MINILM_L6_V2 USING 'test' AS data) FROM DUAL;
 
--- Step 3: Create tables (run as PYTHIA user)
+-- Step 2: Create tables (run as PYTHIA user)
 
 -- Semantic search cache
--- query_embedding is generated via VECTOR_EMBEDDING() at INSERT time
+-- query_embedding stores the Python-generated embedding via TO_VECTOR(...) at INSERT time
 CREATE TABLE pythia_cache (
     id              RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
     query           VARCHAR2(4000) NOT NULL,

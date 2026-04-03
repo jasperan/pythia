@@ -94,7 +94,7 @@ def build_deep_search_prompt(
 
 
 class OllamaClient:
-    """Async client for Ollama API — LLM inference only (embeddings handled by Oracle ONNX)."""
+    """Async client for Ollama API — LLM inference only; embeddings are generated in Python."""
 
     def __init__(self, base_url: str, model: str):
         self.base_url = base_url.rstrip("/")

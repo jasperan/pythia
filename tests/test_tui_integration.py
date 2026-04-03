@@ -1,12 +1,15 @@
 """End-to-end integration tests for Pythia TUI using Textual's test harness."""
 from __future__ import annotations
 
+from pathlib import Path
 import pytest
 from unittest.mock import AsyncMock
+import httpx
 from textual.widgets import Input, Static
 
 from pythia.config import PythiaConfig
 from pythia.tui.app import PythiaApp, AVAILABLE_THEMES
+from pythia.tui import app as app_module
 from pythia.tui.screens import search as search_screen_module
 from pythia.tui.screens import research as research_screen_module
 from pythia.tui.screens.search import SearchScreen
@@ -160,6 +163,86 @@ async def test_app_passes_host_and_port_overrides_to_screens(config):
 
     assert search_screen._api_base == "http://127.0.0.1:9001"
     assert research_screen._api_base == "http://127.0.0.1:9001"
+
+
+@pytest.mark.asyncio
+async def test_auto_start_passes_config_path_to_service_manager(config, monkeypatch):
+    captured: dict[str, object] = {}
+
+    class DummyServiceManager:
+        def __init__(self, config_path: str, host: str, port: int) -> None:
+            captured["config_path"] = config_path
+            captured["host"] = host
+            captured["port"] = port
+
+        def register_status_callback(self, callback) -> None:
+            self._callback = callback
+
+        async def start_all(self) -> None:
+            captured["started"] = True
+
+        async def stop_all(self) -> None:
+            captured["stopped"] = True
+
+    monkeypatch.setattr(app_module, "ServiceManager", DummyServiceManager)
+
+    app = PythiaApp(
+        config,
+        auto_start=True,
+        host="127.0.0.1",
+        port=9001,
+        config_path="/tmp/custom.yaml",
+    )
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+    assert captured["config_path"] == "/tmp/custom.yaml"
+    assert captured["host"] == "127.0.0.1"
+    assert captured["port"] == 9001
+    assert captured["started"] is True
+
+
+@pytest.mark.asyncio
+async def test_app_actions_use_host_override(config, monkeypatch, tmp_path):
+    calls: list[tuple[str, str]] = []
+
+    class DummyResponse:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    class DummyClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, params=None):
+            calls.append(("get", url))
+            return DummyResponse([])
+
+        async def delete(self, url):
+            calls.append(("delete", url))
+            return DummyResponse({"deleted": 0})
+
+    monkeypatch.setattr(httpx, "AsyncClient", DummyClient)
+    monkeypatch.setattr(Path, "write_text", lambda self, text: len(text))
+
+    app = PythiaApp(config, auto_start=False, host="api.example.com", port=9443)
+
+    async with app.run_test():
+        await app.action_export_results()
+        await app.action_clear_cache()
+
+    assert calls[0] == ("get", "http://api.example.com:9443/history")
+    assert calls[1] == ("delete", "http://api.example.com:9443/cache")
 
 
 # --- Theme cycling ---

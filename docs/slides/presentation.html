@@ -936,7 +936,7 @@
                     </div>
                     <div class="arch-box" style="flex:1;min-width:120px;">
                         <div class="arch-label hl-purple">Oracle 26ai</div>
-                        <div class="arch-desc">Vector Search + ONNX</div>
+                        <div class="arch-desc">Vector Search + stored embeddings</div>
                     </div>
                 </div>
             </div>
@@ -1336,7 +1336,7 @@
                 </div>
                 <div class="flow-step">
                     <span class="step-num">4</span>
-                    <span class="step-text">Run <code>setup_schema.sql</code> + load ONNX embedding model</span>
+                    <span class="step-text">Run <code>setup_schema.sql</code> (optional ONNX loading only for experiments)</span>
                 </div>
                 <div class="flow-step">
                     <span class="step-num">5</span>
@@ -1358,7 +1358,8 @@
                 <span class="function">curl</span> <span class="flag">-fsSL</span> https://raw.githubusercontent.com/<br>&nbsp;&nbsp;jasperan/pythia/master/install.sh <span class="flag">| bash</span>
             </div>
             <p class="reveal slide-description" style="margin-top:var(--element-gap);">
-                Clones, configures conda environment, starts Docker containers, and runs schema setup.
+                Clones the repo, creates a local virtualenv, and installs Python dependencies.
+                Docker, Oracle schema setup, and Ollama still follow the README quick-start steps.
             </p>
         </div>
     </section>
@@ -1428,7 +1429,7 @@
             <p class="reveal section-label">Why Oracle</p>
             <h2 class="reveal">Not just a database. <span class="hl-purple">An AI engine.</span></h2>
             <ul class="reveal bullet-list" style="margin-top:var(--content-gap);">
-                <li><strong>ONNX in-database embeddings</strong>: the model runs inside Oracle, zero external calls</li>
+                <li><strong>Vector storage + similarity search</strong>: Oracle stores embeddings and serves COSINE lookups efficiently</li>
                 <li><strong>VECTOR column type</strong> with native COSINE distance (no pgvector extension drama)</li>
                 <li><strong>SQL + Vector in one query</strong>: join cache lookups with history filters in a single statement</li>
                 <li><strong>Oracle 26ai Free</strong>: runs in Docker, no license needed, full Vector Search included</li>

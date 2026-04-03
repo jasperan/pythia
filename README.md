@@ -109,7 +109,7 @@ FastAPI server with SSE streaming for integration into other applications.
     ▼          ▼              ▼
  SearXNG    Ollama      Oracle DB 26ai
  :8889      :11434     :1523/FREEPDB1
- (Docker)   (local)    (Vector Search + ONNX Embeddings)
+ (Docker)   (local)    (Vector Search + stored embeddings)
 ```
 
 ### Search Flow (Single-Shot)
@@ -156,11 +156,14 @@ ResearchAgent
 ## Quick Start
 
 <!-- one-command-install -->
-> **One-command install** — clone, configure, and run in a single step:
+> **One-command bootstrap** — clone the repo and install Python dependencies in a single step:
 >
 > ```bash
 > curl -fsSL https://raw.githubusercontent.com/jasperan/pythia/master/install.sh | bash
 > ```
+>
+> This does **not** start Docker, create the Oracle user/schema, or pull the Ollama model.
+> Continue with the infrastructure and runtime steps below.
 >
 > <details><summary>Advanced options</summary>
 >
@@ -224,25 +227,15 @@ Then connect as the `pythia` user and run the schema:
 docker exec -i pythia-oracle bash -lc "sqlplus pythia/pythia@localhost:1521/FREEPDB1" < setup_schema.sql
 ```
 
-#### Load ONNX Embedding Model
+#### Embedding model note
 
-```sql
-BEGIN
-  DBMS_VECTOR.LOAD_ONNX_MODEL(
-    'DM_DUMP',
-    'all_MiniLM_L6_v2.onnx',
-    'ALL_MINILM_L6_V2',
-    JSON('{"function":"embedding","embeddingOutput":"embedding","input":{"input":["DATA"]}}')
-  );
-END;
-/
-```
+Pythia's default runtime path generates embeddings in Python with
+`sentence-transformers` (`all-MiniLM-L6-v2`) and stores them in Oracle via
+`TO_VECTOR(...)`. You do **not** need to load a custom ONNX model to use the
+CLI, API, or TUI.
 
-Verify:
-
-```sql
-SELECT VECTOR_EMBEDDING(ALL_MINILM_L6_V2 USING 'hello world' AS data) FROM DUAL;
-```
+If you want to experiment with Oracle-side `VECTOR_EMBEDDING()` later, see the
+optional example comments in `setup_schema.sql`.
 
 ### 5. Run Pythia
 
