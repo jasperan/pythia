@@ -25,12 +25,14 @@ from pythia.tui.widgets.suggestions import Suggestions
 
 
 class SearchScreen(Screen):
-    def __init__(self, config: PythiaConfig) -> None:
+    def __init__(self, config: PythiaConfig, host: str | None = None, port: int | None = None) -> None:
         super().__init__()
         self.config = config
-        self._api_base = f"http://{config.server.host}:{config.server.port}"
-        if config.server.host == "0.0.0.0":
-            self._api_base = f"http://127.0.0.1:{config.server.port}"
+        api_host = host or config.server.host
+        api_port = port or config.server.port
+        if api_host == "0.0.0.0":
+            api_host = "127.0.0.1"
+        self._api_base = f"http://{api_host}:{api_port}"
         self._service_manager: ServiceManager | None = None
         self._health_check_interval = None
         # Multi-turn conversation state
@@ -161,7 +163,7 @@ class SearchScreen(Screen):
         full_answer_tokens = []
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
-                req_body: dict = {"query": query}
+                req_body: dict = {"query": query, "model": self.config.ollama.model}
                 if deep:
                     req_body["deep"] = True
                 # Send conversation history for multi-turn context

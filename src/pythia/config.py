@@ -1,4 +1,4 @@
-"""Config loader — reads pythia.yaml into Pydantic models."""
+"""Config loader and config-path resolution helpers."""
 from __future__ import annotations
 
 import os
@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
+
+DEFAULT_CONFIG_NAME = "pythia.yaml"
 
 
 class ServerConfig(BaseModel):
@@ -70,9 +72,30 @@ class PythiaConfig(BaseModel):
 
 def load_config(path: str | Path) -> PythiaConfig:
     """Load config from YAML file. Missing sections get defaults."""
-    p = Path(path)
-    if not p.exists():
+    resolved = resolve_config_path(path)
+    if resolved is None:
         return PythiaConfig()
-    with open(p) as f:
+    with resolved.open() as f:
         data = yaml.safe_load(f) or {}
     return PythiaConfig(**data)
+
+
+def resolve_config_path(path: str | Path = DEFAULT_CONFIG_NAME) -> Path | None:
+    """Resolve the config path using CLI/env precedence.
+
+    Resolution order:
+    1. Explicit ``--config`` path when it is not the default filename.
+    2. ``PYTHIA_CONFIG`` when the caller is using the default filename.
+    3. ``pythia.yaml`` in the current working directory.
+    """
+    requested = Path(path).expanduser()
+
+    if requested != Path(DEFAULT_CONFIG_NAME):
+        return requested.resolve() if requested.exists() else None
+
+    env_path = os.environ.get("PYTHIA_CONFIG")
+    if env_path:
+        env_candidate = Path(env_path).expanduser()
+        return env_candidate.resolve() if env_candidate.exists() else None
+
+    return requested.resolve() if requested.exists() else None

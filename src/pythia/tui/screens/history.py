@@ -30,12 +30,14 @@ class HistoryScreen(Screen):
         ("d", "delete_entry", "Delete"),
     ]
 
-    def __init__(self, config: PythiaConfig) -> None:
+    def __init__(self, config: PythiaConfig, host: str | None = None, port: int | None = None) -> None:
         super().__init__()
         self.config = config
-        self._api_base = f"http://{config.server.host}:{config.server.port}"
-        if config.server.host == "0.0.0.0":
-            self._api_base = f"http://127.0.0.1:{config.server.port}"
+        api_host = host or config.server.host
+        api_port = port or config.server.port
+        if api_host == "0.0.0.0":
+            api_host = "127.0.0.1"
+        self._api_base = f"http://{api_host}:{api_port}"
 
     def compose(self) -> ComposeResult:
         yield Static("", id="history-filter-bar")

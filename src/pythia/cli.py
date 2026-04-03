@@ -2,10 +2,44 @@
 from __future__ import annotations
 
 import sys
+import os
+from pathlib import Path
 
 import typer
 
 app = typer.Typer(name="pythia", help="Pythia — self-hosted AI search engine")
+
+
+def _load_required_config(
+    config: str,
+    *,
+    command_name: str,
+    auto_start: bool | None = None,
+):
+    """Load config for commands that require an explicit project config."""
+    from pythia.config import DEFAULT_CONFIG_NAME, load_config, resolve_config_path
+
+    resolved = resolve_config_path(config)
+    if resolved is not None:
+        return load_config(resolved), str(resolved)
+
+    if Path(config) != Path(DEFAULT_CONFIG_NAME):
+        prefix = f"Error: config file not found: {config}."
+    elif "PYTHIA_CONFIG" in os.environ:
+        env_path = os.environ["PYTHIA_CONFIG"]
+        prefix = f"Error: config file not found: {env_path} (from PYTHIA_CONFIG)."
+    else:
+        prefix = "Error: no Pythia config found."
+
+    guidance = "Use --config /abs/path/to/pythia.yaml or set PYTHIA_CONFIG."
+    if command_name == "search":
+        if auto_start:
+            guidance += " Auto-start also needs access to the project Docker assets; run from the project root or use --no-auto-start once an explicit config is set."
+        else:
+            guidance += " Launch from the project root or keep using --no-auto-start with an explicit config."
+
+    print(f"{prefix} {guidance}", file=sys.stderr)
+    raise typer.Exit(2)
 
 
 @app.command()
@@ -16,10 +50,9 @@ def serve(
 ) -> None:
     """Start the Pythia API server."""
     import uvicorn
-    from pythia.config import load_config
     from pythia.server.app import create_app
 
-    cfg = load_config(config)
+    cfg, _ = _load_required_config(config, command_name="serve")
     application = create_app(cfg)
     uvicorn.run(application, host=host, port=port)
 
@@ -33,10 +66,13 @@ def search_tui(
     port: int = typer.Option(0, help="Override API server port"),
 ) -> None:
     """Launch the Pythia TUI with automatic service startup."""
-    from pythia.config import load_config
     from pythia.tui.app import run_tui
 
-    cfg = load_config(config)
+    cfg, resolved_config = _load_required_config(
+        config,
+        command_name="search",
+        auto_start=not no_auto_start,
+    )
     if model:
         cfg.ollama.model = model
 
@@ -44,7 +80,13 @@ def search_tui(
     host_override = host if host else None
     port_override = port if port else None
 
-    run_tui(cfg, auto_start=auto_start, host=host_override, port=port_override)
+    run_tui(
+        cfg,
+        auto_start=auto_start,
+        host=host_override,
+        port=port_override,
+        config_path=resolved_config,
+    )
 
 
 @app.command()
@@ -59,7 +101,6 @@ def query(
 ) -> None:
     """Run a search query and return structured JSON."""
     import asyncio
-    from pythia.config import load_config
     from pythia.cli_runner import run_query as _run_query
 
     query_text = text or sys.stdin.read().strip()
@@ -67,7 +108,7 @@ def query(
         print('{"error": "No query provided. Pass as argument or pipe via stdin."}', file=sys.stderr)
         raise typer.Exit(1)
 
-    cfg = load_config(config)
+    cfg, _ = _load_required_config(config, command_name="query")
     model_override = model if model else None
 
     asyncio.run(_run_query(
@@ -91,7 +132,6 @@ def research(
 ) -> None:
     """Run autonomous deep research on a topic. Returns structured report with citations."""
     import asyncio
-    from pythia.config import load_config
     from pythia.cli_runner import run_research as _run_research
 
     query_text = text or sys.stdin.read().strip()
@@ -99,7 +139,7 @@ def research(
         print('{"error": "No query provided. Pass as argument or pipe via stdin."}', file=sys.stderr)
         raise typer.Exit(1)
 
-    cfg = load_config(config)
+    cfg, _ = _load_required_config(config, command_name="research")
     model_override = model if model else None
     rounds_override = max_rounds if max_rounds > 0 else None
 
@@ -154,8 +194,7 @@ def embed(
         print(run_embed_single(embed_text))
 
     if store:
-        from pythia.config import load_config
-        cfg = load_config(config)
+        cfg, _ = _load_required_config(config, command_name="embed")
         asyncio.run(_store_embeddings(cfg, texts))
 
 

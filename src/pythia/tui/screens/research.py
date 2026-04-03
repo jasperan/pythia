@@ -26,12 +26,14 @@ class ResearchScreen(Screen):
     #research-main-pane { width: 1fr; overflow-y: auto; padding: 1 2; }
     """
 
-    def __init__(self, config: PythiaConfig) -> None:
+    def __init__(self, config: PythiaConfig, host: str | None = None, port: int | None = None) -> None:
         super().__init__()
         self.config = config
-        self._api_base = f"http://{config.server.host}:{config.server.port}"
-        if config.server.host == "0.0.0.0":
-            self._api_base = f"http://127.0.0.1:{config.server.port}"
+        api_host = host or config.server.host
+        api_port = port or config.server.port
+        if api_host == "0.0.0.0":
+            api_host = "127.0.0.1"
+        self._api_base = f"http://{api_host}:{api_port}"
         self._findings_count = 0
         self._sources_count = 0
         self._start_time = 0.0
@@ -87,7 +89,11 @@ class ResearchScreen(Screen):
         event_type = ""
         try:
             async with httpx.AsyncClient(timeout=300.0) as client:
-                async with client.stream("POST", f"{self._api_base}/research", json={"query": query}) as resp:
+                async with client.stream(
+                    "POST",
+                    f"{self._api_base}/research",
+                    json={"query": query, "model": self.config.ollama.model},
+                ) as resp:
                     async for line in resp.aiter_lines():
                         if not line:
                             continue

@@ -39,6 +39,7 @@ class PythiaApp(App):
         auto_start: bool = True,
         host: str | None = None,
         port: int | None = None,
+        config_path: str = "pythia.yaml",
     ) -> None:
         super().__init__()
         self.config = config
@@ -46,6 +47,7 @@ class PythiaApp(App):
         self._auto_start = auto_start
         self._host = host or config.server.host
         self._port = port or config.server.port
+        self._config_path = config_path
         self._service_manager: ServiceManager | None = None
         self._current_theme: str = getattr(getattr(config, "tui", None), "theme", None) or "dark"
         self._deep_mode: bool = False
@@ -72,10 +74,10 @@ class PythiaApp(App):
             self.notify(f"Theme error: {e}", severity="error", timeout=3)
 
     def on_mount(self) -> None:
-        self.install_screen(SearchScreen(self.config), name="search")
-        self.install_screen(ResearchScreen(self.config), name="research")
-        self.install_screen(HistoryScreen(self.config), name="history")
-        self.install_screen(DashboardScreen(self.config), name="dashboard")
+        self.install_screen(SearchScreen(self.config, host=self._host, port=self._port), name="search")
+        self.install_screen(ResearchScreen(self.config, host=self._host, port=self._port), name="research")
+        self.install_screen(HistoryScreen(self.config, host=self._host, port=self._port), name="history")
+        self.install_screen(DashboardScreen(self.config, host=self._host, port=self._port), name="dashboard")
         self.push_screen("search")
         if self._auto_start:
             self._start_services()
@@ -150,7 +152,7 @@ class PythiaApp(App):
     async def _start_services(self) -> None:
         """Start all Pythia services in background."""
         self._service_manager = ServiceManager(
-            config_path="pythia.yaml",
+            config_path=self._config_path,
             host=self._host,
             port=self._port,
         )
@@ -191,7 +193,6 @@ class PythiaApp(App):
             await self._service_manager.stop_all()
             self._service_manager = None
 
-
-def run_tui(config, auto_start=True, host=None, port=None):
-    app = PythiaApp(config, auto_start=auto_start, host=host, port=port)
+def run_tui(config, auto_start=True, host=None, port=None, config_path="pythia.yaml"):
+    app = PythiaApp(config, auto_start=auto_start, host=host, port=port, config_path=config_path)
     app.run()

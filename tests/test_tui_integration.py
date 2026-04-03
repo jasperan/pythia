@@ -2,10 +2,15 @@
 from __future__ import annotations
 
 import pytest
+from unittest.mock import AsyncMock
 from textual.widgets import Input, Static
 
 from pythia.config import PythiaConfig
 from pythia.tui.app import PythiaApp, AVAILABLE_THEMES
+from pythia.tui.screens import search as search_screen_module
+from pythia.tui.screens import research as research_screen_module
+from pythia.tui.screens.search import SearchScreen
+from pythia.tui.screens.research import ResearchScreen
 
 
 @pytest.fixture
@@ -16,6 +21,41 @@ def config():
 @pytest.fixture
 def app(config):
     return PythiaApp(config, auto_start=False)
+
+
+class _FakeStreamResponse:
+    def __init__(self, lines: list[str]) -> None:
+        self._lines = lines
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def aiter_lines(self):
+        for line in self._lines:
+            yield line
+
+
+def _make_streaming_client(recorded: dict[str, object], lines: list[str]):
+    class _RecordingAsyncClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def stream(self, method, url, json):
+            recorded["method"] = method
+            recorded["url"] = url
+            recorded["json"] = json
+            return _FakeStreamResponse(lines)
+
+    return _RecordingAsyncClient
 
 
 # --- App lifecycle & screen installation ---
@@ -113,6 +153,15 @@ async def test_switch_to_same_screen_is_noop(app):
         assert app._current_screen_name == "search"
 
 
+@pytest.mark.asyncio
+async def test_app_passes_host_and_port_overrides_to_screens(config):
+    search_screen = SearchScreen(config, host="127.0.0.1", port=9001)
+    research_screen = ResearchScreen(config, host="127.0.0.1", port=9001)
+
+    assert search_screen._api_base == "http://127.0.0.1:9001"
+    assert research_screen._api_base == "http://127.0.0.1:9001"
+
+
 # --- Theme cycling ---
 
 
@@ -166,6 +215,50 @@ async def test_search_screen_results_area_starts_empty(app):
         assert len(results.children) == 0
 
 
+@pytest.mark.asyncio
+async def test_search_requests_include_selected_model(app, monkeypatch):
+    recorded: dict[str, object] = {}
+    client_cls = _make_streaming_client(
+        recorded,
+        ["event: done", 'data: {"cache_hit": false, "response_time_ms": 1, "sources_count": 0}'],
+    )
+    monkeypatch.setattr(search_screen_module.httpx, "AsyncClient", client_cls)
+
+    async with app.run_test():
+        screen = app.screen
+        screen.config.ollama.model = "llama3.3:70b"
+        screen._check_health = AsyncMock()
+        await screen._run_search("test model")
+
+    assert recorded["json"]["model"] == "llama3.3:70b"
+
+
+@pytest.mark.asyncio
+async def test_search_follow_up_requests_preserve_model_and_history(app, monkeypatch):
+    recorded: dict[str, object] = {}
+    client_cls = _make_streaming_client(
+        recorded,
+        ["event: done", 'data: {"cache_hit": false, "response_time_ms": 1, "sources_count": 0}'],
+    )
+    monkeypatch.setattr(search_screen_module.httpx, "AsyncClient", client_cls)
+
+    async with app.run_test():
+        screen = app.screen
+        screen.config.ollama.model = "llama3.3:70b"
+        screen._check_health = AsyncMock()
+        screen._conversation_history = [
+            {"role": "user", "content": "first question"},
+            {"role": "assistant", "content": "first answer"},
+        ]
+        await screen._run_search("follow up")
+
+    assert recorded["json"]["model"] == "llama3.3:70b"
+    assert recorded["json"]["conversation_history"] == [
+        {"role": "user", "content": "first question"},
+        {"role": "assistant", "content": "first answer"},
+    ]
+
+
 # --- Research screen composition ---
 
 
@@ -181,6 +274,25 @@ async def test_research_screen_has_split_pane(app):
         assert screen.query("ResearchTree"), "Missing ResearchTree"
         assert screen.query("ResearchProgressBar"), "Missing ResearchProgressBar"
         assert screen.query("SearchInput"), "Missing SearchInput"
+
+
+@pytest.mark.asyncio
+async def test_research_requests_include_selected_model(app, monkeypatch):
+    recorded: dict[str, object] = {}
+    client_cls = _make_streaming_client(
+        recorded,
+        ["event: done", 'data: {"rounds_used": 1, "total_findings": 0, "total_sources": 0, "elapsed_ms": 1}'],
+    )
+    monkeypatch.setattr(research_screen_module.httpx, "AsyncClient", client_cls)
+
+    async with app.run_test() as pilot:
+        app.action_switch_to_research()
+        await pilot.pause()
+        screen = app.screen
+        screen.config.ollama.model = "llama3.3:70b"
+        await screen._run_research("edge ai")
+
+    assert recorded["json"]["model"] == "llama3.3:70b"
 
 
 # --- History screen composition ---
