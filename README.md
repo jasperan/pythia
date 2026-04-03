@@ -208,8 +208,8 @@ ollama pull qwen3.5:9b
 ### 4. Set up Oracle schema
 
 ```bash
-# Connect as ADMIN (password from docker-compose.yml: Pythia2026#)
-sql admin/Pythia2026#@localhost:1523/FREEPDB1
+# Connect as ADMIN inside the Oracle container
+docker exec -it pythia-oracle bash -lc "sqlplus admin/Welcome12345*@localhost:1521/FREEPDB1"
 ```
 
 ```sql
@@ -221,7 +221,7 @@ GRANT CREATE MINING MODEL TO pythia;
 Then connect as the `pythia` user and run the schema:
 
 ```bash
-sql pythia/pythia@localhost:1523/FREEPDB1 @setup_schema.sql
+docker exec -i pythia-oracle bash -lc "sqlplus pythia/pythia@localhost:1521/FREEPDB1" < setup_schema.sql
 ```
 
 #### Load ONNX Embedding Model
@@ -451,8 +451,8 @@ searxng:
   max_results: 8
   categories:
     - general
-    - science
-    - it
+    # Add narrower categories like "science" or "it" only if you want them.
+    # The default "general" mix produces better out-of-the-box results.
 
 oracle:
   dsn: "localhost:1523/FREEPDB1"

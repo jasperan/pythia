@@ -21,7 +21,7 @@ searxng:
 oracle:
   dsn: "localhost:1521/FREEPDB1"
   user: "pythia"
-  password: "pythia"
+  password: "pythia"  # pragma: allowlist secret
   cache_similarity_threshold: 0.90
   embedding_model: "ALL_MINILM_L6_V2"
 tui:
@@ -51,4 +51,5 @@ ollama:
 
     assert cfg.server.port == 8900
     assert cfg.searxng.base_url == "http://localhost:8889"
+    assert cfg.searxng.categories == ["general"]
     assert cfg.oracle.cache_similarity_threshold == 0.85

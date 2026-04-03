@@ -11,13 +11,11 @@ searxng:
   max_results: 8
   categories:
     - general
-    - science
-    - it
 
 oracle:
   dsn: "localhost:1523/FREEPDB1"
   user: "pythia"
-  password: "pythia"
+  password: "pythia"  # pragma: allowlist secret
   cache_similarity_threshold: 0.85
   embedding_model: "ALL_MINILM_L6_V2"
 
