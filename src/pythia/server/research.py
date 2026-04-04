@@ -1,4 +1,4 @@
-"""Deep Research agent — autonomous multi-step research with iterative search and synthesis."""
+"""Deep Research agent — autonomous multi-step research with iterative search, synthesis, verification, and provenance."""
 from __future__ import annotations
 
 import asyncio
@@ -8,12 +8,17 @@ import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 
 from pythia.config import ResearchConfig
+from pythia.provenance import ProvenanceRecord
 from pythia.scraper import scrape_urls
 from pythia.server.ollama import OllamaClient
 from pythia.server.oracle_cache import OracleCache
 from pythia.server.searxng import SearxngClient, SearchResult
+from pythia.skills import SkillDef, SkillLoader
+from pythia.verification import VerificationResult, verify_report
+from pythia.workspace import WorkspaceChangelog, generate_slug
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +32,7 @@ class ResearchEventType(str, Enum):
     GAP_ANALYSIS = "gap_analysis"
     RECALL = "recall"
     TOKEN = "token"
+    VERIFY = "verify"
     DONE = "done"
 
 
@@ -112,11 +118,8 @@ Write a comprehensive, well-structured research report."""
 
 
 class ResearchAgent:
-    """Autonomous deep research agent that iteratively searches, analyzes, and synthesizes."""
+    """Autonomous deep research agent with verification and provenance tracking."""
 
-    # Approximate max chars for synthesis prompt to stay within model context limits.
-    # qwen3.5:9b context is 16K tokens (~4 chars/token). Reserve ~4K tokens for
-    # system prompt + generation, leaving ~12K tokens (~48K chars) for user content.
     _MAX_SYNTHESIS_CHARS = 40000
 
     def __init__(
@@ -125,25 +128,37 @@ class ResearchAgent:
         cache: OracleCache,
         searxng: SearxngClient,
         config: ResearchConfig,
+        skills_dir: Path | str | None = None,
+        workspace_dir: Path | str | None = None,
     ):
         self.ollama = ollama
         self.cache = cache
         self.searxng = searxng
         self.config = config
+        self.skills = SkillLoader(skills_dir)
+        self.changelog = WorkspaceChangelog(workspace_dir)
 
     async def research(
         self, query: str, model_override: str | None = None,
+        skill_override: str | None = None,
     ) -> AsyncIterator[ResearchEvent]:
         """Run autonomous deep research on a query. Yields events as they occur."""
         start = time.monotonic()
-        # Use model as a local variable — never mutate self.ollama.model
         model = model_override or self.ollama.model
 
+        skill = self.skills.get(skill_override) if skill_override else self.skills.match(query)
+        effective_max_rounds = skill.max_rounds if skill and skill.max_rounds else self.config.max_rounds
+        effective_max_sub = skill.max_sub_queries if skill and skill.max_sub_queries else self.config.max_sub_queries
+        effective_scrape = skill.requires_scrape if skill and skill.requires_scrape is not None else self.config.deep_scrape
+
+        if skill:
+            logger.info(f"Using skill: {skill.name}")
+
+        slug = generate_slug(query)
         all_findings: list[Finding] = []
         all_sources: list[dict] = []
         source_counter = 0
 
-        # Phase 1: Recall related past research
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Searching knowledge base for related research..."})
         recalled = []
         try:
@@ -162,23 +177,22 @@ class ResearchAgent:
                 ],
             })
 
-        # Phase 2: Decompose query into sub-questions
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Planning research strategy..."})
-        sub_queries = await self._decompose_query(query, model)
-        yield ResearchEvent(ResearchEventType.PLAN, {"sub_queries": sub_queries})
+        sub_queries = await self._decompose_query(query, model, max_sub=effective_max_sub)
+        yield ResearchEvent(ResearchEventType.PLAN, {"sub_queries": sub_queries, "slug": slug})
 
-        # Phase 3: Iterative search rounds
+        self.changelog.append_entry(slug, "Research started", f"Query: {query}", "in_progress", "Execute research rounds")
+
         round_num = 1
-        for round_num in range(1, self.config.max_rounds + 1):
+        for round_num in range(1, effective_max_rounds + 1):
             yield ResearchEvent(ResearchEventType.ROUND_START, {
                 "round": round_num,
-                "max_rounds": self.config.max_rounds,
+                "max_rounds": effective_max_rounds,
                 "num_queries": len(sub_queries),
             })
 
-            # Search all sub-queries in parallel
             round_findings, round_sources, source_counter = await self._search_round(
-                sub_queries, round_num, source_counter, model,
+                sub_queries, round_num, source_counter, model, scrape=effective_scrape,
             )
 
             for finding in round_findings:
@@ -192,11 +206,9 @@ class ResearchAgent:
             all_findings.extend(round_findings)
             all_sources.extend(round_sources)
 
-            # Don't analyze gaps on last possible round
-            if round_num >= self.config.max_rounds:
+            if round_num >= effective_max_rounds:
                 break
 
-            # Phase 4: Analyze gaps
             yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Analyzing research completeness (round {round_num})..."})
             gap_result = await self._analyze_gaps(query, all_findings, model)
             yield ResearchEvent(ResearchEventType.GAP_ANALYSIS, gap_result)
@@ -208,7 +220,12 @@ class ResearchAgent:
             if not sub_queries:
                 break
 
-        # Phase 5: Synthesize report
+            self.changelog.append_entry(
+                slug, f"Round {round_num} complete — {len(round_findings)} findings",
+                f"Gaps: {', '.join(gap_result.get('gaps', [])[:3])}" if not gap_result.get('sufficient') else "No significant gaps",
+                "in_progress", f"Continue with round {round_num + 1}",
+            )
+
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Synthesizing research report..."})
         report_parts = []
         async for token in self._synthesize_report(query, all_findings, all_sources, recalled, model):
@@ -216,15 +233,42 @@ class ResearchAgent:
             yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
 
         report_text = "".join(report_parts)
+
+        yield ResearchEvent(ResearchEventType.STATUS, {"message": "Verifying research output..."})
+        verification = await verify_report(
+            self.ollama, query, report_text, all_sources, model,
+        )
+        yield ResearchEvent(ResearchEventType.VERIFY, {
+            "status": verification.status,
+            "claims_checked": verification.claims_checked,
+            "issues_found": len(verification.issues),
+            "summary": verification.summary,
+        })
+
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
-        # Store research session and findings
+        provenance = ProvenanceRecord(
+            topic=query, slug=slug, rounds=round_num,
+            sources_consulted=len(all_sources),
+            sources_accepted=len(all_sources),
+            sources_rejected=0,
+            verification_status=verification.status,
+            verification_summary=verification.summary,
+            model_used=model, elapsed_ms=elapsed_ms,
+        )
+
         try:
             all_sub_queries = list({f.sub_query for f in all_findings})
             research_id = await self.cache.store_research(
                 query=query, report=report_text, sub_queries=all_sub_queries,
                 rounds_used=round_num, total_sources=len(all_sources),
-                model_used=model, elapsed_ms=elapsed_ms,
+                model_used=model, elapsed_ms=elapsed_ms, slug=slug,
+                provenance=provenance.to_markdown(),
+                sources_consulted=provenance.sources_consulted,
+                sources_accepted=provenance.sources_accepted,
+                sources_rejected=provenance.sources_rejected,
+                verification_status=provenance.verification_status,
+                verification_summary=provenance.verification_summary,
             )
             if research_id:
                 await self.cache.store_findings_batch(
@@ -242,7 +286,12 @@ class ResearchAgent:
         except Exception as e:
             logger.warning(f"Failed to store research results: {e}")
 
-        # Record in search history
+        self.changelog.append_entry(
+            slug, "Research complete",
+            f"Report: {len(report_text)} chars, {len(all_findings)} findings, {len(all_sources)} sources. Verification: {verification.status}",
+            "completed", "Review report and provenance",
+        )
+
         await self.cache.record_search(
             query=f"[research] {query}", cache_hit=False,
             response_time_ms=elapsed_ms, model_used=model,
@@ -254,11 +303,14 @@ class ResearchAgent:
             "total_sources": len(all_sources),
             "recalled_findings": len(recalled),
             "elapsed_ms": elapsed_ms,
+            "slug": slug,
+            "verification_status": verification.status,
+            "provenance": provenance.to_dict(),
         })
 
-    async def _decompose_query(self, query: str, model: str) -> list[str]:
-        """Use LLM to decompose a research question into sub-queries."""
-        system = _DECOMPOSE_SYSTEM.format(max_sub_queries=self.config.max_sub_queries)
+    async def _decompose_query(self, query: str, model: str, max_sub: int | None = None) -> list[str]:
+        max_sub = max_sub or self.config.max_sub_queries
+        system = _DECOMPOSE_SYSTEM.format(max_sub_queries=max_sub)
         user = _DECOMPOSE_USER.format(query=query)
 
         try:
@@ -275,12 +327,11 @@ class ResearchAgent:
 
     async def _search_round(
         self, sub_queries: list[str], round_num: int, source_counter: int, model: str,
+        scrape: bool = True,
     ) -> tuple[list[Finding], list[dict], int]:
-        """Search all sub-queries in parallel, then number sources sequentially."""
         sem = asyncio.Semaphore(3)
 
         async def _search_one(sq: str) -> tuple[str, list[SearchResult] | None]:
-            """Search a single sub-query. Returns (sub_query, results_or_None)."""
             async with sem:
                 try:
                     results = await self.searxng.search(sq)
@@ -315,7 +366,7 @@ class ResearchAgent:
         ) -> tuple[Finding, list[dict]]:
             async with sem:
                 scraped_content: dict[str, str] = {}
-                if self.config.deep_scrape:
+                if scrape:
                     urls_snippets = [(r.url, r.snippet) for r in results[:3]]
                     scraped = await scrape_urls(urls_snippets)
                     scraped_content = {s.url: s.content for s in scraped}

@@ -176,7 +176,7 @@ async def test_research_gap_driven_early_stop():
     )
 
     events = []
-    async for event in agent.research("RISC-V vs ARM comprehensive"):
+    async for event in agent.research("understanding quantum computing implications"):
         events.append(event)
 
     round_starts = [e for e in events if e.event_type == ResearchEventType.ROUND_START]
