@@ -287,6 +287,7 @@ class AutoresearchAgent:
         self, metric_name: str, benchmark_cmd: str, files_in_scope: list[str],
         metric_direction: str, best_record: ExperimentRecord, model: str,
     ) -> dict | None:
+        import re
         try:
             response = await self.ollama.generate(
                 _AUTORESEARCH_PLAN_SYSTEM,
@@ -302,9 +303,17 @@ class AutoresearchAgent:
                 json_mode=True, model=model,
             )
             return json.loads(response)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Change proposal JSON parse error: {e}")
+            match = re.search(r'\{.*\}', response, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group())
+                except json.JSONDecodeError:
+                    pass
         except Exception as e:
             logger.warning(f"Change proposal failed: {e}")
-            return None
+        return None
 
     def _apply_change(self, plan: dict, files_in_scope: list[str]) -> bool:
         file_to_modify = plan.get("file_to_modify", "")

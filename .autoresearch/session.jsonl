@@ -1,2 +1,1 @@
-{"iteration": 0, "metric_value": 0.024603843688964844, "metric_name": "benchmark_time", "metric_direction": "lower", "change_description": "baseline", "kept": true, "elapsed_ms": 0}
-{"iteration": 1, "metric_value": 0.0238494873046875, "metric_name": "benchmark_time", "metric_direction": "lower", "change_description": "Switch to vectorized string operations using pandas `Series.str.contains` instead of iterating over a list with `any()` and regex compilation. This reduces overhead from Python loops and improves regex handling efficiency.", "kept": true, "elapsed_ms": 0}
+{"iteration": 0, "metric_value": 0.02246856689453125, "metric_name": "benchmark_time", "metric_direction": "lower", "change_description": "baseline", "kept": true, "elapsed_ms": 0}
