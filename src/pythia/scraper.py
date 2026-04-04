@@ -1,18 +1,13 @@
-"""Optional deep scraping via Scrapling with per-URL fallback."""
+"""Deep scraping via Scrapling with per-URL fallback."""
 from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
+from scrapling.fetchers import Fetcher
 
-try:
-    from scrapling.fetchers import Fetcher
-    _SCRAPLING_AVAILABLE = True
-except ImportError:
-    _SCRAPLING_AVAILABLE = False
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -25,8 +20,6 @@ class ScrapedContent:
 
 def _scrape_one_sync(url: str, fallback_snippet: str) -> ScrapedContent:
     """Scrape a single URL synchronously. Returns fallback on failure."""
-    if not _SCRAPLING_AVAILABLE:
-        return ScrapedContent(url=url, content=fallback_snippet, success=False, error="scrapling not installed")
     try:
         page = Fetcher.get(url, timeout=10)
         text = page.get_all_text(ignore_tags=("script", "style", "nav", "footer", "header"))
@@ -43,14 +36,7 @@ async def scrape_urls(
     urls_snippets: list[tuple[str, str]],
     max_concurrent: int = 3,
 ) -> list[ScrapedContent]:
-    """Scrape multiple URLs concurrently, falling back to snippets on failure."""
-    if not _SCRAPLING_AVAILABLE:
-        print("Warning: scrapling not installed, using snippets only. Install with: pip install scrapling", file=sys.stderr)
-        return [
-            ScrapedContent(url=url, content=snippet, success=False, error="scrapling not installed")
-            for url, snippet in urls_snippets
-        ]
-
+    """Scrape multiple URLs concurrently, falling back to snippets on scrape failure."""
     loop = asyncio.get_running_loop()
     sem = asyncio.Semaphore(max_concurrent)
 

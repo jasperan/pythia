@@ -1,0 +1,406 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1775163383820,
+  "projectRoot": "/home/ubuntu/git/personal/pythia",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "pyproject.toml"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "fastapi",
+        "version": null,
+        "category": "backend"
+      },
+      {
+        "name": "pytest",
+        "version": null,
+        "category": "testing"
+      }
+    ],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": "pytest",
+    "lintCommand": "ruff check",
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "scripts",
+      "src",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 0,
+      "lastAccessed": 1775163383815,
+      "keyFiles": []
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1775163383817,
+      "keyFiles": [
+        "capture_screenshots.py"
+      ]
+    },
+    "searxng": {
+      "path": "searxng",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775163383818,
+      "keyFiles": [
+        "settings.yml"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 0,
+      "lastAccessed": 1775163383818,
+      "keyFiles": []
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 23,
+      "lastAccessed": 1775163383819,
+      "keyFiles": [
+        "__init__.py",
+        "test_app.py",
+        "test_battle_hardening.py",
+        "test_cli_runner.py",
+        "test_config.py"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "",
+      "accessCount": 14,
+      "lastAccessed": 1775165487052,
+      "type": "directory"
+    },
+    {
+      "path": "src/pythia/server/app.py",
+      "accessCount": 12,
+      "lastAccessed": 1775165585493,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/server/search.py",
+      "accessCount": 12,
+      "lastAccessed": 1775165606146,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/server/ollama.py",
+      "accessCount": 12,
+      "lastAccessed": 1775165660244,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/screens/search.py",
+      "accessCount": 10,
+      "lastAccessed": 1775165631221,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/__init__.py",
+      "accessCount": 4,
+      "lastAccessed": 1775165488341,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/config.py",
+      "accessCount": 3,
+      "lastAccessed": 1775164194383,
+      "type": "file"
+    },
+    {
+      "path": "pyproject.toml",
+      "accessCount": 3,
+      "lastAccessed": 1775164960231,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/server/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163421561,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163421851,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163422728,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/screens/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163422847,
+      "type": "file"
+    },
+    {
+      "path": "pythia.yaml",
+      "accessCount": 1,
+      "lastAccessed": 1775163423746,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1775163423877,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/cli.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163435958,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/cli_runner.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163436422,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/embeddings.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163436865,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/scraper.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163437291,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/services.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163437885,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/__main__.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163438213,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/server/research.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163439636,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/server/searxng.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163439964,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/server/oracle_cache.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163440062,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/app.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163445035,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/commands.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163445454,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/screens/research.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163446362,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/screens/history.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163446787,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/screens/dashboard.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163447237,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/tab_bar.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163447675,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/search_input.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163448175,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/research_tree.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163448620,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/research_progress.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163449663,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/finding_detail.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163449950,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/history_list.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163450325,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/result_card.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163454958,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/source_list.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163455861,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/cache_badge.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163456303,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/activity_indicator.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163456744,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/status_bar.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163457374,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/service_status.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163457636,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/logo.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163458322,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/thinking_block.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163458611,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/session_divider.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163459130,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/stats_panel.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163459868,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/sparkline_panel.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163460269,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/settings_panel.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163460723,
+      "type": "file"
+    },
+    {
+      "path": "src/pythia/tui/widgets/action_bar.py",
+      "accessCount": 1,
+      "lastAccessed": 1775163460930,
+      "type": "file"
+    },
+    {
+      "path": "docker-compose.yml",
+      "accessCount": 1,
+      "lastAccessed": 1775163465128,
+      "type": "file"
+    },
+    {
+      "path": "setup_schema.sql",
+      "accessCount": 1,
+      "lastAccessed": 1775163465583,
+      "type": "file"
+    },
+    {
+      "path": "searxng/settings.yml",
+      "accessCount": 1,
+      "lastAccessed": 1775163466030,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

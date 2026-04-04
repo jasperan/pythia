@@ -14,6 +14,7 @@ from pythia.tui.widgets.action_bar import ActionBar
 from pythia.tui.widgets.settings_panel import SettingsPanel
 from pythia.tui.widgets.sparkline_panel import SparklinePanel
 from pythia.tui.widgets.stats_panel import StatsPanel
+from pythia.tui.widgets.skills_panel import SkillsPanel
 
 
 class DashboardScreen(Screen):
@@ -38,6 +39,7 @@ class DashboardScreen(Screen):
                 yield StatsPanel()
                 yield SparklinePanel()
             yield SettingsPanel(self.config)
+            yield SkillsPanel()
             yield ActionBar()
 
     def on_mount(self) -> None:
@@ -45,6 +47,8 @@ class DashboardScreen(Screen):
         self.call_later(self._refresh_data)
         settings = self.query_one(SettingsPanel)
         self.call_later(settings.load_models)
+        skills = self.query_one(SkillsPanel)
+        self.call_later(skills.load_skills)
 
     def on_unmount(self) -> None:
         if self._refresh_interval:

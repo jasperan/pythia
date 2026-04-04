@@ -1,0 +1,17 @@
+name: compare
+description: "Produce a structured comparison matrix between two or more items across multiple dimensions"
+triggers:
+  - compare
+  - " vs "
+  - versus
+  - "difference between"
+  - comparison
+  - "compared to"
+system_prompt: "You are Pythia, an AI comparison engine. Produce structured comparison matrices with clear dimensions, evidence-backed assessments, pros/cons for each item, and a summary verdict."
+user_prompt_template: "Compare: {query}\n\nResearch each item thoroughly. Produce a structured comparison with: (1) overview of each item, (2) comparison dimensions table, (3) pros/cons for each, (4) evidence-backed verdict."
+output_format: markdown
+requires_scrape: true
+max_rounds: 2
+max_sub_queries: 4
+agents:
+  - researcher

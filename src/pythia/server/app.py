@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from typing import Literal
 
@@ -36,6 +37,7 @@ class ResearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=4000)
     model: str | None = None
     max_rounds: int | None = Field(None, ge=1, le=10)
+    skill: str | None = None
 
 
 class EmbedRequest(BaseModel):
@@ -78,7 +80,6 @@ def create_app(config: PythiaConfig) -> FastAPI:
     orchestrator = SearchOrchestrator(ollama=ollama, cache=cache, searxng=searxng)
 
     async def _sse_wrap(event_stream):
-        """Convert an event stream into SSE-formatted dicts."""
         async for event in event_stream:
             yield {"event": event.event_type.value, "data": json.dumps(event.data)}
 
@@ -97,9 +98,12 @@ def create_app(config: PythiaConfig) -> FastAPI:
         research_config = config.research
         if req.max_rounds is not None:
             research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
-        agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
+        agent = ResearchAgent(
+            ollama=ollama, cache=cache, searxng=searxng, config=research_config,
+            skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
+        )
         return EventSourceResponse(_sse_wrap(
-            agent.research(req.query, model_override=req.model)
+            agent.research(req.query, model_override=req.model, skill_override=req.skill)
         ))
 
     @app.get("/health")
@@ -128,5 +132,14 @@ def create_app(config: PythiaConfig) -> FastAPI:
         from pythia.embeddings import generate_embedding_list, MODEL_NAME, DIMENSIONS
         embedding = generate_embedding_list(req.text)
         return {"text": req.text, "embedding": embedding, "dimensions": DIMENSIONS, "model": MODEL_NAME}
+
+    @app.get("/skills")
+    async def list_skills():
+        from pythia.skills import SkillLoader
+        loader = SkillLoader(Path(__file__).parent.parent.parent.parent / "skills")
+        return [
+            {"name": s.name, "description": s.description, "triggers": s.triggers}
+            for s in loader.list_skills()
+        ]
 
     return app

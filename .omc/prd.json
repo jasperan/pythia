@@ -1,0 +1,8 @@
+{
+  "stories": [
+    {"id": "US-001", "title": "Verify multi-turn conversation feature", "passes": true, "priority": 1},
+    {"id": "US-002", "title": "Verify answer grounding feature", "passes": true, "priority": 2},
+    {"id": "US-003", "title": "Verify follow-up suggestions feature", "passes": true, "priority": 3},
+    {"id": "US-004", "title": "Code review: quality, security, correctness", "passes": true, "priority": 4}
+  ]
+}

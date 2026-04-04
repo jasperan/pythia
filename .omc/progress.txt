@@ -1,0 +1,11 @@
+Ralph Session: Test & Review v0.3.0 Features
+=============================================
+Started: 2026-04-02
+
+Features under review:
+1. Multi-turn conversation (conversation_history in search)
+2. Answer grounding (source verification scoring)
+3. Follow-up suggestions (LLM-generated related queries)
+
+Progress:
+---------

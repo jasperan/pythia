@@ -199,7 +199,6 @@ def embed(
 
 
 async def _store_embeddings(cfg, texts: list[str]) -> None:
-    """Store embeddings in Oracle."""
     from pythia.server.oracle_cache import OracleCache
     cache = OracleCache(
         dsn=cfg.oracle.dsn,
@@ -219,6 +218,96 @@ async def _store_embeddings(cfg, texts: list[str]) -> None:
         print(f'{{"stored": {len(texts)}}}', file=sys.stderr)
     finally:
         await cache.close()
+
+
+skill_app = typer.Typer(help="Manage research skills")
+app.add_typer(skill_app, name="skill")
+
+
+@skill_app.command("list")
+def skill_list(
+    config: str = typer.Option("pythia.yaml", help="Config file path"),
+) -> None:
+    from pythia.skills import SkillLoader
+
+    project_root = Path(__file__).parent.parent.parent.parent
+    skills_dir = project_root / "skills"
+    loader = SkillLoader(skills_dir)
+
+    skills = loader.list_skills()
+    for s in skills:
+        triggers = ", ".join(s.triggers[:3])
+        if len(s.triggers) > 3:
+            triggers += f" (+{len(s.triggers) - 3} more)"
+        print(f"  {s.name:20s} {s.description}")
+        print(f"  {'':20s} triggers: {triggers}")
+        print()
+
+
+@skill_app.command("show")
+def skill_show(
+    name: str = typer.Argument(..., help="Skill name to inspect"),
+    config: str = typer.Option("pythia.yaml", help="Config file path"),
+) -> None:
+    import json
+    from pythia.skills import SkillLoader
+
+    project_root = Path(__file__).parent.parent.parent.parent
+    skills_dir = project_root / "skills"
+    loader = SkillLoader(skills_dir)
+
+    skill = loader.get(name)
+    if not skill:
+        print(f'{{"error": "Skill not found: {name}"}}', file=sys.stderr)
+        raise typer.Exit(1)
+    print(json.dumps({
+        "name": skill.name,
+        "description": skill.description,
+        "triggers": skill.triggers,
+        "max_rounds": skill.max_rounds,
+        "max_sub_queries": skill.max_sub_queries,
+        "requires_scrape": skill.requires_scrape,
+        "output_format": skill.output_format,
+    }, indent=2))
+
+
+@app.command()
+def autoresearch(
+    target: str = typer.Argument("", help="What to optimize (e.g. 'test speed', 'bundle size')"),
+    benchmark: str = typer.Option("", "--benchmark", "-b", help="Benchmark command to run"),
+    metric: str = typer.Option("", "--metric", "-m", help="Metric name to track"),
+    direction: str = typer.Option("higher", "--direction", "-d", help="Direction: higher or lower is better"),
+    max_iterations: int = typer.Option(10, "--max-iterations", "-n", help="Max optimization iterations"),
+    config: str = typer.Option("pythia.yaml", help="Config file path"),
+    model: str = typer.Option("", help="Override Ollama model"),
+    stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events"),
+) -> None:
+    import asyncio
+    from pythia.cli_runner import run_autoresearch as _run_autoresearch
+
+    if not target:
+        print('{"error": "No optimization target provided. Pass as argument."}', file=sys.stderr)
+        raise typer.Exit(1)
+    if not benchmark:
+        print('{"error": "No benchmark command provided. Use --benchmark."}', file=sys.stderr)
+        raise typer.Exit(1)
+    if not metric:
+        print('{"error": "No metric name provided. Use --metric."}', file=sys.stderr)
+        raise typer.Exit(1)
+
+    cfg, _ = _load_required_config(config, command_name="autoresearch")
+    model_override = model if model else None
+
+    asyncio.run(_run_autoresearch(
+        cfg,
+        target=target,
+        benchmark_cmd=benchmark,
+        metric_name=metric,
+        metric_direction=direction,
+        max_iterations=max_iterations,
+        model_override=model_override,
+        stream=stream,
+    ))
 
 
 def main() -> None:

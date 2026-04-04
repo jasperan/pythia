@@ -220,3 +220,72 @@ async def _flat_query(
         result["error"] = done_data["error"]
 
     print(json.dumps(result))
+
+
+async def run_autoresearch(
+    cfg: PythiaConfig,
+    *,
+    target: str,
+    benchmark_cmd: str,
+    metric_name: str,
+    metric_direction: str = "higher",
+    max_iterations: int = 10,
+    model_override: str | None = None,
+    stream: bool = False,
+) -> None:
+    from pathlib import Path
+    from pythia.autoresearch import AutoresearchAgent, AutoresearchEventType
+
+    ollama = OllamaClient(base_url=cfg.ollama.base_url, model=cfg.ollama.model)
+    if model_override:
+        ollama.model = model_override
+
+    agent = AutoresearchAgent(ollama=ollama, workspace_dir=Path.cwd())
+
+    if stream:
+        async for event in agent.run(
+            metric_name=metric_name,
+            benchmark_cmd=benchmark_cmd,
+            files_in_scope=[],
+            metric_direction=metric_direction,
+            max_iterations=max_iterations,
+            model=model_override or cfg.ollama.model,
+        ):
+            line = json.dumps({"event": event.event_type.value, "data": event.data})
+            print(line, flush=True)
+    else:
+        iterations = []
+        best_metric = None
+        best_iteration = 0
+
+        async for event in agent.run(
+            metric_name=metric_name,
+            benchmark_cmd=benchmark_cmd,
+            files_in_scope=[],
+            metric_direction=metric_direction,
+            max_iterations=max_iterations,
+            model=model_override or cfg.ollama.model,
+        ):
+            if event.event_type == AutoresearchEventType.STATUS:
+                print(json.dumps({"status": event.data.get("message", "")}), file=sys.stderr)
+            elif event.event_type == AutoresearchEventType.BASELINE:
+                print(json.dumps({
+                    "baseline": event.data.get("metric_value"),
+                    "metric": event.data.get("metric_name"),
+                }), file=sys.stderr)
+            elif event.event_type == AutoresearchEventType.METRIC:
+                iterations.append(event.data)
+                if event.data.get("improved"):
+                    best_metric = event.data.get("metric_value")
+                    best_iteration = event.data.get("iteration")
+            elif event.event_type == AutoresearchEventType.DONE:
+                result = {
+                    "target": target,
+                    "best_metric": best_metric,
+                    "best_iteration": best_iteration,
+                    "total_iterations": len(iterations),
+                    "iterations": iterations,
+                    "improvement_pct": event.data.get("improvement", 0),
+                    "elapsed_ms": event.data.get("elapsed_ms", 0),
+                }
+                print(json.dumps(result))

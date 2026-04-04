@@ -55,7 +55,7 @@ Ask a question, get a cited answer instantly — cached semantically so similar 
 - **Semantic cache** — Oracle AI Vector Search finds similar past queries (cosine similarity >= 0.85) and returns cached answers instantly
 - **Real-time streaming** — tokens appear as they're generated via SSE
 - **Source citations** — inline `[1]`, `[2]` citations from web results
-- **Deep scraping** — optional Scrapling integration scrapes full page content instead of snippets
+- **Deep scraping** — Scrapling scrapes full page content instead of snippets
 
 ### Deep Research (NEW)
 Autonomous multi-step research agent that iteratively searches, analyzes gaps, and synthesizes comprehensive reports — like Perplexity Deep Research or Google Deep Research, but fully self-hosted.
@@ -488,7 +488,7 @@ pythia/
 │   ├── cli_runner.py           # Async runners for CLI commands
 │   ├── config.py               # YAML config loader (Pydantic models)
 │   ├── embeddings.py           # Shared embedding generation (sentence-transformers)
-│   ├── scraper.py              # Optional deep scraping (Scrapling)
+│   ├── scraper.py              # Deep scraping (Scrapling)
 │   ├── services.py             # Service manager (Docker + API server lifecycle)
 │   ├── server/
 │   │   ├── app.py              # FastAPI app factory
@@ -560,7 +560,7 @@ pythia/
 | Embeddings | sentence-transformers (all-MiniLM-L6-v2, 384-dim) |
 | Database | Oracle Database 26ai Free (Docker) |
 | Vector Search | Oracle AI Vector Search (COSINE distance) |
-| Deep Scraping | Scrapling (optional) |
+| Deep Scraping | Scrapling |
 
 ## License
 
