@@ -255,6 +255,7 @@ class AutoresearchAgent:
             return f"Benchmark error: {e}"
 
     async def _extract_metric(self, output: str, metric_name: str, model: str) -> float | None:
+        import re
         try:
             response = await self.ollama.generate(
                 _METRIC_EXTRACT_SYSTEM,
@@ -264,8 +265,23 @@ class AutoresearchAgent:
             data = json.loads(response)
             return data.get("value")
         except Exception as e:
-            logger.warning(f"Metric extraction failed: {e}")
-            return None
+            logger.warning(f"LLM metric extraction failed: {e}")
+
+        try:
+            data = json.loads(output.strip())
+            return data.get(metric_name)
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        match = re.search(rf'"{metric_name}"\s*:\s*([\d.]+)', output)
+        if match:
+            return float(match.group(1))
+
+        match = re.search(rf'{metric_name}:\s*([\d.]+)', output)
+        if match:
+            return float(match.group(1))
+
+        return None
 
     async def _propose_change(
         self, metric_name: str, benchmark_cmd: str, files_in_scope: list[str],
