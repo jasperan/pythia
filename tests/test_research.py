@@ -15,6 +15,7 @@ def _make_agent(
     recall_findings=None,
     gap_analysis_return=None,
     gap_analysis_sequence=None,
+    completeness_return=None,
     config_overrides=None,
 ):
     """Build a ResearchAgent with mocked dependencies.
@@ -40,10 +41,14 @@ def _make_agent(
         gap = gap_analysis_return or '{"sufficient": true, "gaps": [], "reasoning": "All covered."}'
         gap_responses = [gap]
 
+    completeness_resp = completeness_return or '{"status": "COMPLETE", "reasoning": "Report is thorough.", "follow_up_queries": []}'
+
     call_count = {"n": 0}
     gap_call_count = {"n": 0}
 
     async def mock_generate(system, user, json_mode=False, model=None):
+        if json_mode and "completeness" in system.lower():
+            return completeness_resp
         if json_mode and "gaps" in system.lower():
             # Gap analysis call
             idx = min(gap_call_count["n"], len(gap_responses) - 1)
@@ -274,3 +279,65 @@ async def test_research_recall_failure_graceful():
     assert ResearchEventType.DONE in [e.event_type for e in events]
     # No recall event since it failed
     assert ResearchEventType.RECALL not in [e.event_type for e in events]
+
+
+@pytest.mark.asyncio
+async def test_research_completeness_check_emits_event():
+    """Research with completeness checks should emit COMPLETENESS_CHECK events."""
+    agent, mock_ollama, mock_cache, _ = _make_agent(
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 1},
+    )
+
+    events = []
+    async for event in agent.research("test query"):
+        events.append(event)
+
+    types = [e.event_type for e in events]
+    assert ResearchEventType.COMPLETENESS_CHECK in types
+
+    cc_event = next(e for e in events if e.event_type == ResearchEventType.COMPLETENESS_CHECK)
+    assert cc_event.data["status"] in ("COMPLETE", "INCOMPLETE", "STUCK")
+
+
+@pytest.mark.asyncio
+async def test_research_completeness_triggers_extra_round():
+    """When completeness check says INCOMPLETE, research should run follow-up queries."""
+    agent, _, mock_cache, mock_searxng = _make_agent(
+        completeness_return='{"status": "INCOMPLETE", "reasoning": "Missing cost data.", "follow_up_queries": ["What are the costs?"]}',
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 1},
+    )
+
+    events = []
+    async for event in agent.research("RISC-V vs ARM"):
+        events.append(event)
+
+    types = [e.event_type for e in events]
+    round_starts = [e for e in events if e.event_type == ResearchEventType.ROUND_START]
+
+    # Should have initial round + 1 completeness-driven extra round
+    assert len(round_starts) == 2
+
+    # Should have a completeness check event with INCOMPLETE status
+    cc_events = [e for e in events if e.event_type == ResearchEventType.COMPLETENESS_CHECK]
+    assert len(cc_events) == 1
+    assert cc_events[0].data["status"] == "INCOMPLETE"
+
+
+@pytest.mark.asyncio
+async def test_research_completeness_stuck_stops():
+    """When completeness check says STUCK, research should stop without extra rounds."""
+    agent, _, _, _ = _make_agent(
+        completeness_return='{"status": "STUCK", "reasoning": "Cannot be answered via web.", "follow_up_queries": []}',
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 2},
+    )
+
+    events = []
+    async for event in agent.research("test query"):
+        events.append(event)
+
+    round_starts = [e for e in events if e.event_type == ResearchEventType.ROUND_START]
+    assert len(round_starts) == 1  # No extra rounds
+
+    cc_events = [e for e in events if e.event_type == ResearchEventType.COMPLETENESS_CHECK]
+    assert len(cc_events) == 1
+    assert cc_events[0].data["status"] == "STUCK"

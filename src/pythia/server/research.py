@@ -33,6 +33,7 @@ class ResearchEventType(str, Enum):
     RECALL = "recall"
     TOKEN = "token"
     VERIFY = "verify"
+    COMPLETENESS_CHECK = "completeness_check"
     DONE = "done"
 
 
@@ -115,6 +116,29 @@ All sources:
 {sources_text}
 
 Write a comprehensive, well-structured research report."""
+
+_COMPLETENESS_SYSTEM = """You are a research completeness verifier. Given a research question and the synthesized report, determine if the report adequately answers the original question.
+
+Return a JSON object:
+{{
+  "status": "COMPLETE" | "INCOMPLETE" | "STUCK",
+  "reasoning": "Brief explanation of your assessment",
+  "follow_up_queries": ["query 1", "query 2"]
+}}
+
+Rules:
+- COMPLETE: The report thoroughly answers the question with supporting evidence.
+- INCOMPLETE: The report has significant gaps. Provide follow_up_queries to fill them (max {max_follow_ups}).
+- STUCK: The question cannot be answered with web search (too niche, future event, requires private data). Provide empty follow_up_queries.
+- Only mark INCOMPLETE for substantive gaps, not minor details.
+- follow_up_queries should be specific, web-searchable questions."""
+
+_COMPLETENESS_USER = """Original research question: {query}
+
+Synthesized report:
+{report}
+
+Assess completeness and return JSON."""
 
 
 class ResearchAgent:
@@ -226,13 +250,59 @@ class ResearchAgent:
                 "in_progress", f"Continue with round {round_num + 1}",
             )
 
-        yield ResearchEvent(ResearchEventType.STATUS, {"message": "Synthesizing research report..."})
-        report_parts = []
-        async for token in self._synthesize_report(query, all_findings, all_sources, recalled, model):
-            report_parts.append(token)
-            yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
+        # --- Completeness verification loop ---
+        max_cc = self.config.max_completeness_checks
+        report_text = ""
 
-        report_text = "".join(report_parts)
+        for cc_attempt in range(max_cc + 1):
+            yield ResearchEvent(ResearchEventType.STATUS, {"message": "Synthesizing research report..."})
+            report_parts = []
+            async for token in self._synthesize_report(query, all_findings, all_sources, recalled, model):
+                report_parts.append(token)
+                yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
+
+            report_text = "".join(report_parts)
+
+            if cc_attempt >= max_cc:
+                break
+
+            yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Verifying report completeness (check {cc_attempt + 1}/{max_cc})..."})
+            cc_result = await self._verify_completeness(query, report_text, model)
+            yield ResearchEvent(ResearchEventType.COMPLETENESS_CHECK, {
+                "attempt": cc_attempt + 1,
+                "max_attempts": max_cc,
+                **cc_result,
+            })
+
+            if cc_result["status"] in ("COMPLETE", "STUCK"):
+                break
+
+            follow_ups = cc_result.get("follow_up_queries", [])
+            if not follow_ups:
+                break
+
+            yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Report incomplete, running {len(follow_ups)} follow-up queries..."})
+            round_num += 1
+            yield ResearchEvent(ResearchEventType.ROUND_START, {
+                "round": round_num,
+                "max_rounds": effective_max_rounds + max_cc,
+                "num_queries": len(follow_ups),
+            })
+
+            extra_findings, extra_sources, source_counter = await self._search_round(
+                follow_ups, round_num, source_counter, model, scrape=effective_scrape,
+            )
+
+            for finding in extra_findings:
+                yield ResearchEvent(ResearchEventType.FINDING, {
+                    "sub_query": finding.sub_query,
+                    "summary_preview": finding.summary[:200],
+                    "num_sources": len(finding.sources),
+                    "round": round_num,
+                })
+
+            all_findings.extend(extra_findings)
+            all_sources.extend(extra_sources)
 
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Verifying research output..."})
         verification = await verify_report(
@@ -419,6 +489,24 @@ class ResearchAgent:
         except (json.JSONDecodeError, KeyError) as e:
             logger.warning(f"Failed to parse gap analysis: {e}")
             return {"sufficient": True, "gaps": [], "reasoning": "Gap analysis failed, proceeding with synthesis."}
+
+    async def _verify_completeness(self, query: str, report: str, model: str) -> dict:
+        """Post-synthesis completeness verification. Returns status, reasoning, follow_up_queries."""
+        max_follow_ups = self.config.max_sub_queries
+        system = _COMPLETENESS_SYSTEM.format(max_follow_ups=max_follow_ups)
+        user = _COMPLETENESS_USER.format(query=query, report=report)
+
+        try:
+            response = await self.ollama.generate(system, user, json_mode=True, model=model)
+            data = json.loads(response)
+            return {
+                "status": data.get("status", "COMPLETE"),
+                "reasoning": data.get("reasoning", ""),
+                "follow_up_queries": data.get("follow_up_queries", [])[:max_follow_ups],
+            }
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.warning(f"Completeness verification failed: {e}")
+            return {"status": "COMPLETE", "reasoning": "Verification failed, proceeding.", "follow_up_queries": []}
 
     async def _synthesize_report(
         self, query: str, findings: list[Finding],
