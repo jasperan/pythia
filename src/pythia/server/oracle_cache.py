@@ -262,22 +262,37 @@ class OracleCache:
     async def store_research(
         self, query: str, report: str, sub_queries: list[str],
         rounds_used: int, total_sources: int, model_used: str, elapsed_ms: int,
+        slug: str | None = None, parent_id: str | None = None,
+        verification_status: str | None = None,
+        verification_summary: str | None = None,
+        provenance: str | None = None,
+        **_kwargs,
     ) -> str:
         """Store a research session. Returns the research ID."""
         if not self._pool:
             return ""
         query_embedding = await asyncio.to_thread(_generate_embedding, query)
         sql = """
-            INSERT INTO pythia_research (query, query_embedding, report, sub_queries, rounds_used, total_sources, model_used, elapsed_ms)
-            VALUES (:1, TO_VECTOR(:2, 384), :3, :4, :5, :6, :7, :8)
-            RETURNING id INTO :9
+            INSERT INTO pythia_research (
+                query, query_embedding, report, sub_queries,
+                rounds_used, total_sources, model_used, elapsed_ms,
+                slug, parent_id, verification_status, verification_summary, provenance
+            ) VALUES (
+                :1, TO_VECTOR(:2, 384), :3, :4,
+                :5, :6, :7, :8,
+                :9, :10, :11, :12, :13
+            )
+            RETURNING id INTO :14
         """
+        parent_id_bytes = bytes.fromhex(parent_id) if parent_id else None
         async with self._pool.acquire() as conn:
             async with conn.cursor() as cur:
                 research_id_var = cur.var(oracledb.DB_TYPE_RAW)
                 await cur.execute(sql, [
                     query, query_embedding, report, json.dumps(sub_queries),
-                    rounds_used, total_sources, model_used, elapsed_ms, research_id_var,
+                    rounds_used, total_sources, model_used, elapsed_ms,
+                    slug, parent_id_bytes, verification_status,
+                    verification_summary, provenance, research_id_var,
                 ])
                 await conn.commit()
                 return research_id_var.getvalue()[0].hex()

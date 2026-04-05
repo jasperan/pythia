@@ -23,3 +23,18 @@ def test_is_cache_hit():
     assert cache._is_cache_hit(0.85) is True
     assert cache._is_cache_hit(0.80) is False
     assert cache._is_cache_hit(0.0) is False
+
+
+@pytest.mark.asyncio
+async def test_store_research_accepts_extended_fields():
+    """store_research should accept slug, parent_id, verification, and provenance fields."""
+    cache = OracleCache(dsn="localhost:1523/FREEPDB1", user="pythia", password="pythia")
+    # No pool — should return "" gracefully, but shouldn't raise TypeError on the signature
+    result = await cache.store_research(
+        query="test", report="report", sub_queries=["q1"],
+        rounds_used=1, total_sources=2, model_used="test", elapsed_ms=100,
+        slug="test-slug", parent_id=None,
+        verification_status="pass", verification_summary="All good.",
+        provenance="# Provenance",
+    )
+    assert result == ""
