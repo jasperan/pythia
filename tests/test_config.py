@@ -2,7 +2,12 @@
 import tempfile
 from pathlib import Path
 
-from pythia.config import load_config, PythiaConfig, resolve_config_path
+from pythia.config import load_config, PythiaConfig, ResearchConfig, resolve_config_path
+
+
+def test_research_config_completeness_checks_default():
+    cfg = ResearchConfig()
+    assert cfg.max_completeness_checks == 2
 
 
 def test_load_config_from_yaml():
