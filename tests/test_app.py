@@ -142,6 +142,22 @@ def test_research_validation_max_rounds(client):
     assert resp.status_code == 422
 
 
+def test_continue_validation_empty_slug(client):
+    resp = client.post("/research/continue/", json={})
+    # FastAPI returns 404 for missing path segment or 405
+    assert resp.status_code in (404, 405, 422)
+
+
+def test_refine_validation_missing_directive(client):
+    resp = client.post("/research/refine/test-slug", json={})
+    assert resp.status_code == 422
+
+
+def test_refine_validation_empty_directive(client):
+    resp = client.post("/research/refine/test-slug", json={"directive": ""})
+    assert resp.status_code == 422
+
+
 def test_cors_headers(client):
     resp = client.options("/health", headers={
         "Origin": "http://localhost:3000",
