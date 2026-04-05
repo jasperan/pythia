@@ -141,6 +141,23 @@ Synthesized report:
 Assess completeness and return JSON."""
 
 
+_CONTINUE_DECOMPOSE_SYSTEM = """You are a research planning agent continuing a prior investigation. Given the original research question, prior findings, and an optional focus area, generate follow-up sub-questions that fill remaining gaps or explore new angles.
+
+Return a JSON object with a single key "sub_queries" containing a list of strings.
+Each sub-query should target information NOT already covered by the prior findings.
+Return between 2 and {max_sub_queries} sub-queries.
+If a focus is provided, prioritize questions related to it."""
+
+_CONTINUE_DECOMPOSE_USER = """Original research question: {query}
+
+{focus_section}
+
+Prior findings:
+{prior_findings_text}
+
+Generate follow-up sub-queries targeting gaps or new angles. Return JSON: {{"sub_queries": ["question 1", ...]}}"""
+
+
 class ResearchAgent:
     """Autonomous deep research agent with verification and provenance tracking."""
 
@@ -547,3 +564,175 @@ class ResearchAgent:
 
         async for token in self.ollama.generate_stream(_REPORT_SYSTEM, user, model=model):
             yield token
+
+    async def continue_research(
+        self, slug: str, focus: str | None = None,
+        model_override: str | None = None,
+    ) -> AsyncIterator[ResearchEvent]:
+        """Continue a prior investigation by slug, running additional rounds to fill gaps."""
+        start = time.monotonic()
+        model = model_override or self.ollama.model
+
+        yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Loading prior investigation '{slug}'..."})
+
+        prior = await self.cache.get_research_by_slug(slug)
+        if not prior:
+            yield ResearchEvent(ResearchEventType.DONE, {
+                "error": f"No investigation found with slug '{slug}'",
+                "rounds_used": 0, "total_findings": 0, "total_sources": 0,
+                "recalled_findings": 0, "elapsed_ms": 0, "slug": slug,
+                "verification_status": "fail",
+                "provenance": {},
+            })
+            return
+
+        prior_findings_raw = await self.cache.get_findings_for_research(prior["id"])
+        prior_findings = [
+            Finding(
+                sub_query=f["sub_query"], summary=f["summary"],
+                sources=f["sources"], round_num=f["round_num"],
+            )
+            for f in prior_findings_raw
+        ]
+
+        yield ResearchEvent(ResearchEventType.STATUS, {
+            "message": f"Loaded {len(prior_findings)} prior findings. Planning continuation...",
+        })
+
+        original_query = prior["query"]
+        effective_max_rounds = self.config.max_rounds
+        effective_max_sub = self.config.max_sub_queries
+        effective_scrape = self.config.deep_scrape
+
+        # Decompose with awareness of prior findings
+        prior_findings_text = "\n\n".join(
+            f"### {f.sub_query}\n{f.summary}" for f in prior_findings
+        )
+        focus_section = f"Focus area for continuation: {focus}" if focus else ""
+        system = _CONTINUE_DECOMPOSE_SYSTEM.format(max_sub_queries=effective_max_sub)
+        user = _CONTINUE_DECOMPOSE_USER.format(
+            query=original_query, focus_section=focus_section,
+            prior_findings_text=prior_findings_text,
+        )
+
+        try:
+            response = await self.ollama.generate(system, user, json_mode=True, model=model)
+            data = json.loads(response)
+            sub_queries = data.get("sub_queries", [])[:effective_max_sub]
+            if not sub_queries:
+                sub_queries = [f"{original_query} latest developments", f"{original_query} in depth"]
+        except (json.JSONDecodeError, KeyError):
+            sub_queries = [f"{original_query} latest developments", f"{original_query} in depth"]
+
+        yield ResearchEvent(ResearchEventType.PLAN, {"sub_queries": sub_queries, "slug": slug})
+
+        all_findings: list[Finding] = list(prior_findings)
+        all_sources: list[dict] = []
+        source_counter = prior.get("total_sources", 0)
+        new_findings: list[Finding] = []
+
+        round_num = 0
+        for round_num in range(1, effective_max_rounds + 1):
+            yield ResearchEvent(ResearchEventType.ROUND_START, {
+                "round": round_num,
+                "max_rounds": effective_max_rounds,
+                "num_queries": len(sub_queries),
+            })
+
+            round_findings, round_sources, source_counter = await self._search_round(
+                sub_queries, round_num, source_counter, model, scrape=effective_scrape,
+            )
+
+            for finding in round_findings:
+                yield ResearchEvent(ResearchEventType.FINDING, {
+                    "sub_query": finding.sub_query,
+                    "summary_preview": finding.summary[:200],
+                    "num_sources": len(finding.sources),
+                    "round": round_num,
+                })
+
+            all_findings.extend(round_findings)
+            new_findings.extend(round_findings)
+            all_sources.extend(round_sources)
+
+            if round_num >= effective_max_rounds:
+                break
+
+            gap_result = await self._analyze_gaps(original_query, all_findings, model)
+            yield ResearchEvent(ResearchEventType.GAP_ANALYSIS, gap_result)
+
+            if gap_result.get("sufficient", True):
+                break
+            sub_queries = gap_result.get("gaps", [])
+            if not sub_queries:
+                break
+
+        if not round_num:
+            round_num = 1
+
+        yield ResearchEvent(ResearchEventType.STATUS, {"message": "Synthesizing updated report..."})
+        report_parts = []
+        async for token in self._synthesize_report(original_query, all_findings, all_sources, [], model):
+            report_parts.append(token)
+            yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
+
+        report_text = "".join(report_parts)
+
+        yield ResearchEvent(ResearchEventType.STATUS, {"message": "Verifying research output..."})
+        verification = await verify_report(self.ollama, original_query, report_text, all_sources, model)
+        yield ResearchEvent(ResearchEventType.VERIFY, {
+            "status": verification.status,
+            "claims_checked": verification.claims_checked,
+            "issues_found": len(verification.issues),
+            "summary": verification.summary,
+        })
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        provenance = ProvenanceRecord(
+            topic=original_query, slug=slug, rounds=prior.get("rounds_used", 0) + round_num,
+            sources_consulted=len(all_sources) + prior.get("total_sources", 0),
+            sources_accepted=len(all_sources) + prior.get("total_sources", 0),
+            sources_rejected=0,
+            verification_status=verification.status,
+            verification_summary=verification.summary,
+            model_used=model, elapsed_ms=elapsed_ms,
+        )
+
+        try:
+            all_sub_queries = list({f.sub_query for f in new_findings})
+            research_id = await self.cache.store_research(
+                query=original_query, report=report_text, sub_queries=all_sub_queries,
+                rounds_used=round_num, total_sources=len(all_sources),
+                model_used=model, elapsed_ms=elapsed_ms, slug=slug,
+                parent_id=prior["id"],
+                verification_status=verification.status,
+                verification_summary=verification.summary,
+                provenance=provenance.to_markdown(),
+            )
+            if research_id and new_findings:
+                await self.cache.store_findings_batch(
+                    research_id=research_id,
+                    findings=[
+                        {
+                            "sub_query": f.sub_query, "summary": f.summary,
+                            "sources": f.sources, "round_num": f.round_num,
+                        }
+                        for f in new_findings
+                    ],
+                )
+        except Exception as e:
+            logger.warning(f"Failed to store continuation results: {e}")
+
+        yield ResearchEvent(ResearchEventType.DONE, {
+            "rounds_used": round_num,
+            "total_findings": len(new_findings),
+            "total_sources": len(all_sources),
+            "prior_findings_loaded": len(prior_findings),
+            "continued_from": slug,
+            "recalled_findings": 0,
+            "elapsed_ms": elapsed_ms,
+            "slug": slug,
+            "verification_status": verification.status,
+            "provenance": provenance.to_dict(),
+        })
