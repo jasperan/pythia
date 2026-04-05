@@ -38,3 +38,11 @@ async def test_store_research_accepts_extended_fields():
         provenance="# Provenance",
     )
     assert result == ""
+
+
+@pytest.mark.asyncio
+async def test_get_research_by_slug_no_pool():
+    """get_research_by_slug should return None when pool is unavailable."""
+    cache = OracleCache(dsn="localhost:1523/FREEPDB1", user="pythia", password="pythia")
+    result = await cache.get_research_by_slug("nonexistent-slug")
+    assert result is None

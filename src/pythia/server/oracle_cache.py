@@ -345,5 +345,41 @@ class OracleCache:
                 await cur.executemany(sql, rows)
                 await conn.commit()
 
+    async def get_research_by_slug(self, slug: str) -> dict | None:
+        """Load a research session by slug. Returns the most recent match."""
+        if not self._pool:
+            return None
+        sql = """
+            SELECT id, query, report, sub_queries, rounds_used, total_sources,
+                   model_used, elapsed_ms, slug, parent_id,
+                   verification_status, verification_summary, provenance, created_at
+            FROM pythia_research
+            WHERE slug = :1
+            ORDER BY created_at DESC
+            FETCH FIRST 1 ROW ONLY
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(sql, [slug])
+                row = await cur.fetchone()
+                if not row:
+                    return None
+                return {
+                    "id": row[0].hex() if row[0] else None,
+                    "query": row[1],
+                    "report": row[2],
+                    "sub_queries": json.loads(row[3]) if row[3] else [],
+                    "rounds_used": row[4],
+                    "total_sources": row[5],
+                    "model_used": row[6],
+                    "elapsed_ms": row[7],
+                    "slug": row[8],
+                    "parent_id": row[9].hex() if row[9] else None,
+                    "verification_status": row[10],
+                    "verification_summary": row[11],
+                    "provenance": row[12],
+                    "created_at": row[13].isoformat() if row[13] else None,
+                }
+
     def _is_cache_hit(self, similarity: float) -> bool:
         return similarity >= self.similarity_threshold
