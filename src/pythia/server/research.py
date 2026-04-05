@@ -157,6 +157,46 @@ Prior findings:
 
 Generate follow-up sub-queries targeting gaps or new angles. Return JSON: {{"sub_queries": ["question 1", ...]}}"""
 
+_REFINE_DECOMPOSE_SYSTEM = """You are a research planning agent refining a prior investigation. The user wants to go deeper on a specific aspect. Given the original question, prior report, and the user's directive, generate focused sub-questions that address the directive.
+
+Return a JSON object with a single key "sub_queries" containing a list of strings.
+Each sub-query should be tightly focused on the user's directive.
+Return between 2 and {max_sub_queries} sub-queries."""
+
+_REFINE_DECOMPOSE_USER = """Original research question: {query}
+
+User's directive: {directive}
+
+Prior report summary (first 2000 chars):
+{report_preview}
+
+Generate sub-queries focused on the directive. Return JSON: {{"sub_queries": ["question 1", ...]}}"""
+
+_REFINE_REPORT_SYSTEM = """You are Pythia, an AI research engine. You are refining a prior research report with new focused findings.
+
+Rules:
+1. Start with the context from the prior report
+2. Integrate the new findings into the appropriate sections
+3. Expand the sections related to the user's directive with the new detail
+4. Keep the overall report structure coherent
+5. Use [N] citation notation for new sources
+6. Clearly mark what is new vs. what was in the prior report where helpful"""
+
+_REFINE_REPORT_USER = """Original research question: {query}
+
+User's refinement directive: {directive}
+
+Prior report:
+{prior_report}
+
+New focused findings:
+{new_findings_text}
+
+New sources:
+{new_sources_text}
+
+Write an updated, comprehensive report integrating the new findings."""
+
 
 class ResearchAgent:
     """Autonomous deep research agent with verification and provenance tracking."""
@@ -389,6 +429,186 @@ class ResearchAgent:
             "total_findings": len(all_findings),
             "total_sources": len(all_sources),
             "recalled_findings": len(recalled),
+            "elapsed_ms": elapsed_ms,
+            "slug": slug,
+            "verification_status": verification.status,
+            "provenance": provenance.to_dict(),
+        })
+
+    async def refine_research(
+        self, slug: str, directive: str,
+        model_override: str | None = None,
+    ) -> AsyncIterator[ResearchEvent]:
+        """Refine a prior investigation with a user-directed focus area."""
+        start = time.monotonic()
+        model = model_override or self.ollama.model
+
+        yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Loading investigation '{slug}' for refinement..."})
+
+        prior = await self.cache.get_research_by_slug(slug)
+        if not prior:
+            yield ResearchEvent(ResearchEventType.DONE, {
+                "error": f"No investigation found with slug '{slug}'",
+                "rounds_used": 0, "total_findings": 0, "total_sources": 0,
+                "recalled_findings": 0, "elapsed_ms": 0, "slug": slug,
+                "verification_status": "fail", "provenance": {},
+            })
+            return
+
+        prior_findings_raw = await self.cache.get_findings_for_research(prior["id"])
+
+        yield ResearchEvent(ResearchEventType.STATUS, {
+            "message": f"Loaded prior report. Generating focused queries for: {directive[:100]}",
+        })
+
+        original_query = prior["query"]
+        effective_max_rounds = self.config.max_rounds
+        effective_max_sub = self.config.max_sub_queries
+        effective_scrape = self.config.deep_scrape
+
+        # Decompose with directive focus
+        report_preview = (prior.get("report") or "")[:2000]
+        system = _REFINE_DECOMPOSE_SYSTEM.format(max_sub_queries=effective_max_sub)
+        user = _REFINE_DECOMPOSE_USER.format(
+            query=original_query, directive=directive, report_preview=report_preview,
+        )
+
+        try:
+            response = await self.ollama.generate(system, user, json_mode=True, model=model)
+            data = json.loads(response)
+            sub_queries = data.get("sub_queries", [])[:effective_max_sub]
+            if not sub_queries:
+                sub_queries = [directive, f"{original_query} {directive}"]
+        except (json.JSONDecodeError, KeyError):
+            sub_queries = [directive, f"{original_query} {directive}"]
+
+        yield ResearchEvent(ResearchEventType.PLAN, {"sub_queries": sub_queries, "slug": slug})
+
+        new_findings: list[Finding] = []
+        all_sources: list[dict] = []
+        source_counter = 0
+
+        round_num = 0
+        for round_num in range(1, effective_max_rounds + 1):
+            yield ResearchEvent(ResearchEventType.ROUND_START, {
+                "round": round_num,
+                "max_rounds": effective_max_rounds,
+                "num_queries": len(sub_queries),
+            })
+
+            round_findings, round_sources, source_counter = await self._search_round(
+                sub_queries, round_num, source_counter, model, scrape=effective_scrape,
+            )
+
+            for finding in round_findings:
+                yield ResearchEvent(ResearchEventType.FINDING, {
+                    "sub_query": finding.sub_query,
+                    "summary_preview": finding.summary[:200],
+                    "num_sources": len(finding.sources),
+                    "round": round_num,
+                })
+
+            new_findings.extend(round_findings)
+            all_sources.extend(round_sources)
+
+            if round_num >= effective_max_rounds:
+                break
+
+            # Gap analysis against directive, not just original query
+            all_so_far = [
+                Finding(sub_query=f["sub_query"], summary=f["summary"], sources=f["sources"], round_num=f["round_num"])
+                for f in prior_findings_raw
+            ] + new_findings
+            gap_result = await self._analyze_gaps(f"{original_query} — focusing on: {directive}", all_so_far, model)
+            yield ResearchEvent(ResearchEventType.GAP_ANALYSIS, gap_result)
+
+            if gap_result.get("sufficient", True):
+                break
+            sub_queries = gap_result.get("gaps", [])
+            if not sub_queries:
+                break
+
+        if not round_num:
+            round_num = 1
+
+        # Synthesize merged report using refinement-specific prompt
+        new_findings_text = "\n\n".join(
+            f"### {f.sub_query} (Round {f.round_num})\n{f.summary}" for f in new_findings
+        )
+        new_sources_text = "\n".join(
+            f"[{s['index']}] {s['title']} — {s['url']}" for s in all_sources
+        )
+        prior_report = prior.get("report") or ""
+
+        refine_user = _REFINE_REPORT_USER.format(
+            query=original_query, directive=directive,
+            prior_report=prior_report, new_findings_text=new_findings_text,
+            new_sources_text=new_sources_text,
+        )
+        if len(refine_user) > self._MAX_SYNTHESIS_CHARS:
+            refine_user = refine_user[:self._MAX_SYNTHESIS_CHARS] + "\n\n[Content truncated.]"
+
+        yield ResearchEvent(ResearchEventType.STATUS, {"message": "Synthesizing refined report..."})
+        report_parts = []
+        async for token in self.ollama.generate_stream(_REFINE_REPORT_SYSTEM, refine_user, model=model):
+            report_parts.append(token)
+            yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
+
+        report_text = "".join(report_parts)
+
+        yield ResearchEvent(ResearchEventType.STATUS, {"message": "Verifying refined report..."})
+        verification = await verify_report(self.ollama, original_query, report_text, all_sources, model)
+        yield ResearchEvent(ResearchEventType.VERIFY, {
+            "status": verification.status,
+            "claims_checked": verification.claims_checked,
+            "issues_found": len(verification.issues),
+            "summary": verification.summary,
+        })
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        provenance = ProvenanceRecord(
+            topic=original_query, slug=slug, rounds=round_num,
+            sources_consulted=len(all_sources),
+            sources_accepted=len(all_sources),
+            sources_rejected=0,
+            verification_status=verification.status,
+            verification_summary=verification.summary,
+            model_used=model, elapsed_ms=elapsed_ms,
+        )
+
+        try:
+            all_sub_queries = list({f.sub_query for f in new_findings})
+            research_id = await self.cache.store_research(
+                query=original_query, report=report_text, sub_queries=all_sub_queries,
+                rounds_used=round_num, total_sources=len(all_sources),
+                model_used=model, elapsed_ms=elapsed_ms, slug=slug,
+                parent_id=prior["id"],
+                verification_status=verification.status,
+                verification_summary=verification.summary,
+                provenance=provenance.to_markdown(),
+            )
+            if research_id and new_findings:
+                await self.cache.store_findings_batch(
+                    research_id=research_id,
+                    findings=[
+                        {
+                            "sub_query": f.sub_query, "summary": f.summary,
+                            "sources": f.sources, "round_num": f.round_num,
+                        }
+                        for f in new_findings
+                    ],
+                )
+        except Exception as e:
+            logger.warning(f"Failed to store refinement results: {e}")
+
+        yield ResearchEvent(ResearchEventType.DONE, {
+            "rounds_used": round_num,
+            "total_findings": len(new_findings),
+            "total_sources": len(all_sources),
+            "refined_from": slug,
+            "directive": directive,
+            "recalled_findings": 0,
             "elapsed_ms": elapsed_ms,
             "slug": slug,
             "verification_status": verification.status,

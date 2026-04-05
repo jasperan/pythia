@@ -395,3 +395,54 @@ async def test_continue_research_slug_not_found():
     done = next(e for e in events if e.event_type == ResearchEventType.DONE)
     assert "error" in done.data
     assert done.data["rounds_used"] == 0
+
+
+@pytest.mark.asyncio
+async def test_refine_research_uses_directive():
+    """refine_research should use the directive to generate targeted follow-up queries."""
+    prior_research = {
+        "id": "abc123def456",  # pragma: allowlist secret
+        "query": "RISC-V vs ARM",
+        "report": "# Prior Report\n\nInitial findings about architecture differences.",
+        "sub_queries": ["sub q1"],
+        "rounds_used": 1,
+        "total_sources": 2,
+        "model_used": "qwen3.5:9b",
+        "slug": "risc-v-arm",
+        "parent_id": None,
+    }
+    prior_findings = [
+        {"sub_query": "sub q1", "summary": "RISC-V is open-source ISA.", "sources": [], "round_num": 1},
+    ]
+
+    agent, _, mock_cache, _ = _make_agent(
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+    mock_cache.get_research_by_slug = AsyncMock(return_value=prior_research)
+    mock_cache.get_findings_for_research = AsyncMock(return_value=prior_findings)
+
+    events = []
+    async for event in agent.refine_research("risc-v-arm", directive="Focus on power consumption comparison"):
+        events.append(event)
+
+    types = [e.event_type for e in events]
+    assert ResearchEventType.PLAN in types
+    assert ResearchEventType.DONE in types
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["refined_from"] == "risc-v-arm"
+    assert done.data["directive"] == "Focus on power consumption comparison"
+
+
+@pytest.mark.asyncio
+async def test_refine_research_slug_not_found():
+    """refine_research should emit error DONE event when slug doesn't exist."""
+    agent, _, mock_cache, _ = _make_agent()
+    mock_cache.get_research_by_slug = AsyncMock(return_value=None)
+
+    events = []
+    async for event in agent.refine_research("nonexistent", directive="more details"):
+        events.append(event)
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert "error" in done.data
