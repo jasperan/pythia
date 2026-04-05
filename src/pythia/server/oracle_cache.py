@@ -381,5 +381,30 @@ class OracleCache:
                     "created_at": row[13].isoformat() if row[13] else None,
                 }
 
+    async def get_findings_for_research(self, research_id: str) -> list[dict]:
+        """Load all findings for a research session, ordered by round then creation time."""
+        if not self._pool:
+            return []
+        sql = """
+            SELECT sub_query, summary, sources, round_num, created_at
+            FROM pythia_findings
+            WHERE research_id = :1
+            ORDER BY round_num, created_at
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(sql, [bytes.fromhex(research_id)])
+                rows = await cur.fetchall()
+                return [
+                    {
+                        "sub_query": row[0],
+                        "summary": row[1],
+                        "sources": json.loads(row[2]) if row[2] else [],
+                        "round_num": row[3],
+                        "created_at": row[4].isoformat() if row[4] else None,
+                    }
+                    for row in rows
+                ]
+
     def _is_cache_hit(self, similarity: float) -> bool:
         return similarity >= self.similarity_threshold

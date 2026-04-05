@@ -46,3 +46,11 @@ async def test_get_research_by_slug_no_pool():
     cache = OracleCache(dsn="localhost:1523/FREEPDB1", user="pythia", password="pythia")
     result = await cache.get_research_by_slug("nonexistent-slug")
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_findings_for_research_no_pool():
+    """get_findings_for_research should return empty list when pool is unavailable."""
+    cache = OracleCache(dsn="localhost:1523/FREEPDB1", user="pythia", password="pythia")
+    result = await cache.get_findings_for_research("abc123")
+    assert result == []
