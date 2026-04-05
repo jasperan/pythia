@@ -66,22 +66,30 @@ CREATE TABLE pythia_history (
 
 -- Research sessions
 CREATE TABLE pythia_research (
-    id              RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-    query           VARCHAR2(4000) NOT NULL,
-    query_embedding VECTOR         NOT NULL,
-    report          CLOB,
-    sub_queries     CLOB,
-    rounds_used     NUMBER         DEFAULT 0,
-    total_sources   NUMBER         DEFAULT 0,
-    model_used      VARCHAR2(100)  NOT NULL,
-    elapsed_ms      NUMBER,
-    created_at      TIMESTAMP      DEFAULT SYSTIMESTAMP
+    id                    RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+    query                 VARCHAR2(4000) NOT NULL,
+    query_embedding       VECTOR         NOT NULL,
+    report                CLOB,
+    sub_queries           CLOB,
+    rounds_used           NUMBER         DEFAULT 0,
+    total_sources         NUMBER         DEFAULT 0,
+    model_used            VARCHAR2(100)  NOT NULL,
+    elapsed_ms            NUMBER,
+    slug                  VARCHAR2(100),
+    parent_id             RAW(16) REFERENCES pythia_research(id),
+    verification_status   VARCHAR2(50),
+    verification_summary  VARCHAR2(4000),
+    provenance            CLOB,
+    created_at            TIMESTAMP      DEFAULT SYSTIMESTAMP
 );
 
 CREATE VECTOR INDEX pythia_research_vec_idx
     ON pythia_research (query_embedding)
     ORGANIZATION NEIGHBOR PARTITIONS
     WITH DISTANCE COSINE;
+
+CREATE INDEX pythia_research_slug_idx ON pythia_research (slug);
+CREATE INDEX pythia_research_parent_idx ON pythia_research (parent_id);
 
 -- Individual research findings (for cross-session recall)
 CREATE TABLE pythia_findings (
