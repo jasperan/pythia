@@ -44,6 +44,18 @@ class EmbedRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000)
 
 
+class ContinueRequest(BaseModel):
+    focus: str | None = Field(None, max_length=4000)
+    model: str | None = None
+    max_rounds: int | None = Field(None, ge=1, le=10)
+
+
+class RefineRequest(BaseModel):
+    directive: str = Field(..., min_length=1, max_length=4000)
+    model: str | None = None
+    max_rounds: int | None = Field(None, ge=1, le=10)
+
+
 def create_app(config: PythiaConfig) -> FastAPI:
     ollama = OllamaClient(
         base_url=config.ollama.base_url,
@@ -70,7 +82,7 @@ def create_app(config: PythiaConfig) -> FastAPI:
         await searxng.close()
         await cache.close()
 
-    app = FastAPI(title="Pythia", version="0.3.0", lifespan=lifespan)
+    app = FastAPI(title="Pythia", version="0.4.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.server.cors_origins,
@@ -104,6 +116,32 @@ def create_app(config: PythiaConfig) -> FastAPI:
         )
         return EventSourceResponse(_sse_wrap(
             agent.research(req.query, model_override=req.model, skill_override=req.skill)
+        ))
+
+    @app.post("/research/continue/{slug}")
+    async def continue_research(slug: str, req: ContinueRequest):
+        research_config = config.research
+        if req.max_rounds is not None:
+            research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
+        agent = ResearchAgent(
+            ollama=ollama, cache=cache, searxng=searxng, config=research_config,
+            skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
+        )
+        return EventSourceResponse(_sse_wrap(
+            agent.continue_research(slug, focus=req.focus, model_override=req.model)
+        ))
+
+    @app.post("/research/refine/{slug}")
+    async def refine_research(slug: str, req: RefineRequest):
+        research_config = config.research
+        if req.max_rounds is not None:
+            research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
+        agent = ResearchAgent(
+            ollama=ollama, cache=cache, searxng=searxng, config=research_config,
+            skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
+        )
+        return EventSourceResponse(_sse_wrap(
+            agent.refine_research(slug, directive=req.directive, model_override=req.model)
         ))
 
     @app.get("/health")
