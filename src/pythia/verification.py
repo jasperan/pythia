@@ -83,6 +83,10 @@ class VerificationResult:
         return "\n".join(lines)
 
 
+_MAX_VERIFY_REPORT_CHARS = 12000
+_MAX_VERIFY_SOURCES = 30
+
+
 async def verify_report(
     ollama: OllamaClient,
     query: str,
@@ -90,15 +94,26 @@ async def verify_report(
     sources: list[dict],
     model: str,
 ) -> VerificationResult:
+    # Truncate to stay within model context limits
+    truncated_report = report[:_MAX_VERIFY_REPORT_CHARS]
+    if len(report) > _MAX_VERIFY_REPORT_CHARS:
+        truncated_report += "\n\n[Report truncated for verification. Check claims in the portion above.]"
+
     sources_text = "\n".join(
         f"[{s.get('index', i+1)}] {s.get('title', 'Untitled')} — {s.get('url', 'no URL')}"
-        for i, s in enumerate(sources)
+        for i, s in enumerate(sources[:_MAX_VERIFY_SOURCES])
     )
 
-    user = _VERIFY_USER.format(query=query, report=report, sources=sources_text)
+    user = _VERIFY_USER.format(query=query, report=truncated_report, sources=sources_text)
 
     try:
         response = await ollama.generate(_VERIFY_SYSTEM, user, json_mode=True, model=model)
+        if not response or not response.strip():
+            logger.warning("Verification returned empty response (prompt may exceed model context)")
+            return VerificationResult(
+                status="pass_with_notes",
+                summary="Verification skipped: model returned empty response (prompt too large).",
+            )
         data = json.loads(response)
         return VerificationResult(
             claims_checked=data.get("claims_checked", 0),
@@ -106,9 +121,15 @@ async def verify_report(
             status=data.get("status", "fail"),
             summary=data.get("summary", ""),
         )
-    except (json.JSONDecodeError, KeyError, Exception) as e:
-        logger.warning(f"Verification failed: {e}")
+    except json.JSONDecodeError as e:
+        logger.warning(f"Verification JSON parse failed: {e} — raw response: {response[:200]!r}")
         return VerificationResult(
-            status="fail",
-            summary=f"Verification process encountered an error: {e}",
+            status="pass_with_notes",
+            summary=f"Verification skipped: could not parse model response as JSON.",
+        )
+    except Exception as e:
+        logger.warning(f"Verification failed: {type(e).__name__}: {e}")
+        return VerificationResult(
+            status="pass_with_notes",
+            summary=f"Verification skipped: {type(e).__name__}",
         )

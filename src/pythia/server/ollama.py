@@ -5,11 +5,22 @@ import json
 import logging
 from collections.abc import AsyncIterator
 
+import re
+
 import httpx
 
 from pythia.server.searxng import SearchResult
 
 logger = logging.getLogger(__name__)
+
+
+def _strip_json_fences(text: str) -> str:
+    """Strip markdown code fences that some models wrap around JSON output."""
+    stripped = text.strip()
+    m = re.match(r"^```(?:json)?\s*\n?(.*?)```\s*$", stripped, re.DOTALL)
+    if m:
+        return m.group(1).strip()
+    return stripped
 
 
 _SYSTEM_PROMPT = """You are Pythia, an AI search engine. Answer the user's question using ONLY the provided search results. Follow these rules strictly:
@@ -155,7 +166,10 @@ class OllamaClient:
         resp = await client.post(f"{self.base_url}/api/chat", json=payload)
         resp.raise_for_status()
         data = resp.json()
-        return data.get("message", {}).get("content", "")
+        content = data.get("message", {}).get("content", "")
+        if json_mode and content:
+            content = _strip_json_fences(content)
+        return content
 
     async def generate_suggestions(self, query: str, answer: str, model: str | None = None) -> list[str]:
         """Generate follow-up question suggestions based on query and answer."""
