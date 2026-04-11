@@ -115,4 +115,3 @@ def test_grounding_result_dataclass():
 def test_grounded_claim_dataclass():
     c = GroundedClaim(text="test claim", cited_sources=[1, 2])
     assert c.grounded is False
-    assert c.best_overlap == 0.0

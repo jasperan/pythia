@@ -11,7 +11,6 @@ class GroundedClaim:
     text: str
     cited_sources: list[int]
     grounded: bool = False
-    best_overlap: float = 0.0
 
 
 @dataclass
@@ -82,7 +81,6 @@ def verify_grounding(answer: str, sources: list[dict]) -> GroundingResult:
             if src_text:
                 overlap = _word_overlap(claim.text, src_text)
                 best = max(best, overlap)
-        claim.best_overlap = round(best, 3)
         claim.grounded = best >= threshold
         if claim.grounded:
             grounded_count += 1

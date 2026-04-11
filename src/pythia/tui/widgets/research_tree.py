@@ -65,14 +65,6 @@ class ResearchTree(Static):
         self._active_round = round_num
         self._rebuild()
 
-    def update_sub_query(self, query: str, state: NodeState) -> None:
-        for rnd in self._rounds:
-            for sq in rnd["sub_queries"]:
-                if sq["query"] == query:
-                    sq["state"] = state
-                    self._rebuild()
-                    return
-
     def complete_finding(self, query: str, num_sources: int = 0, preview: str = "") -> None:
         for rnd in self._rounds:
             for sq in rnd["sub_queries"]:

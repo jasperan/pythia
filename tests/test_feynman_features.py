@@ -68,20 +68,6 @@ class TestWorkspaceChangelog:
         assert "slug-a" in content
         assert "slug-b" in content
 
-    def test_read_recent_empty(self, tmp_workspace):
-        cl = WorkspaceChangelog(tmp_workspace)
-        assert cl.read_recent() == ""
-
-    def test_read_relevant(self, tmp_workspace):
-        cl = WorkspaceChangelog(tmp_workspace)
-        cl.append_entry("my-topic", "Entry 1", "", "in_progress")
-        cl.append_entry("other-topic", "Entry 2", "", "completed")
-        cl.append_entry("my-topic", "Entry 3", "", "completed")
-        relevant = cl.read_relevant("my-topic")
-        assert "Entry 1" in relevant
-        assert "Entry 3" in relevant
-        assert "Entry 2" not in relevant
-
 
 class TestProvenanceRecord:
     def test_default_values(self):
@@ -115,16 +101,6 @@ class TestVerificationResult:
     def test_default(self):
         v = VerificationResult()
         assert v.status == "pending"
-        assert not v.has_fatal
-        assert not v.has_major
-
-    def test_has_fatal(self):
-        v = VerificationResult(issues=[{"severity": "fatal", "type": "unsourced", "claim": "x", "explanation": "y"}])
-        assert v.has_fatal
-
-    def test_has_major(self):
-        v = VerificationResult(issues=[{"severity": "major", "type": "mismatched", "claim": "x", "explanation": "y"}])
-        assert v.has_major
 
     def test_to_markdown(self):
         v = VerificationResult(

@@ -78,7 +78,6 @@ PythiaStatusBar {
 .node-dim { color: #9ca0b0; }
 
 /* Tab bar */
-TabBar { height: 1; dock: top; background: #ccd0da; }
 .tab-active { background: #eff1f5; color: #04a5e5; text-style: bold; }
 .tab-inactive { color: #9ca0b0; }
 

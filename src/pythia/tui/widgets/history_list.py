@@ -46,12 +46,6 @@ class HistoryList(Static):
         if self.is_attached:
             self._rebuild()
 
-    def set_filter(self, f: HistoryFilter) -> None:
-        self._filter = f
-        self._selected_index = 0
-        if self.is_attached:
-            self._rebuild()
-
     def set_text_filter(self, text: str) -> None:
         self._text_filter = text.lower()
         self._selected_index = 0

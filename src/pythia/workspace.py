@@ -87,18 +87,3 @@ class WorkspaceChangelog:
         new_content = existing.rstrip() + "\n" + entry
         self.changelog_path.write_text(new_content)
         return new_content
-
-    def read_recent(self, n: int = 5) -> str:
-        if not self.changelog_path.exists():
-            return ""
-        content = self.changelog_path.read_text()
-        sections = re.split(r"\n## ", content)
-        return "\n## ".join(sections[-n:]) if len(sections) > n else content
-
-    def read_relevant(self, slug: str) -> str:
-        if not self.changelog_path.exists():
-            return ""
-        content = self.changelog_path.read_text()
-        sections = re.split(r"\n## ", content)
-        relevant = [s for s in sections if slug in s.lower() or slug.replace("-", " ") in s.lower()]
-        return "\n## ".join(relevant) if relevant else ""

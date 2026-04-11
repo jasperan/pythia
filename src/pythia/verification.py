@@ -53,14 +53,6 @@ class VerificationResult:
     status: str = "pending"
     summary: str = ""
 
-    @property
-    def has_fatal(self) -> bool:
-        return any(i.get("severity") == "fatal" for i in self.issues)
-
-    @property
-    def has_major(self) -> bool:
-        return any(i.get("severity") == "major" for i in self.issues)
-
     def to_markdown(self) -> str:
         lines = [
             "# Verification Report",

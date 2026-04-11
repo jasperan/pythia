@@ -15,13 +15,6 @@ def test_add_plan():
     assert tree._rounds[0]["sub_queries"][0]["state"] == NodeState.PENDING
 
 
-def test_update_sub_query_state():
-    tree = ResearchTree()
-    tree.add_plan(["What is X?"])
-    tree.update_sub_query("What is X?", NodeState.SEARCHING)
-    assert tree._rounds[0]["sub_queries"][0]["state"] == NodeState.SEARCHING
-
-
 def test_complete_finding():
     tree = ResearchTree()
     tree.add_plan(["What is X?"])

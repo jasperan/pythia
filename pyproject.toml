@@ -30,6 +30,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=5.0",
     "ruff>=0.6",
+    "vulture>=2.14",
 ]
 
 [project.scripts]
@@ -45,3 +46,34 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+
+[tool.vulture]
+# Default scope is src/ only. Test files contain fake classes whose
+# signatures (*args, **kwargs, __aexit__, async-generator return/yield)
+# are protocol-required but look dead to vulture. Run `vulture tests/`
+# manually when auditing test code.
+paths = ["src"]
+min_confidence = 80
+# Framework hooks (Textual widgets/screens/app, Typer commands, Pydantic validators,
+# context managers, protocol methods). These are called by framework introspection,
+# not direct source references, so vulture can't see the usage.
+ignore_names = [
+    # Textual class attributes
+    "DEFAULT_CSS", "BINDINGS", "TITLE", "CSS_PATH", "COMMANDS",
+    # Textual lifecycle + message handlers
+    "compose", "render",
+    "on_*", "_on_*", "action_*", "watch_*",
+    # Pydantic/dataclass classmethod validators
+    "cls",
+    # Context manager + exception protocol parameters
+    "exc", "exc_type", "exc_val", "exc_tb", "tb",
+    # Stub method signature kwargs required by scrapling API
+    "ignore_tags",
+]
+ignore_decorators = [
+    "@*.command",          # Typer
+    "@*.fixture",          # pytest
+    "@*.validator",        # Pydantic v1
+    "@*.field_validator",  # Pydantic v2
+    "@property",
+]
