@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 import oracledb
@@ -296,26 +296,6 @@ class OracleCache:
                 ])
                 await conn.commit()
                 return research_id_var.getvalue()[0].hex()
-
-    async def store_finding(
-        self, research_id: str, sub_query: str, summary: str,
-        sources: list[dict], round_num: int,
-    ) -> None:
-        """Store an individual research finding with embedding for future recall."""
-        if not self._pool:
-            return
-        finding_embedding = await asyncio.to_thread(_generate_embedding, sub_query + " " + summary[:200])
-        sql = """
-            INSERT INTO pythia_findings (research_id, sub_query, finding_embedding, summary, sources, round_num)
-            VALUES (:1, :2, TO_VECTOR(:3, 384), :4, :5, :6)
-        """
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(sql, [
-                    bytes.fromhex(research_id), sub_query, finding_embedding,
-                    summary, json.dumps(sources), round_num,
-                ])
-                await conn.commit()
 
     async def store_findings_batch(
         self, research_id: str, findings: list[dict],

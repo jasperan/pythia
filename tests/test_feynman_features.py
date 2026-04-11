@@ -1,14 +1,13 @@
 """Tests for new Feynman-inspired features: workspace, provenance, verification, skills, autoresearch."""
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from pythia.provenance import ProvenanceRecord
-from pythia.skills import SkillDef, SkillLoader
+from pythia.skills import SkillLoader
 from pythia.verification import VerificationResult
 from pythia.workspace import WorkspaceChangelog, generate_slug
 

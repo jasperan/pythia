@@ -125,7 +125,7 @@ async def verify_report(
         logger.warning(f"Verification JSON parse failed: {e} — raw response: {response[:200]!r}")
         return VerificationResult(
             status="pass_with_notes",
-            summary=f"Verification skipped: could not parse model response as JSON.",
+            summary="Verification skipped: could not parse model response as JSON.",
         )
     except Exception as e:
         logger.warning(f"Verification failed: {type(e).__name__}: {e}")

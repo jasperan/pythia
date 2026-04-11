@@ -1,7 +1,7 @@
 """Tests for search orchestrator."""
 import pytest
 from unittest.mock import AsyncMock
-from pythia.server.search import SearchOrchestrator, SearchEvent, EventType
+from pythia.server.search import SearchOrchestrator, EventType
 from pythia.server.searxng import SearchResult
 from pythia.server.oracle_cache import CacheEntry
 

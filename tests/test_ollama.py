@@ -1,6 +1,5 @@
 """Tests for Ollama client."""
-import pytest
-from pythia.server.ollama import OllamaClient, build_search_prompt, build_deep_search_prompt
+from pythia.server.ollama import build_search_prompt, build_deep_search_prompt
 from pythia.server.searxng import SearchResult
 
 

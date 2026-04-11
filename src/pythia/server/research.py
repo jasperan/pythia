@@ -16,8 +16,8 @@ from pythia.scraper import scrape_urls
 from pythia.server.ollama import OllamaClient
 from pythia.server.oracle_cache import OracleCache
 from pythia.server.searxng import SearxngClient, SearchResult
-from pythia.skills import SkillDef, SkillLoader
-from pythia.verification import VerificationResult, verify_report
+from pythia.skills import SkillLoader
+from pythia.verification import verify_report
 from pythia.workspace import WorkspaceChangelog, generate_slug
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,6 @@ class ResearchEventType(str, Enum):
     STATUS = "status"
     PLAN = "plan"
     ROUND_START = "round_start"
-    SUB_QUERY = "sub_query"
     FINDING = "finding"
     GAP_ANALYSIS = "gap_analysis"
     RECALL = "recall"

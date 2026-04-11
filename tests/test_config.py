@@ -1,6 +1,5 @@
 """Tests for config loader."""
 import tempfile
-from pathlib import Path
 
 from pythia.config import load_config, PythiaConfig, ResearchConfig, resolve_config_path
 

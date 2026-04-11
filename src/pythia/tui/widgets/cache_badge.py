@@ -28,6 +28,3 @@ class CacheBadge(Static):
         time_str = f"{time_ms}ms" if time_ms < 1000 else f"{time_ms / 1000:.1f}s"
         text.append(f" \u00b7 {time_str}", style="#666666")
         self.update(text)
-
-    def clear_badge(self) -> None:
-        self.update("")

@@ -1,10 +1,9 @@
 """Tests for deep research agent."""
-import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 from pythia.config import ResearchConfig
-from pythia.server.research import ResearchAgent, ResearchEvent, ResearchEventType, Finding
+from pythia.server.research import ResearchAgent, ResearchEventType
 from pythia.server.searxng import SearchResult
 
 
@@ -72,7 +71,6 @@ def _make_agent(
     mock_cache = AsyncMock()
     mock_cache.recall_findings = AsyncMock(return_value=recall_findings or [])
     mock_cache.store_research = AsyncMock(return_value="abc123def456")
-    mock_cache.store_finding = AsyncMock()
     mock_cache.record_search = AsyncMock()
 
     mock_searxng = AsyncMock()
@@ -233,7 +231,6 @@ async def test_research_search_failure_graceful():
     agent, _, _, mock_searxng = _make_agent()
 
     call_count = {"n": 0}
-    original_search = mock_searxng.search
 
     async def failing_search(query):
         call_count["n"] += 1
@@ -311,7 +308,7 @@ async def test_research_completeness_triggers_extra_round():
     async for event in agent.research("RISC-V vs ARM"):
         events.append(event)
 
-    types = [e.event_type for e in events]
+    [e.event_type for e in events]
     round_starts = [e for e in events if e.event_type == ResearchEventType.ROUND_START]
 
     # Should have initial round + 1 completeness-driven extra round

@@ -296,13 +296,6 @@ async def test_cache_store_research_no_pool():
 
 
 @pytest.mark.asyncio
-async def test_cache_store_finding_no_pool():
-    cache = OracleCache.__new__(OracleCache)
-    cache._pool = None
-    await cache.store_finding("abc", "q", "s", [], 1)  # should not raise
-
-
-@pytest.mark.asyncio
 async def test_cache_store_findings_batch_no_pool():
     cache = OracleCache.__new__(OracleCache)
     cache._pool = None

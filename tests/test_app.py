@@ -1,5 +1,4 @@
 """Tests for FastAPI application endpoints."""
-import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 

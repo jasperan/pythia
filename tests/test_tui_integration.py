@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from unittest.mock import AsyncMock
 import httpx
-from textual.widgets import Input, Static
+from textual.widgets import Input
 
 from pythia.config import PythiaConfig
 from pythia.tui.app import PythiaApp, AVAILABLE_THEMES
@@ -66,7 +66,7 @@ def _make_streaming_client(recorded: dict[str, object], lines: list[str]):
 
 @pytest.mark.asyncio
 async def test_app_mounts_and_shows_search_screen(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         assert app._current_screen_name == "search"
         # Search screen should have the logo and search input
         assert app.screen.query("LogoBanner")
@@ -75,7 +75,7 @@ async def test_app_mounts_and_shows_search_screen(app):
 
 @pytest.mark.asyncio
 async def test_all_four_screens_installed(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         assert app.is_screen_installed("search")
         assert app.is_screen_installed("research")
         assert app.is_screen_installed("history")
@@ -138,7 +138,7 @@ async def test_number_keys_ignored_when_input_focused(app):
 
 @pytest.mark.asyncio
 async def test_switch_via_action_methods(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         app.action_switch_to_research()
         assert app._current_screen_name == "research"
         app.action_switch_to_dashboard()
@@ -151,7 +151,7 @@ async def test_switch_via_action_methods(app):
 
 @pytest.mark.asyncio
 async def test_switch_to_same_screen_is_noop(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         app.action_switch_to_search()
         assert app._current_screen_name == "search"
 
@@ -250,7 +250,7 @@ async def test_app_actions_use_host_override(config, monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 async def test_theme_cycling_via_action(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         assert app._current_theme == "dark"
         app.action_cycle_theme()
         assert app._current_theme == "light"
@@ -267,7 +267,7 @@ async def test_theme_cycling_via_action(app):
 
 @pytest.mark.asyncio
 async def test_deep_mode_toggle(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         assert app._deep_mode is False
         app.action_toggle_deep()
         assert app._deep_mode is True
@@ -280,7 +280,7 @@ async def test_deep_mode_toggle(app):
 
 @pytest.mark.asyncio
 async def test_search_screen_has_required_widgets(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         screen = app.screen
         assert screen.query("LogoBanner"), "Missing LogoBanner"
         assert screen.query("#results-area"), "Missing results area"
@@ -292,7 +292,7 @@ async def test_search_screen_has_required_widgets(app):
 
 @pytest.mark.asyncio
 async def test_search_screen_results_area_starts_empty(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         from textual.containers import VerticalScroll
         results = app.screen.query_one("#results-area", VerticalScroll)
         assert len(results.children) == 0
@@ -412,7 +412,7 @@ async def test_dashboard_screen_has_required_widgets(app):
 
 @pytest.mark.asyncio
 async def test_pending_research_query_attribute(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         app._pending_research_query = "test topic"
         assert app._pending_research_query == "test topic"
         # Clear it like the research screen would
@@ -422,7 +422,7 @@ async def test_pending_research_query_attribute(app):
 
 @pytest.mark.asyncio
 async def test_pending_search_query_attribute(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         app._pending_search_query = "test query"
         assert app._pending_search_query == "test query"
 
@@ -525,6 +525,6 @@ def test_all_theme_files_exist():
 
 @pytest.mark.asyncio
 async def test_command_palette_registered(app):
-    async with app.run_test() as pilot:
+    async with app.run_test():
         from pythia.tui.commands import PythiaCommands
         assert PythiaCommands in app.COMMANDS

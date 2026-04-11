@@ -1,9 +1,9 @@
 """Tests for Phase 7 innovations: query rewriting, parallel prefetch, citation density."""
 import asyncio
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
-from pythia.server.search import SearchOrchestrator, SearchEvent, EventType, _count_citations
+from pythia.server.search import SearchOrchestrator, EventType, _count_citations
 from pythia.server.searxng import SearchResult
 from pythia.server.oracle_cache import CacheEntry
 

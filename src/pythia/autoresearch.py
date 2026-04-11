@@ -6,7 +6,7 @@ import logging
 import subprocess
 import time
 from collections.abc import AsyncIterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
@@ -19,9 +19,7 @@ class AutoresearchEventType(str, Enum):
     STATUS = "status"
     PLAN = "plan"
     BASELINE = "baseline"
-    ITERATION = "iteration"
     METRIC = "metric"
-    CHANGE = "change"
     REVERT = "revert"
     DONE = "done"
 
@@ -370,11 +368,3 @@ class AutoresearchAgent:
                     "kept": record.kept,
                     "elapsed_ms": record.elapsed_ms,
                 }) + "\n")
-
-    def get_best_record(self) -> ExperimentRecord | None:
-        if not self.records:
-            return None
-        direction = self.records[0].metric_direction
-        if direction == "higher":
-            return max(self.records, key=lambda r: r.metric_value)
-        return min(self.records, key=lambda r: r.metric_value)

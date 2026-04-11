@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 from rich.text import Text
-from textual.message import Message
 from textual.widgets import Static
 
 
@@ -33,16 +32,6 @@ class HistoryList(Static):
         padding: 0 1;
     }
     """
-
-    class RerunRequested(Message):
-        def __init__(self, query: str) -> None:
-            super().__init__()
-            self.query = query
-
-    class ResearchRequested(Message):
-        def __init__(self, query: str) -> None:
-            super().__init__()
-            self.query = query
 
     def __init__(self, **kwargs) -> None:
         super().__init__("", **kwargs)

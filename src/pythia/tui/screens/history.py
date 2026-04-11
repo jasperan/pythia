@@ -9,7 +9,7 @@ from textual.screen import Screen
 from textual.widgets import Input, Static
 
 from pythia.config import PythiaConfig
-from pythia.tui.widgets.history_list import HistoryList, HistoryEntry, HistoryFilter
+from pythia.tui.widgets.history_list import HistoryList, HistoryEntry
 
 
 class HistoryScreen(Screen):
@@ -120,4 +120,4 @@ class HistoryScreen(Screen):
     def action_delete_entry(self) -> None:
         selected = self.query_one(HistoryList).get_selected()
         if selected:
-            self.notify(f"Delete not yet supported by API", timeout=2)
+            self.notify("Delete not yet supported by API", timeout=2)

@@ -12,7 +12,7 @@ from textual.screen import Screen
 from pythia.config import PythiaConfig
 from pythia.tui.widgets.activity_indicator import ActivityIndicator
 from pythia.tui.widgets.research_progress import ResearchProgressBar
-from pythia.tui.widgets.research_tree import ResearchTree, NodeState
+from pythia.tui.widgets.research_tree import ResearchTree
 from pythia.tui.widgets.result_card import ResultCard
 from pythia.tui.widgets.search_input import SearchInput
 from pythia.tui.widgets.source_list import SourceList

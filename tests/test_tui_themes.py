@@ -1,5 +1,4 @@
 """Tests for TUI theme cycling."""
-import pytest
 from pythia.tui.app import PythiaApp, AVAILABLE_THEMES
 from pythia.config import PythiaConfig
 

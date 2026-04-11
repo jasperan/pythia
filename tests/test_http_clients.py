@@ -1,5 +1,4 @@
 """Tests for HTTP clients — Ollama and SearXNG with mocked httpx."""
-import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -56,7 +55,7 @@ async def test_ollama_generate_json_mode():
         mock_http.__aexit__ = AsyncMock(return_value=False)
         MockClient.return_value = mock_http
 
-        result = await client.generate("sys", "user", json_mode=True)
+        await client.generate("sys", "user", json_mode=True)
         payload = mock_http.post.call_args.kwargs.get("json") or mock_http.post.call_args[1].get("json")
         assert payload["format"] == "json"
 
