@@ -9,12 +9,12 @@ from datetime import datetime
 
 import oracledb
 
+from pythia.embeddings import generate_embedding as _generate_embedding
+
 logger = logging.getLogger(__name__)
 
 # Return LOBs as strings/bytes instead of AsyncLOB objects
 oracledb.defaults.fetch_lobs = False
-
-from pythia.embeddings import generate_embedding as _generate_embedding
 
 
 @dataclass

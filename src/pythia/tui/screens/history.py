@@ -1,6 +1,8 @@
 """History screen — filterable query history with re-run."""
 from __future__ import annotations
 
+import logging
+
 import httpx
 from rich.text import Text
 from textual.app import ComposeResult
@@ -10,6 +12,8 @@ from textual.widgets import Input, Static
 
 from pythia.config import PythiaConfig
 from pythia.tui.widgets.history_list import HistoryList, HistoryEntry
+
+logger = logging.getLogger(__name__)
 
 
 class HistoryScreen(Screen):
@@ -73,7 +77,10 @@ class HistoryScreen(Screen):
             self._update_footer(entries)
 
         except Exception as e:
-            self.query_one(HistoryList).update(f"  Error loading history: {e}")
+            try:
+                self.query_one(HistoryList).update(f"  Error loading history: {e}")
+            except Exception:
+                logger.warning("Could not display history error: %s", e)
 
     def _update_footer(self, entries: list[HistoryEntry]) -> None:
         total = len(entries)
