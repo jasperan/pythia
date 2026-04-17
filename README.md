@@ -21,9 +21,9 @@
 </tr>
 </table>
 
-**Self-hosted AI search engine with autonomous deep research** — a local Perplexity + Deep Research replacement combining SearXNG (free, unlimited web search), Ollama (local LLM inference), and Oracle AI Vector Search (semantic caching and knowledge accumulation).
+**Self-hosted AI search engine with autonomous deep research**: a local Perplexity + Deep Research replacement combining SearXNG (free, unlimited web search), Ollama (local LLM inference), and Oracle AI Vector Search (semantic caching and knowledge accumulation).
 
-Named after the priestess at the Oracle of Delphi who answered questions — a double meaning with Oracle Database as the backend.
+Named after the priestess at the Oracle of Delphi who answered questions (a double meaning with Oracle Database as the backend).
 
 ## Screenshots
 
@@ -50,15 +50,15 @@ Cache stats, response time sparklines, model picker, and cache management.
 ## Features
 
 ### Single-Shot Search
-Ask a question, get a cited answer instantly — cached semantically so similar future queries return in milliseconds.
+Ask a question, get a cited answer instantly, cached semantically so similar future queries return in milliseconds.
 
-- **Semantic cache** — Oracle AI Vector Search finds similar past queries (cosine similarity >= 0.85) and returns cached answers instantly
-- **Real-time streaming** — tokens appear as they're generated via SSE
-- **Source citations** — inline `[1]`, `[2]` citations from web results
-- **Deep scraping** — Scrapling scrapes full page content instead of snippets
+- **Semantic cache**: Oracle AI Vector Search finds similar past queries (cosine similarity >= 0.85) and returns cached answers instantly
+- **Real-time streaming**: tokens appear as they're generated via SSE
+- **Source citations**: inline `[1]`, `[2]` citations from web results
+- **Deep scraping**: Scrapling scrapes full page content instead of snippets
 
 ### Deep Research (NEW)
-Autonomous multi-step research agent that iteratively searches, analyzes gaps, and synthesizes comprehensive reports — like Perplexity Deep Research or Google Deep Research, but fully self-hosted.
+Autonomous multi-step research agent that iteratively searches, analyzes gaps, and synthesizes comprehensive reports, like Perplexity Deep Research or Google Deep Research, but fully self-hosted.
 
 ```
 pythia research "What are the tradeoffs between RISC-V and ARM for edge AI?"
@@ -66,24 +66,24 @@ pythia research "What are the tradeoffs between RISC-V and ARM for edge AI?"
 
 **How it works:**
 
-1. **Decompose** — LLM breaks the question into 3-5 focused sub-queries
-2. **Search & Scrape** — each sub-query searched in parallel via SearXNG, top results scraped for full content
-3. **Summarize** — LLM extracts key findings from each sub-query's results
-4. **Analyze Gaps** — LLM reviews all findings and identifies what's still missing
-5. **Iterate** — generates follow-up searches autonomously (up to configurable max rounds)
-6. **Recall** — Oracle vector search finds related findings from *past* research sessions
-7. **Synthesize** — produces a structured, cited research report with sections
+1. **Decompose**: LLM breaks the question into 3-5 focused sub-queries
+2. **Search & Scrape**: each sub-query searched in parallel via SearXNG, top results scraped for full content
+3. **Summarize**: LLM extracts key findings from each sub-query's results
+4. **Analyze Gaps**: LLM reviews all findings and identifies what's still missing
+5. **Iterate**: generates follow-up searches autonomously (up to configurable max rounds)
+6. **Recall**: Oracle vector search finds related findings from *past* research sessions
+7. **Synthesize**: produces a structured, cited research report with sections
 
-**The knowledge accumulation advantage:** Every research session stores individual findings as embeddings in Oracle. Over time, your Pythia instance builds a personal knowledge base — when you research "RISC-V for edge AI" next month, it recalls relevant fragments from your previous research on "ARM vs x86 power efficiency". No stateless search engine can do this.
+**The knowledge accumulation advantage:** Every research session stores individual findings as embeddings in Oracle. Over time, your Pythia instance builds a personal knowledge base. When you research "RISC-V for edge AI" next month, it recalls relevant fragments from your previous research on "ARM vs x86 power efficiency". No stateless search engine can do this.
 
 ### Full-Screen TUI
 Multi-screen terminal interface built with Textual. 4 screens (Search, Research, History, Dashboard), command palette, 4 themes, global keybindings. See [screenshots above](#screenshots).
 
 ### Programmatic CLI
 Machine-friendly JSON output for scripting and pipelines:
-- `pythia query` — single-shot search, returns JSON
-- `pythia research` — deep research, returns structured report
-- `pythia embed` — generate embeddings (single or batch)
+- `pythia query`: single-shot search, returns JSON
+- `pythia research`: deep research, returns structured report
+- `pythia embed`: generate embeddings (single or batch)
 
 ### API Server
 FastAPI server with SSE streaming for integration into other applications.
@@ -114,10 +114,10 @@ FastAPI server with SSE streaming for integration into other applications.
 
 ### Search Flow (Single-Shot)
 
-1. **Parallel prefetch** — cache lookup and SearXNG web search fire concurrently
-2. **Cache HIT** (similarity >= 0.85) — cancel web search, return cached answer instantly
-3. **Cache MISS** — web search is already running; synthesize via Ollama with citations, store in Oracle (reuses the embedding from the cache check)
-4. **Stream response** — tokens via SSE in real-time, with citation density metric in the DONE event
+1. **Parallel prefetch**: cache lookup and SearXNG web search fire concurrently
+2. **Cache HIT** (similarity >= 0.85): cancel web search, return cached answer instantly
+3. **Cache MISS**: web search is already running; synthesize via Ollama with citations, store in Oracle (reuses the embedding from the cache check)
+4. **Stream response**: tokens via SSE in real-time, with citation density metric in the DONE event
 
 ### Research Flow (Deep Research)
 
@@ -156,7 +156,7 @@ ResearchAgent
 ## Quick Start
 
 <!-- one-command-install -->
-> **One-command bootstrap** — clone the repo and install Python dependencies in a single step:
+> **One-command bootstrap**: clone the repo and install Python dependencies in a single step:
 >
 > ```bash
 > curl -fsSL https://raw.githubusercontent.com/jasperan/pythia/master/install.sh | bash
@@ -299,10 +299,10 @@ Type these in the search bar on any screen:
 ### Themes
 
 4 built-in themes, cycle with `Ctrl+T`:
-- **dark** (default) — cyan accent on dark background
-- **light** — blue accent on light background
-- **catppuccin-mocha** — mauve/pink accent, Catppuccin palette
-- **nord** — frost blue accent, Nord palette
+- **dark** (default): cyan accent on dark background
+- **light**: blue accent on light background
+- **catppuccin-mocha**: mauve/pink accent, Catppuccin palette
+- **nord**: frost blue accent, Nord palette
 
 Set a default theme in `pythia.yaml`:
 ```yaml
@@ -323,7 +323,7 @@ tui:
 
 ## CLI Commands
 
-### `pythia query` — Single-Shot Search (JSON)
+### `pythia query`: Single-Shot Search (JSON)
 
 ```bash
 pythia query "What is RLHF?"                    # Flat JSON output
@@ -334,7 +334,7 @@ pythia query "What is RLHF?" --embed             # Include embedding in output
 echo "What is RLHF?" | pythia query              # Pipe via stdin
 ```
 
-### `pythia research` — Deep Research (JSON)
+### `pythia research`: Deep Research (JSON)
 
 ```bash
 pythia research "RISC-V vs ARM for edge AI"                  # Flat JSON report
@@ -371,7 +371,7 @@ pythia research "RISC-V vs ARM" --model llama3.3:70b         # Override model
 {"event": "done", "data": {"rounds_used": 2, "total_findings": 8, "elapsed_ms": 45000}}
 ```
 
-### `pythia embed` — Embedding Generation
+### `pythia embed`: Embedding Generation
 
 ```bash
 pythia embed "hello world"                        # Single text
@@ -379,7 +379,7 @@ pythia embed --file texts.jsonl                    # Batch from JSONL
 pythia embed "hello world" --store                 # Store in Oracle
 ```
 
-### `pythia serve` — API Server Only
+### `pythia serve`: API Server Only
 
 ```bash
 pythia serve                                       # Default (0.0.0.0:8900)
