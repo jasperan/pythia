@@ -44,15 +44,21 @@ Return format: ["question 1", "question 2", "question 3"]"""
 def build_search_prompt(
     query: str, results: list[SearchResult],
     conversation_history: list[dict] | None = None,
+    scraped_content: dict[str, str] | None = None,
 ) -> tuple[str, str]:
-    """Build system and user prompts for search synthesis."""
+    """Build system and user prompts for search synthesis.
+
+    When scraped_content is provided, uses full page content where available
+    with snippet as fallback.
+    """
     if not results:
         user = f"Question: {query}\n\nNo search results were found. Answer based on general knowledge and note the lack of sources."
         return _SYSTEM_PROMPT, user
 
     context_parts = []
     for r in results:
-        context_parts.append(f"[{r.index}] {r.title}\nURL: {r.url}\n{r.snippet}")
+        body = scraped_content.get(r.url, r.snippet) if scraped_content else r.snippet
+        context_parts.append(f"[{r.index}] {r.title}\nURL: {r.url}\n{body}")
 
     context = "\n\n".join(context_parts)
 
@@ -64,37 +70,6 @@ def build_search_prompt(
             role = msg.get("role", "user")
             content = msg.get("content", "")
             # Truncate long previous answers to save context
-            if role == "assistant" and len(content) > 500:
-                content = content[:500] + "..."
-            history_parts.append(f"{role.upper()}: {content}")
-        history_section = "\n\nConversation History:\n" + "\n".join(history_parts) + "\n"
-
-    user = f"Search Results:\n\n{context}\n\n---{history_section}\n\nQuestion: {query}"
-    return _SYSTEM_PROMPT, user
-
-
-def build_deep_search_prompt(
-    query: str, results: list[SearchResult], scraped_content: dict[str, str],
-    conversation_history: list[dict] | None = None,
-) -> tuple[str, str]:
-    """Build prompt using full scraped page content where available, snippets as fallback."""
-    if not results:
-        user = f"Question: {query}\n\nNo search results were found. Answer based on general knowledge and note the lack of sources."
-        return _SYSTEM_PROMPT, user
-
-    context_parts = []
-    for r in results:
-        content = scraped_content.get(r.url, r.snippet)
-        context_parts.append(f"[{r.index}] {r.title}\nURL: {r.url}\n{content}")
-
-    context = "\n\n".join(context_parts)
-
-    history_section = ""
-    if conversation_history:
-        history_parts = []
-        for msg in conversation_history[-6:]:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
             if role == "assistant" and len(content) > 500:
                 content = content[:500] + "..."
             history_parts.append(f"{role.upper()}: {content}")
@@ -187,7 +162,7 @@ class OllamaClient:
             if isinstance(parsed, dict) and "suggestions" in parsed:
                 return [str(s) for s in parsed["suggestions"][:3]]
             return []
-        except Exception:
+        except (httpx.HTTPError, json.JSONDecodeError, ValueError):
             logger.debug("Suggestion generation failed", exc_info=True)
             return []
 
@@ -197,5 +172,5 @@ class OllamaClient:
             client = self._get_client()
             resp = await client.get(f"{self.base_url}/api/tags")
             return resp.status_code == 200
-        except Exception:
+        except httpx.HTTPError:
             return False

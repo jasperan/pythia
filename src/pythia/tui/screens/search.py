@@ -1,6 +1,7 @@
 """Main search screen — composes all widgets into the Pythia TUI."""
 from __future__ import annotations
 
+import contextlib
 import json
 from datetime import datetime
 
@@ -253,10 +254,8 @@ class SearchScreen(Screen):
             if len(parts) > 1:
                 new_model = parts[1].strip()
                 self.config.ollama.model = new_model
-                try:
+                with contextlib.suppress(Exception):
                     self.query_one(PythiaStatusBar).update_status(model=new_model)
-                except Exception:
-                    pass
                 result_card.set_content(f"Model switched to **{new_model}**")
             else:
                 result_card.set_content("Usage: `/model <model_name>`")

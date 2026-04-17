@@ -92,29 +92,28 @@ class OracleCache:
             )
             FETCH FIRST 1 ROW ONLY
         """
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(sql, [query_embedding, query_embedding])
-                row = await cur.fetchone()
-                if not row:
-                    return None, query_embedding
-                similarity = float(row[7])
-                if not self._is_cache_hit(similarity):
-                    return None, query_embedding
-                await cur.execute(
-                    "UPDATE pythia_cache SET hit_count = hit_count + 1, last_hit_at = SYSTIMESTAMP WHERE id = :1",
-                    [row[0]],
-                )
-                await conn.commit()
-                return CacheEntry(
-                    query=row[1],
-                    answer=row[2],
-                    sources=json.loads(row[3]) if row[3] else [],
-                    model_used=row[4],
-                    hit_count=row[5] + 1,
-                    created_at=row[6],
-                    similarity=similarity,
-                ), query_embedding
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(sql, [query_embedding, query_embedding])
+            row = await cur.fetchone()
+            if not row:
+                return None, query_embedding
+            similarity = float(row[7])
+            if not self._is_cache_hit(similarity):
+                return None, query_embedding
+            await cur.execute(
+                "UPDATE pythia_cache SET hit_count = hit_count + 1, last_hit_at = SYSTIMESTAMP WHERE id = :1",
+                [row[0]],
+            )
+            await conn.commit()
+            return CacheEntry(
+                query=row[1],
+                answer=row[2],
+                sources=json.loads(row[3]) if row[3] else [],
+                model_used=row[4],
+                hit_count=row[5] + 1,
+                created_at=row[6],
+                similarity=similarity,
+            ), query_embedding
 
     async def store(
         self, query: str, answer: str, sources: list[dict], model_used: str,
@@ -131,11 +130,10 @@ class OracleCache:
             INSERT INTO pythia_cache (query, query_embedding, answer, sources, model_used)
             VALUES (:1, TO_VECTOR(:2, 384), :3, :4, :5)
         """
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                sources_json = json.dumps(sources)
-                await cur.execute(sql, [query, query_embedding, answer, sources_json, model_used])
-                await conn.commit()
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            sources_json = json.dumps(sources)
+            await cur.execute(sql, [query, query_embedding, answer, sources_json, model_used])
+            await conn.commit()
 
     async def record_search(self, query: str, cache_hit: bool, response_time_ms: int, model_used: str) -> None:
         """Record a search in history."""
@@ -146,85 +144,79 @@ class OracleCache:
             INSERT INTO pythia_history (query, cache_hit, response_time_ms, model_used)
             VALUES (:1, :2, :3, :4)
         """
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(sql, [query, 1 if cache_hit else 0, response_time_ms, model_used])
-                await conn.commit()
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(sql, [query, 1 if cache_hit else 0, response_time_ms, model_used])
+            await conn.commit()
 
     async def get_stats(self) -> dict:
         """Get search statistics."""
         if not self._pool:
             return {"total_searches": 0, "cache_hits": 0, "cache_hit_rate": 0, "avg_response_ms": 0}
 
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT * FROM pythia_stats")
-                row = await cur.fetchone()
-                if not row:
-                    return {"total_searches": 0, "cache_hits": 0, "cache_hit_rate": 0, "avg_response_ms": 0}
-                return {
-                    "total_searches": row[0] or 0,
-                    "cache_hits": row[1] or 0,
-                    "cache_hit_rate": float(row[2] or 0),
-                    "avg_response_ms": int(row[3] or 0),
-                    "active_days": row[4] or 0,
-                }
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute("SELECT * FROM pythia_stats")
+            row = await cur.fetchone()
+            if not row:
+                return {"total_searches": 0, "cache_hits": 0, "cache_hit_rate": 0, "avg_response_ms": 0}
+            return {
+                "total_searches": row[0] or 0,
+                "cache_hits": row[1] or 0,
+                "cache_hit_rate": float(row[2] or 0),
+                "avg_response_ms": int(row[3] or 0),
+                "active_days": row[4] or 0,
+            }
 
     async def get_cache_size(self) -> int:
         """Get number of cached entries."""
         if not self._pool:
             return 0
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT COUNT(*) FROM pythia_cache")
-                row = await cur.fetchone()
-                return row[0] if row else 0
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute("SELECT COUNT(*) FROM pythia_cache")
+            row = await cur.fetchone()
+            return row[0] if row else 0
 
     async def clear_cache(self) -> int:
         """Delete all cached entries. Returns count deleted."""
         if not self._pool:
             return 0
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT COUNT(*) FROM pythia_cache")
-                row = await cur.fetchone()
-                count = row[0] if row else 0
-                await cur.execute("DELETE FROM pythia_cache")
-                await conn.commit()
-                return count
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute("SELECT COUNT(*) FROM pythia_cache")
+            row = await cur.fetchone()
+            count = row[0] if row else 0
+            await cur.execute("DELETE FROM pythia_cache")
+            await conn.commit()
+            return count
 
     async def get_history(self, limit: int = 20) -> list[dict]:
         """Get recent search history."""
         if not self._pool:
             return []
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT query, cache_hit, response_time_ms, model_used, created_at "
-                    "FROM pythia_history ORDER BY created_at DESC FETCH FIRST :1 ROWS ONLY",
-                    [limit],
-                )
-                rows = await cur.fetchall()
-                return [
-                    {
-                        "query": r[0],
-                        "cache_hit": bool(r[1]),
-                        "response_time_ms": r[2],
-                        "model_used": r[3],
-                        "created_at": r[4].isoformat() if r[4] else None,
-                    }
-                    for r in rows
-                ]
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(
+                "SELECT query, cache_hit, response_time_ms, model_used, created_at "
+                "FROM pythia_history ORDER BY created_at DESC FETCH FIRST :1 ROWS ONLY",
+                [limit],
+            )
+            rows = await cur.fetchall()
+            return [
+                {
+                    "query": r[0],
+                    "cache_hit": bool(r[1]),
+                    "response_time_ms": r[2],
+                    "model_used": r[3],
+                    "created_at": r[4].isoformat() if r[4] else None,
+                }
+                for r in rows
+            ]
 
     async def health(self) -> bool:
         """Check Oracle connectivity."""
         try:
             if not self._pool:
                 return False
-            async with self._pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    await cur.execute("SELECT 1 FROM DUAL")
-                    return True
+            async with self._pool.acquire() as conn, conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM DUAL")
+                return True
         except Exception:
             return False
 
@@ -241,23 +233,22 @@ class OracleCache:
             ORDER BY VECTOR_DISTANCE(f.finding_embedding, TO_VECTOR(:2, 384), COSINE)
             FETCH FIRST :3 ROWS ONLY
         """
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(sql, [query_embedding, query_embedding, limit])
-                rows = await cur.fetchall()
-                results = []
-                for row in rows:
-                    sim = float(row[4])
-                    if sim < threshold:
-                        continue
-                    results.append({
-                        "sub_query": row[0],
-                        "summary": row[1],
-                        "sources": json.loads(row[2]) if row[2] else [],
-                        "research_query": row[3],
-                        "similarity": sim,
-                    })
-                return results
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(sql, [query_embedding, query_embedding, limit])
+            rows = await cur.fetchall()
+            results = []
+            for row in rows:
+                sim = float(row[4])
+                if sim < threshold:
+                    continue
+                results.append({
+                    "sub_query": row[0],
+                    "summary": row[1],
+                    "sources": json.loads(row[2]) if row[2] else [],
+                    "research_query": row[3],
+                    "similarity": sim,
+                })
+            return results
 
     async def store_research(
         self, query: str, report: str, sub_queries: list[str],
@@ -285,17 +276,16 @@ class OracleCache:
             RETURNING id INTO :14
         """
         parent_id_bytes = bytes.fromhex(parent_id) if parent_id else None
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                research_id_var = cur.var(oracledb.DB_TYPE_RAW)
-                await cur.execute(sql, [
-                    query, query_embedding, report, json.dumps(sub_queries),
-                    rounds_used, total_sources, model_used, elapsed_ms,
-                    slug, parent_id_bytes, verification_status,
-                    verification_summary, provenance, research_id_var,
-                ])
-                await conn.commit()
-                return research_id_var.getvalue()[0].hex()
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            research_id_var = cur.var(oracledb.DB_TYPE_RAW)
+            await cur.execute(sql, [
+                query, query_embedding, report, json.dumps(sub_queries),
+                rounds_used, total_sources, model_used, elapsed_ms,
+                slug, parent_id_bytes, verification_status,
+                verification_summary, provenance, research_id_var,
+            ])
+            await conn.commit()
+            return research_id_var.getvalue()[0].hex()
 
     async def store_findings_batch(
         self, research_id: str, findings: list[dict],
@@ -318,12 +308,11 @@ class OracleCache:
                 bytes.fromhex(research_id), f["sub_query"], emb,
                 f["summary"], json.dumps(f["sources"]), f["round_num"],
             ]
-            for f, emb in zip(findings, embeddings)
+            for f, emb in zip(findings, embeddings, strict=False)
         ]
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.executemany(sql, rows)
-                await conn.commit()
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.executemany(sql, rows)
+            await conn.commit()
 
     async def get_research_by_slug(self, slug: str) -> dict | None:
         """Load a research session by slug. Returns the most recent match."""
@@ -338,28 +327,27 @@ class OracleCache:
             ORDER BY created_at DESC
             FETCH FIRST 1 ROW ONLY
         """
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(sql, [slug])
-                row = await cur.fetchone()
-                if not row:
-                    return None
-                return {
-                    "id": row[0].hex() if row[0] else None,
-                    "query": row[1],
-                    "report": row[2],
-                    "sub_queries": json.loads(row[3]) if row[3] else [],
-                    "rounds_used": row[4],
-                    "total_sources": row[5],
-                    "model_used": row[6],
-                    "elapsed_ms": row[7],
-                    "slug": row[8],
-                    "parent_id": row[9].hex() if row[9] else None,
-                    "verification_status": row[10],
-                    "verification_summary": row[11],
-                    "provenance": row[12],
-                    "created_at": row[13].isoformat() if row[13] else None,
-                }
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(sql, [slug])
+            row = await cur.fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0].hex() if row[0] else None,
+                "query": row[1],
+                "report": row[2],
+                "sub_queries": json.loads(row[3]) if row[3] else [],
+                "rounds_used": row[4],
+                "total_sources": row[5],
+                "model_used": row[6],
+                "elapsed_ms": row[7],
+                "slug": row[8],
+                "parent_id": row[9].hex() if row[9] else None,
+                "verification_status": row[10],
+                "verification_summary": row[11],
+                "provenance": row[12],
+                "created_at": row[13].isoformat() if row[13] else None,
+            }
 
     async def get_findings_for_research(self, research_id: str) -> list[dict]:
         """Load all findings for a research session, ordered by round then creation time."""
@@ -371,20 +359,19 @@ class OracleCache:
             WHERE research_id = :1
             ORDER BY round_num, created_at
         """
-        async with self._pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(sql, [bytes.fromhex(research_id)])
-                rows = await cur.fetchall()
-                return [
-                    {
-                        "sub_query": row[0],
-                        "summary": row[1],
-                        "sources": json.loads(row[2]) if row[2] else [],
-                        "round_num": row[3],
-                        "created_at": row[4].isoformat() if row[4] else None,
-                    }
-                    for row in rows
-                ]
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(sql, [bytes.fromhex(research_id)])
+            rows = await cur.fetchall()
+            return [
+                {
+                    "sub_query": row[0],
+                    "summary": row[1],
+                    "sources": json.loads(row[2]) if row[2] else [],
+                    "round_num": row[3],
+                    "created_at": row[4].isoformat() if row[4] else None,
+                }
+                for row in rows
+            ]
 
     def _is_cache_hit(self, similarity: float) -> bool:
         return similarity >= self.similarity_threshold

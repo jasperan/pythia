@@ -7,13 +7,13 @@ import logging
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pythia.config import ResearchConfig
 from pythia.provenance import ProvenanceRecord
 from pythia.scraper import scrape_urls
-from pythia.server.ollama import OllamaClient
+from pythia.server.llm_client import LLMClient
 from pythia.server.oracle_cache import OracleCache
 from pythia.server.searxng import SearxngClient, SearchResult
 from pythia.skills import SkillLoader
@@ -23,7 +23,7 @@ from pythia.workspace import WorkspaceChangelog, generate_slug
 logger = logging.getLogger(__name__)
 
 
-class ResearchEventType(str, Enum):
+class ResearchEventType(StrEnum):
     STATUS = "status"
     PLAN = "plan"
     ROUND_START = "round_start"
@@ -204,7 +204,7 @@ class ResearchAgent:
 
     def __init__(
         self,
-        ollama: OllamaClient,
+        ollama: LLMClient,
         cache: OracleCache,
         searxng: SearxngClient,
         config: ResearchConfig,

@@ -2,20 +2,22 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from pythia.server.grounding import verify_grounding
-from pythia.server.ollama import OllamaClient, build_search_prompt, build_deep_search_prompt
+from pythia.server.llm_client import LLMClient
+from pythia.server.ollama import build_search_prompt
 from pythia.server.oracle_cache import OracleCache
 from pythia.server.searxng import SearxngClient
 from pythia.scraper import scrape_urls
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     STATUS = "status"
     SOURCE = "source"
     TOKEN = "token"
@@ -36,7 +38,7 @@ def _count_citations(text: str) -> int:
 
 
 class SearchOrchestrator:
-    def __init__(self, ollama: OllamaClient, cache: OracleCache, searxng: SearxngClient):
+    def __init__(self, ollama: LLMClient, cache: OracleCache, searxng: SearxngClient):
         self.ollama = ollama
         self.cache = cache
         self.searxng = searxng
@@ -79,10 +81,8 @@ class SearchOrchestrator:
 
         if cached:
             search_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await search_task
-            except (asyncio.CancelledError, Exception):
-                pass
 
             elapsed_ms = int((time.monotonic() - start) * 1000)
             yield SearchEvent(EventType.STATUS, {"message": f"Cache hit ({cached.similarity:.2f} similarity)"})
@@ -136,7 +136,7 @@ class SearchOrchestrator:
             scraped_content = {s.url: s.content for s in scraped}
             success_count = sum(1 for s in scraped if s.success)
             yield SearchEvent(EventType.STATUS, {"message": f"Scraped {success_count}/{len(scraped)} pages"})
-            system, user = build_deep_search_prompt(query, results, scraped_content, conversation_history)
+            system, user = build_search_prompt(query, results, conversation_history, scraped_content=scraped_content)
         else:
             system, user = build_search_prompt(query, results, conversation_history)
 

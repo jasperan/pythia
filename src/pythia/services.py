@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import Callable
 
 import httpx
 
@@ -119,10 +120,8 @@ class ServiceManager:
         # Stop health check loop
         if self._health_check_task:
             self._health_check_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._health_check_task
-            except asyncio.CancelledError:
-                pass
 
         if self._owns_api:
             await self._stop_api_server()
@@ -290,7 +289,7 @@ class ServiceManager:
             self._api_process.terminate()
             try:
                 await asyncio.wait_for(self._api_process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._api_process.kill()
                 await self._api_process.wait()
             self._api_process = None

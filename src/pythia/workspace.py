@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 
@@ -74,7 +74,7 @@ class WorkspaceChangelog:
             next_step: Recommended next action
         """
         existing = self._ensure_header()
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
         entry = f"## [{timestamp}] `{slug}` — {action}\n"
         if details:

@@ -3,19 +3,20 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
-from pythia.server.ollama import OllamaClient
+from pythia.server.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
 
-class AutoresearchEventType(str, Enum):
+class AutoresearchEventType(StrEnum):
     STATUS = "status"
     PLAN = "plan"
     BASELINE = "baseline"
@@ -85,7 +86,7 @@ class AutoresearchAgent:
 
     def __init__(
         self,
-        ollama: OllamaClient,
+        ollama: LLMClient,
         workspace_dir: Path | str | None = None,
     ):
         self.ollama = ollama
@@ -166,7 +167,7 @@ class AutoresearchAgent:
                 "message": f"Applying change: {plan.get('change_description', '')}",
             })
 
-            change_applied = self._apply_change(plan, files_in_scope)
+            change_applied = self._apply_change(plan)
             if not change_applied:
                 yield AutoresearchEvent(AutoresearchEventType.REVERT, {
                     "message": "Change could not be applied. Skipping iteration.",
@@ -186,7 +187,7 @@ class AutoresearchAgent:
                 yield AutoresearchEvent(AutoresearchEventType.STATUS, {
                     "message": "Could not extract metric from iteration output. Reverting.",
                 })
-                self._revert_change(plan, files_in_scope)
+                self._revert_change(plan)
                 continue
 
             improved = self._is_improved(
@@ -220,7 +221,7 @@ class AutoresearchAgent:
                     "best_so_far": best_record.metric_value,
                     "message": f"{metric_name}: {iteration_metric} (no improvement, best: {best_record.metric_value})",
                 })
-                self._revert_change(plan, files_in_scope)
+                self._revert_change(plan)
 
             self._save_session()
 
@@ -253,7 +254,6 @@ class AutoresearchAgent:
             return f"Benchmark error: {e}"
 
     async def _extract_metric(self, output: str, metric_name: str, model: str) -> float | None:
-        import re
         try:
             response = await self.ollama.generate(
                 _METRIC_EXTRACT_SYSTEM,
@@ -285,7 +285,7 @@ class AutoresearchAgent:
         self, metric_name: str, benchmark_cmd: str, files_in_scope: list[str],
         metric_direction: str, best_record: ExperimentRecord, model: str,
     ) -> dict | None:
-        import re
+        response = ""
         try:
             response = await self.ollama.generate(
                 _AUTORESEARCH_PLAN_SYSTEM,
@@ -313,7 +313,7 @@ class AutoresearchAgent:
             logger.warning(f"Change proposal failed: {e}")
         return None
 
-    def _apply_change(self, plan: dict, files_in_scope: list[str]) -> bool:
+    def _apply_change(self, plan: dict) -> bool:
         file_to_modify = plan.get("file_to_modify", "")
         proposed_change = plan.get("proposed_change", "")
         if not file_to_modify or not proposed_change:
@@ -332,7 +332,7 @@ class AutoresearchAgent:
             logger.warning(f"Failed to apply change: {e}")
             return False
 
-    def _revert_change(self, plan: dict, files_in_scope: list[str]) -> None:
+    def _revert_change(self, plan: dict) -> None:
         file_to_modify = plan.get("file_to_modify", "")
         if not file_to_modify:
             return

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 
 @dataclass
@@ -11,7 +11,7 @@ class ProvenanceRecord:
 
     topic: str
     slug: str
-    date: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+    date: str = field(default_factory=lambda: datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"))
     rounds: int = 0
     sources_consulted: int = 0
     sources_accepted: int = 0
