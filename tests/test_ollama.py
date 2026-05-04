@@ -1,5 +1,5 @@
 """Tests for Ollama client."""
-from pythia.server.ollama import build_search_prompt, build_deep_search_prompt
+from pythia.server.ollama import build_search_prompt
 from pythia.server.searxng import SearchResult
 
 
@@ -21,21 +21,21 @@ def test_build_search_prompt_empty_results():
     assert "test query" in user
 
 
-def test_build_deep_search_prompt():
+def test_build_search_prompt_with_scraped_content():
     results = [
         SearchResult(index=1, title="Title 1", url="https://example.com/1", snippet="Short snippet"),
     ]
     scraped = {"https://example.com/1": "Full page content here with lots of detail about the topic."}
-    system, user = build_deep_search_prompt("test query", results, scraped)
+    system, user = build_search_prompt("test query", results, scraped_content=scraped)
     assert "Full page content" in user
     assert "[1]" in user
     assert "test query" in user
 
 
-def test_build_deep_search_prompt_fallback_to_snippet():
+def test_build_search_prompt_scraped_fallback_to_snippet():
     results = [
         SearchResult(index=1, title="Title 1", url="https://example.com/1", snippet="Short snippet"),
     ]
     scraped = {}  # no scraped content available
-    system, user = build_deep_search_prompt("test query", results, scraped)
+    system, user = build_search_prompt("test query", results, scraped_content=scraped)
     assert "Short snippet" in user

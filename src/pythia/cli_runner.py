@@ -6,7 +6,7 @@ import sys
 
 from pythia.config import PythiaConfig
 from pythia.embeddings import generate_embedding_list, MODEL_NAME, DIMENSIONS
-from pythia.server.ollama import OllamaClient
+from pythia.server.llm_client import LLMClient, create_llm_client
 from pythia.server.oracle_cache import OracleCache
 from pythia.server.research import ResearchAgent, ResearchEventType
 from pythia.server.search import EventType, SearchOrchestrator
@@ -29,9 +29,11 @@ def run_embed_batch(texts: list[str]) -> list[str]:
     return [run_embed_single(t) for t in texts]
 
 
-def _build_clients(cfg: PythiaConfig) -> tuple[OllamaClient, OracleCache, SearxngClient]:
+def _build_clients(
+    cfg: PythiaConfig, model_override: str | None = None
+) -> tuple[LLMClient, OracleCache, SearxngClient]:
     """Create the standard client trio from config."""
-    ollama = OllamaClient(base_url=cfg.ollama.base_url, model=cfg.ollama.model)
+    ollama = create_llm_client(cfg, model_override=model_override)
     cache = OracleCache(
         dsn=cfg.oracle.dsn,
         user=cfg.oracle.user,
@@ -58,7 +60,7 @@ async def run_query(
     stream: bool = False,
 ) -> None:
     """Run a search query and print results to stdout."""
-    ollama, cache, searxng = _build_clients(cfg)
+    ollama, cache, searxng = _build_clients(cfg, model_override=model_override)
 
     if use_cache:
         try:
@@ -88,7 +90,7 @@ async def run_research(
     max_rounds: int | None = None,
 ) -> None:
     """Run a deep research session and print results to stdout."""
-    ollama, cache, searxng = _build_clients(cfg)
+    ollama, cache, searxng = _build_clients(cfg, model_override=model_override)
 
     cache_connected = False
     try:
@@ -113,13 +115,89 @@ async def run_research(
             await cache.close()
 
 
+async def run_continue_research(
+    cfg: PythiaConfig,
+    slug: str,
+    *,
+    focus: str | None = None,
+    model_override: str | None = None,
+    stream: bool = False,
+    max_rounds: int | None = None,
+) -> None:
+    """Continue a stored research session by slug and print results to stdout."""
+    ollama, cache, searxng = _build_clients(cfg, model_override=model_override)
+
+    cache_connected = False
+    try:
+        await cache.connect()
+        cache_connected = True
+    except Exception as e:
+        print(f"Warning: Oracle cache unavailable ({e}), continuation cannot load prior research", file=sys.stderr)
+
+    research_config = cfg.research
+    if max_rounds is not None:
+        research_config = research_config.model_copy(update={"max_rounds": max_rounds})
+
+    agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
+    events = agent.continue_research(slug, focus=focus, model_override=model_override)
+
+    try:
+        if stream:
+            await _stream_research_events(events)
+        else:
+            await _flat_research_events(agent, slug, events, model_override)
+    finally:
+        if cache_connected:
+            await cache.close()
+
+
+async def run_refine_research(
+    cfg: PythiaConfig,
+    slug: str,
+    directive: str,
+    *,
+    model_override: str | None = None,
+    stream: bool = False,
+    max_rounds: int | None = None,
+) -> None:
+    """Refine a stored research session by slug and print results to stdout."""
+    ollama, cache, searxng = _build_clients(cfg, model_override=model_override)
+
+    cache_connected = False
+    try:
+        await cache.connect()
+        cache_connected = True
+    except Exception as e:
+        print(f"Warning: Oracle cache unavailable ({e}), refinement cannot load prior research", file=sys.stderr)
+
+    research_config = cfg.research
+    if max_rounds is not None:
+        research_config = research_config.model_copy(update={"max_rounds": max_rounds})
+
+    agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
+    events = agent.refine_research(slug, directive=directive, model_override=model_override)
+
+    try:
+        if stream:
+            await _stream_research_events(events)
+        else:
+            await _flat_research_events(agent, slug, events, model_override)
+    finally:
+        if cache_connected:
+            await cache.close()
+
+
 async def _stream_research(
     agent: ResearchAgent,
     query: str,
     model_override: str | None,
 ) -> None:
     """Print NDJSON research events to stdout."""
-    async for event in agent.research(query, model_override=model_override):
+    await _stream_research_events(agent.research(query, model_override=model_override))
+
+
+async def _stream_research_events(event_stream) -> None:
+    async for event in event_stream:
         line = json.dumps({"event": event.event_type.value, "data": event.data})
         print(line, flush=True)
 
@@ -130,13 +208,27 @@ async def _flat_research(
     model_override: str | None,
 ) -> None:
     """Collect all events and print a single flat JSON research report."""
+    await _flat_research_events(
+        agent,
+        query,
+        agent.research(query, model_override=model_override),
+        model_override,
+    )
+
+
+async def _flat_research_events(
+    agent: ResearchAgent,
+    query: str,
+    event_stream,
+    model_override: str | None,
+) -> None:
     tokens = []
     findings = []
     plan = []
     recalled = []
     done_data = {}
 
-    async for event in agent.research(query, model_override=model_override):
+    async for event in event_stream:
         if event.event_type == ResearchEventType.TOKEN:
             tokens.append(event.data.get("content", ""))
         elif event.event_type == ResearchEventType.FINDING:
@@ -162,8 +254,20 @@ async def _flat_research(
         "total_findings": done_data.get("total_findings", 0),
         "total_sources": done_data.get("total_sources", 0),
         "elapsed_ms": done_data.get("elapsed_ms", 0),
+        "corpus_path": done_data.get("corpus_path"),
         "model": model_override or agent.ollama.model,
     }
+    for optional_key in [
+        "error",
+        "verification_status",
+        "continued_from",
+        "refined_from",
+        "directive",
+        "prior_findings_loaded",
+        "failed_findings",
+    ]:
+        if optional_key in done_data:
+            result[optional_key] = done_data[optional_key]
 
     print(json.dumps(result))
 
@@ -230,26 +334,27 @@ async def run_autoresearch(
     metric_name: str,
     metric_direction: str = "higher",
     max_iterations: int = 10,
+    files_in_scope: list[str] | None = None,
     model_override: str | None = None,
     stream: bool = False,
 ) -> None:
     from pathlib import Path
     from pythia.autoresearch import AutoresearchAgent, AutoresearchEventType
 
-    ollama = OllamaClient(base_url=cfg.ollama.base_url, model=cfg.ollama.model)
-    if model_override:
-        ollama.model = model_override
+    ollama = create_llm_client(cfg, model_override=model_override)
 
     agent = AutoresearchAgent(ollama=ollama, workspace_dir=Path.cwd())
+    scoped_files = files_in_scope or []
 
     if stream:
         async for event in agent.run(
             metric_name=metric_name,
             benchmark_cmd=benchmark_cmd,
-            files_in_scope=[],
+            files_in_scope=scoped_files,
             metric_direction=metric_direction,
             max_iterations=max_iterations,
             model=model_override or cfg.ollama.model,
+            target=target,
         ):
             line = json.dumps({"event": event.event_type.value, "data": event.data})
             print(line, flush=True)
@@ -261,10 +366,11 @@ async def run_autoresearch(
         async for event in agent.run(
             metric_name=metric_name,
             benchmark_cmd=benchmark_cmd,
-            files_in_scope=[],
+            files_in_scope=scoped_files,
             metric_direction=metric_direction,
             max_iterations=max_iterations,
             model=model_override or cfg.ollama.model,
+            target=target,
         ):
             if event.event_type == AutoresearchEventType.STATUS:
                 print(json.dumps({"status": event.data.get("message", "")}), file=sys.stderr)

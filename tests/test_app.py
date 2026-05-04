@@ -65,7 +65,7 @@ def test_health_endpoint(client):
     data = resp.json()
     assert data["oracle"] is True
     assert data["searxng"] is True
-    assert data["ollama"] is True
+    assert data["llm"] is True
     assert data["cache_size"] == 5
 
 

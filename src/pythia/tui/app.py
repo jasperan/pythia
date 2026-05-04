@@ -165,7 +165,7 @@ class PythiaApp(App):
         await self._service_manager.start_all()
 
     def _on_service_status_update(self, statuses: dict[str, ServiceInfo]) -> None:
-        for name, info in statuses.items():
+        for _name, info in statuses.items():
             if info.status == ServiceStatus.RUNNING:
                 self.notify(f"{info.name}: {info.message}", severity="information", timeout=2)
             elif info.status == ServiceStatus.ERROR:

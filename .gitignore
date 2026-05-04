@@ -24,3 +24,6 @@ dogfood-output/
 
 CLAUDE.md
 .coverage
+
+oci-genai/.venv/
+oci-genai/__pycache__/

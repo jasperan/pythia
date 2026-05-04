@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 
-from pythia.server.ollama import OllamaClient
+from pythia.server.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -76,24 +77,28 @@ class VerificationResult:
 
 
 _MAX_VERIFY_REPORT_CHARS = 12000
-_MAX_VERIFY_SOURCES = 30
+_MAX_VERIFY_SOURCES = 20
+_MAX_VERIFY_SOURCE_CHARS = 700
 
 
 async def verify_report(
-    ollama: OllamaClient,
+    ollama: LLMClient,
     query: str,
     report: str,
     sources: list[dict],
     model: str,
 ) -> VerificationResult:
+    if report.lstrip().startswith("# Evidence Ledger Report"):
+        return _verify_evidence_ledger(report, sources)
+
     # Truncate to stay within model context limits
     truncated_report = report[:_MAX_VERIFY_REPORT_CHARS]
     if len(report) > _MAX_VERIFY_REPORT_CHARS:
         truncated_report += "\n\n[Report truncated for verification. Check claims in the portion above.]"
 
-    sources_text = "\n".join(
-        f"[{s.get('index', i+1)}] {s.get('title', 'Untitled')} — {s.get('url', 'no URL')}"
-        for i, s in enumerate(sources[:_MAX_VERIFY_SOURCES])
+    sources_text = "\n\n".join(
+        _format_source_for_verification(source, i)
+        for i, source in enumerate(_select_verification_sources(report, sources))
     )
 
     user = _VERIFY_USER.format(query=query, report=truncated_report, sources=sources_text)
@@ -107,11 +112,15 @@ async def verify_report(
                 summary="Verification skipped: model returned empty response (prompt too large).",
             )
         data = json.loads(response)
+        status = _normalize_verification_status(data.get("status"))
+        summary = data.get("summary", "")
+        if status == "fail" and data.get("status") not in {"pass", "pass_with_notes", "fail"}:
+            summary = f"Verifier returned unsupported status {data.get('status')!r}. {summary}".strip()
         return VerificationResult(
             claims_checked=data.get("claims_checked", 0),
             issues=data.get("issues", []),
-            status=data.get("status", "fail"),
-            summary=data.get("summary", ""),
+            status=status,
+            summary=summary,
         )
     except json.JSONDecodeError as e:
         logger.warning(f"Verification JSON parse failed: {e} — raw response: {response[:200]!r}")
@@ -125,3 +134,98 @@ async def verify_report(
             status="pass_with_notes",
             summary=f"Verification skipped: {type(e).__name__}",
         )
+
+
+def _select_verification_sources(report: str, sources: list[dict]) -> list[dict]:
+    """Prefer sources cited by the report, then fill with early sources."""
+    if not sources:
+        return []
+
+    by_index: dict[int, dict] = {}
+    for fallback, source in enumerate(sources, 1):
+        index = _safe_source_index(source, fallback)
+        by_index[index] = source
+
+    selected: list[dict] = []
+    seen: set[int] = set()
+    for raw in re.findall(r"\[(\d+)\]", report):
+        index = int(raw)
+        if index in seen or index not in by_index:
+            continue
+        selected.append(by_index[index])
+        seen.add(index)
+        if len(selected) >= _MAX_VERIFY_SOURCES:
+            return selected
+
+    for fallback, source in enumerate(sources, 1):
+        index = _safe_source_index(source, fallback)
+        if index in seen:
+            continue
+        selected.append(source)
+        seen.add(index)
+        if len(selected) >= _MAX_VERIFY_SOURCES:
+            break
+
+    return selected
+
+
+def _format_source_for_verification(source: dict, fallback_index: int) -> str:
+    index = _safe_source_index(source, fallback_index + 1)
+    title = source.get("title", "Untitled")
+    url = source.get("url", "no URL")
+    snippet = source.get("snippet") or source.get("content") or ""
+    if len(snippet) > _MAX_VERIFY_SOURCE_CHARS:
+        snippet = snippet[:_MAX_VERIFY_SOURCE_CHARS] + "..."
+    parts = [f"[{index}] {title} — {url}"]
+    if snippet:
+        parts.append(f"Source excerpt: {snippet}")
+    return "\n".join(parts)
+
+
+def _safe_source_index(source: dict, fallback: int) -> int:
+    try:
+        return int(source.get("index", fallback))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _normalize_verification_status(status: object) -> str:
+    if status in {"pass", "pass_with_notes", "fail"}:
+        return str(status)
+    return "fail"
+
+
+def _verify_evidence_ledger(report: str, sources: list[dict]) -> VerificationResult:
+    source_indices = {
+        _safe_source_index(source, fallback)
+        for fallback, source in enumerate(sources, 1)
+    }
+    cited = {int(raw) for raw in re.findall(r"\[(\d+)\]", report)}
+    if not cited:
+        return VerificationResult(
+            status="fail",
+            summary="Evidence ledger contains no numeric source citations.",
+        )
+
+    missing = sorted(cited - source_indices)
+    if missing:
+        return VerificationResult(
+            claims_checked=len(cited),
+            status="fail",
+            issues=[
+                {
+                    "claim": f"Missing source citation [{index}]",
+                    "type": "dead_url",
+                    "severity": "major",
+                    "explanation": "Evidence ledger cited a source index that is not present in the source list.",
+                }
+                for index in missing
+            ],
+            summary=f"Evidence ledger cites missing source indices: {missing}",
+        )
+
+    return VerificationResult(
+        claims_checked=len(cited),
+        status="pass_with_notes",
+        summary=f"Evidence ledger locally verified with {len(cited)} cited source(s). Semantic synthesis was bypassed.",
+    )

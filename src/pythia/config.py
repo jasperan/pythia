@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -19,6 +20,31 @@ class ServerConfig(BaseModel):
 class OllamaConfig(BaseModel):
     base_url: str = "http://localhost:11434"
     model: str = "qwen3.5:9b"
+
+
+class OciGenAIConfig(BaseModel):
+    base_url: str = "http://localhost:9999/v1"
+    model: str = "xai.grok-4"
+    api_key: str = "oci-genai"
+    timeout_read: int = 180
+
+    @model_validator(mode="before")
+    @classmethod
+    def env_overrides(cls, data):
+        """Allow environment variables to override OCI GenAI proxy config."""
+        if not isinstance(data, dict):
+            data = {}
+        for field_name, env_var in [
+            ("base_url", "PYTHIA_OCI_GENAI_BASE_URL"),
+            ("model", "PYTHIA_OCI_GENAI_MODEL"),
+            ("api_key", "PYTHIA_OCI_GENAI_API_KEY"),
+            ("api_key", "OCI_PROXY_API_KEY"),
+            ("timeout_read", "PYTHIA_OCI_GENAI_TIMEOUT_READ"),
+        ]:
+            val = os.environ.get(env_var)
+            if val:
+                data[field_name] = int(val) if field_name == "timeout_read" else val
+        return data
 
 
 class SearxngConfig(BaseModel):
@@ -63,8 +89,10 @@ class TuiConfig(BaseModel):
 
 
 class PythiaConfig(BaseModel):
+    backend: Literal["ollama", "oci-genai"] = "ollama"
     server: ServerConfig = Field(default_factory=ServerConfig)
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
+    oci_genai: OciGenAIConfig = Field(default_factory=OciGenAIConfig)
     searxng: SearxngConfig = Field(default_factory=SearxngConfig)
     oracle: OracleConfig = Field(default_factory=OracleConfig)
     research: ResearchConfig = Field(default_factory=ResearchConfig)

@@ -244,6 +244,50 @@ optional example comments in `setup_schema.sql`.
 pythia search
 ```
 
+### Running with OCI GenAI (Grok 4)
+
+Pythia can use OCI Generative AI as an alternative to Ollama for LLM synthesis. This runs a local Python sidecar proxy that bridges OCI authentication to an OpenAI-compatible HTTP endpoint. The default OCI model is `xai.grok-4`.
+
+1. Set your OCI environment:
+   ```bash
+   export OCI_PROFILE=DEFAULT
+   export OCI_REGION=us-chicago-1
+   export OCI_COMPARTMENT_ID=ocid1.compartment.oc1..your-ocid
+   export OCI_PROXY_API_KEY="$(python - <<'PY'
+import secrets
+print(secrets.token_urlsafe(32))
+PY
+)"
+   ```
+
+2. Start the proxy in a separate shell:
+   ```bash
+   cd oci-genai
+   pip install -r requirements.txt
+   python proxy.py
+   # Proxy listens at http://localhost:9999/v1
+   ```
+
+3. Either configure `pythia.yaml`:
+   ```yaml
+   backend: oci-genai
+
+   oci_genai:
+     base_url: "http://localhost:9999/v1"
+     model: "xai.grok-4"
+     api_key: "same-value-as-OCI_PROXY_API_KEY"  # pragma: allowlist secret
+     timeout_read: 180
+   ```
+
+4. Or pass `--backend` on any command:
+   ```bash
+   pythia query "What is RLHF?" --backend oci-genai
+   pythia research "RISC-V vs ARM for edge AI" --backend oci-genai
+   pythia serve --backend oci-genai
+   ```
+
+See [`oci-genai/README.md`](oci-genai/README.md) for the full model table, credential setup, and proxy internals.
+
 ## TUI Guide
 
 ### Launching
@@ -339,8 +383,15 @@ echo "What is RLHF?" | pythia query              # Pipe via stdin
 ```bash
 pythia research "RISC-V vs ARM for edge AI"                  # Flat JSON report
 pythia research "RISC-V vs ARM for edge AI" --stream         # NDJSON events
-pythia research "RISC-V vs ARM for edge AI" --max-rounds 5   # Override max rounds
+pythia research "RISC-V vs ARM for edge AI" --max-rounds 10  # Run up to 10 rounds
 pythia research "RISC-V vs ARM" --model llama3.3:70b         # Override model
+```
+
+Continue or refine a stored investigation by its slug:
+
+```bash
+pythia research-continue risc-v-vs-arm --focus "new benchmarks" --max-rounds 10
+pythia research-refine risc-v-vs-arm "Focus on power consumption tradeoffs"
 ```
 
 **Output (flat mode):**
@@ -354,7 +405,8 @@ pythia research "RISC-V vs ARM" --model llama3.3:70b         # Override model
   "rounds_used": 2,
   "total_findings": 8,
   "total_sources": 32,
-  "elapsed_ms": 45000
+  "elapsed_ms": 45000,
+  "corpus_path": ".pythia/research/risc-v-vs-arm/corpus.md"
 }
 ```
 
@@ -368,8 +420,23 @@ pythia research "RISC-V vs ARM" --model llama3.3:70b         # Override model
 {"event": "gap_analysis", "data": {"sufficient": false, "gaps": ["..."]}}
 {"event": "round_start", "data": {"round": 2, "max_rounds": 3}}
 {"event": "token", "data": {"content": "# Research Report..."}}
-{"event": "done", "data": {"rounds_used": 2, "total_findings": 8, "elapsed_ms": 45000}}
+{"event": "done", "data": {"rounds_used": 2, "total_findings": 8, "elapsed_ms": 45000, "corpus_path": "..."}}
 ```
+
+### `pythia autoresearch`: Autonomous Metric Loop
+
+```bash
+pythia autoresearch "improve answer quality" \
+  --benchmark "python benchmark_research.py" \
+  --metric benchmark_time \
+  --direction lower \
+  --file src/pythia/server/research.py \
+  --max-iterations 10
+```
+
+Autoresearch runs a baseline benchmark, asks the configured LLM for exact scoped edits,
+applies them transactionally, keeps only iterations that improve the metric, and records
+iteration evidence in `.autoresearch/session.jsonl`.
 
 ### `pythia embed`: Embedding Generation
 
@@ -392,6 +459,8 @@ pythia serve --host 127.0.0.1 --port 9000          # Custom host/port
 |----------|--------|-------------|
 | `/search` | POST | Single-shot search with SSE streaming |
 | `/research` | POST | Deep research with SSE streaming |
+| `/research/continue/{slug}` | POST | Continue a prior investigation |
+| `/research/refine/{slug}` | POST | Refine a prior investigation with a directive |
 | `/embed` | POST | Generate embedding for text |
 | `/health` | GET | Service status + cache size |
 | `/history` | GET | Recent search history |
@@ -435,9 +504,17 @@ server:
   host: "0.0.0.0"
   port: 8900
 
+backend: "ollama"           # or "oci-genai" to use the OCI proxy
+
 ollama:
   base_url: "http://localhost:11434"
   model: "qwen3.5:9b"
+
+oci_genai:
+  base_url: "http://localhost:9999/v1"
+  model: "xai.grok-4"
+  api_key: "same-value-as-OCI_PROXY_API_KEY"  # pragma: allowlist secret
+  timeout_read: 180
 
 searxng:
   base_url: "http://localhost:8889"

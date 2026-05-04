@@ -47,12 +47,15 @@ def serve(
     host: str = typer.Option("0.0.0.0", help="API server host"),
     port: int = typer.Option(8900, help="API server port"),
     config: str = typer.Option("pythia.yaml", help="Config file path"),
+    backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
 ) -> None:
     """Start the Pythia API server."""
     import uvicorn
     from pythia.server.app import create_app
 
     cfg, _ = _load_required_config(config, command_name="serve")
+    if backend:
+        cfg.backend = backend
     application = create_app(cfg)
     uvicorn.run(application, host=host, port=port)
 
@@ -61,6 +64,7 @@ def serve(
 def search_tui(
     config: str = typer.Option("pythia.yaml", help="Config file path"),
     model: str = typer.Option("", help="Override Ollama model"),
+    backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
     no_auto_start: bool = typer.Option(False, help="Disable automatic service startup"),
     host: str = typer.Option("", help="Override API server host"),
     port: int = typer.Option(0, help="Override API server port"),
@@ -73,6 +77,8 @@ def search_tui(
         command_name="search",
         auto_start=not no_auto_start,
     )
+    if backend:
+        cfg.backend = backend
     if model:
         cfg.ollama.model = model
 
@@ -98,6 +104,7 @@ def query(
     no_cache: bool = typer.Option(False, "--no-cache", help="Skip cache lookup/storage"),
     deep: bool = typer.Option(False, "--deep", help="Scrape top URLs for full content"),
     stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
+    backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
 ) -> None:
     """Run a search query and return structured JSON."""
     import asyncio
@@ -109,6 +116,8 @@ def query(
         raise typer.Exit(1)
 
     cfg, _ = _load_required_config(config, command_name="query")
+    if backend:
+        cfg.backend = backend
     model_override = model if model else None
 
     asyncio.run(_run_query(
@@ -129,6 +138,7 @@ def research(
     model: str = typer.Option("", help="Override Ollama model"),
     stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
     max_rounds: int = typer.Option(0, "--max-rounds", help="Override max research rounds (0 = use config)"),
+    backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
 ) -> None:
     """Run autonomous deep research on a topic. Returns structured report with citations."""
     import asyncio
@@ -140,12 +150,78 @@ def research(
         raise typer.Exit(1)
 
     cfg, _ = _load_required_config(config, command_name="research")
+    if backend:
+        cfg.backend = backend
     model_override = model if model else None
     rounds_override = max_rounds if max_rounds > 0 else None
 
     asyncio.run(_run_research(
         cfg,
         query_text,
+        model_override=model_override,
+        stream=stream,
+        max_rounds=rounds_override,
+    ))
+
+
+@app.command("research-continue")
+def research_continue(
+    slug: str = typer.Argument(..., help="Research slug to continue"),
+    focus: str = typer.Option("", "--focus", "-f", help="Optional continuation focus"),
+    config: str = typer.Option("pythia.yaml", help="Config file path"),
+    model: str = typer.Option("", help="Override Ollama model"),
+    stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
+    max_rounds: int = typer.Option(0, "--max-rounds", help="Override max continuation rounds (0 = use config)"),
+    backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
+) -> None:
+    """Continue a stored research session by slug."""
+    import asyncio
+    from pythia.cli_runner import run_continue_research as _run_continue_research
+
+    cfg, _ = _load_required_config(config, command_name="research-continue")
+    if backend:
+        cfg.backend = backend
+    model_override = model if model else None
+    rounds_override = max_rounds if max_rounds > 0 else None
+
+    asyncio.run(_run_continue_research(
+        cfg,
+        slug,
+        focus=focus or None,
+        model_override=model_override,
+        stream=stream,
+        max_rounds=rounds_override,
+    ))
+
+
+@app.command("research-refine")
+def research_refine(
+    slug: str = typer.Argument(..., help="Research slug to refine"),
+    directive: str = typer.Argument(..., help="Refinement directive"),
+    config: str = typer.Option("pythia.yaml", help="Config file path"),
+    model: str = typer.Option("", help="Override Ollama model"),
+    stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
+    max_rounds: int = typer.Option(0, "--max-rounds", help="Override max refinement rounds (0 = use config)"),
+    backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
+) -> None:
+    """Refine a stored research session by slug with a focused directive."""
+    import asyncio
+    from pythia.cli_runner import run_refine_research as _run_refine_research
+
+    if not directive.strip():
+        print('{"error": "No refinement directive provided."}', file=sys.stderr)
+        raise typer.Exit(1)
+
+    cfg, _ = _load_required_config(config, command_name="research-refine")
+    if backend:
+        cfg.backend = backend
+    model_override = model if model else None
+    rounds_override = max_rounds if max_rounds > 0 else None
+
+    asyncio.run(_run_refine_research(
+        cfg,
+        slug,
+        directive=directive,
         model_override=model_override,
         stream=stream,
         max_rounds=rounds_override,
@@ -278,9 +354,16 @@ def autoresearch(
     metric: str = typer.Option("", "--metric", "-m", help="Metric name to track"),
     direction: str = typer.Option("higher", "--direction", "-d", help="Direction: higher or lower is better"),
     max_iterations: int = typer.Option(10, "--max-iterations", "-n", help="Max optimization iterations"),
+    files: list[str] | None = typer.Option(
+        None,
+        "--file",
+        "-f",
+        help="Editable file in scope. Repeat to allow multiple files.",
+    ),
     config: str = typer.Option("pythia.yaml", help="Config file path"),
     model: str = typer.Option("", help="Override Ollama model"),
     stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events"),
+    backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
 ) -> None:
     import asyncio
     from pythia.cli_runner import run_autoresearch as _run_autoresearch
@@ -296,6 +379,8 @@ def autoresearch(
         raise typer.Exit(1)
 
     cfg, _ = _load_required_config(config, command_name="autoresearch")
+    if backend:
+        cfg.backend = backend
     model_override = model if model else None
 
     asyncio.run(_run_autoresearch(
@@ -305,6 +390,7 @@ def autoresearch(
         metric_name=metric,
         metric_direction=direction,
         max_iterations=max_iterations,
+        files_in_scope=files or [],
         model_override=model_override,
         stream=stream,
     ))

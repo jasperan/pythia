@@ -13,11 +13,21 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from pythia.config import PythiaConfig
-from pythia.server.ollama import OllamaClient
+from pythia.server.llm_client import create_llm_client
+from pythia.server.ollama import OllamaClient  # re-exported for test patching
 from pythia.server.oracle_cache import OracleCache
 from pythia.server.research import ResearchAgent
 from pythia.server.searxng import SearxngClient
 from pythia.server.search import SearchOrchestrator
+
+__all__ = [
+    "create_app",
+    "OllamaClient",
+    "OracleCache",
+    "SearxngClient",
+    "SearchOrchestrator",
+    "ResearchAgent",
+]
 
 
 class ConversationMessage(BaseModel):
@@ -57,10 +67,7 @@ class RefineRequest(BaseModel):
 
 
 def create_app(config: PythiaConfig) -> FastAPI:
-    ollama = OllamaClient(
-        base_url=config.ollama.base_url,
-        model=config.ollama.model,
-    )
+    ollama = create_llm_client(config)
     cache = OracleCache(
         dsn=config.oracle.dsn,
         user=config.oracle.user,
@@ -150,7 +157,7 @@ def create_app(config: PythiaConfig) -> FastAPI:
         searxng_ok = await searxng.health()
         ollama_ok = await ollama.health()
         cache_size = await cache.get_cache_size()
-        return {"oracle": oracle_ok, "searxng": searxng_ok, "ollama": ollama_ok, "cache_size": cache_size}
+        return {"oracle": oracle_ok, "searxng": searxng_ok, "llm": ollama_ok, "cache_size": cache_size}
 
     @app.get("/history")
     async def history(limit: int = Query(20, ge=1, le=100)):

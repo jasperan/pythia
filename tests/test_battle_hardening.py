@@ -156,7 +156,7 @@ async def test_search_ollama_empty_response():
 
 @pytest.mark.asyncio
 async def test_search_deep_mode_with_scraper():
-    """Deep mode should trigger scraping and use build_deep_search_prompt."""
+    """Deep mode should trigger scraping and use build_search_prompt with scraped_content."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
     mock_ollama.generate_suggestions = AsyncMock(return_value=[])

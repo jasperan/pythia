@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
+import socket
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from scrapling.fetchers import Fetcher
 
@@ -20,6 +23,14 @@ class ScrapedContent:
 
 def _scrape_one_sync(url: str, fallback_snippet: str) -> ScrapedContent:
     """Scrape a single URL synchronously. Returns fallback on failure."""
+    if not _is_public_http_url(url):
+        return ScrapedContent(
+            url=url,
+            content=fallback_snippet,
+            success=False,
+            error="blocked non-public URL",
+        )
+
     try:
         page = Fetcher.get(url, timeout=10)
         text = page.get_all_text(ignore_tags=("script", "style", "nav", "footer", "header"))
@@ -30,6 +41,38 @@ def _scrape_one_sync(url: str, fallback_snippet: str) -> ScrapedContent:
     except Exception as e:
         logger.debug(f"Scrape failed for {url}: {e}")
         return ScrapedContent(url=url, content=fallback_snippet, success=False, error=str(e))
+
+
+def _is_public_http_url(url: str) -> bool:
+    """Return True for HTTP(S) URLs that do not resolve to local/private addresses."""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return False
+
+    hostname = parsed.hostname.rstrip(".").lower()
+    if hostname == "localhost" or hostname.endswith(".localhost"):
+        return False
+
+    try:
+        literal = ipaddress.ip_address(hostname)
+    except ValueError:
+        literal = None
+    if literal is not None:
+        return literal.is_global
+
+    try:
+        infos = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return False
+
+    for *_, sockaddr in infos:
+        try:
+            address = ipaddress.ip_address(sockaddr[0])
+        except ValueError:
+            return False
+        if not address.is_global:
+            return False
+    return True
 
 
 async def scrape_urls(

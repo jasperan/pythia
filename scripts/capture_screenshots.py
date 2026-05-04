@@ -181,8 +181,8 @@ async def capture_history_screen(app, pilot):
     # Update footer
     footer = Text()
     footer.append(f"  {len(entries)} queries", style="#e0e0e0")
-    footer.append(f" \u00b7 3 cache hits (38%)", style="#b5bd68")
-    footer.append(f" \u00b7 avg 5.1s", style="#666666")
+    footer.append(" \u00b7 3 cache hits (38%)", style="#b5bd68")
+    footer.append(" \u00b7 avg 5.1s", style="#666666")
     footer.append("\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style="#808080")
     app.screen.query_one("#history-footer", Static).update(footer)
 

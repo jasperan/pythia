@@ -1,4 +1,7 @@
 """Tests for deep research agent."""
+import tempfile
+from pathlib import Path
+
 import pytest
 from unittest.mock import AsyncMock
 
@@ -15,7 +18,11 @@ def _make_agent(
     gap_analysis_return=None,
     gap_analysis_sequence=None,
     completeness_return=None,
+    verification_sequence=None,
+    repair_return="# Repaired report\n\nOnly source-supported claims remain [1].",
     config_overrides=None,
+    summary_failures_before_success=0,
+    summary_always_fails=False,
 ):
     """Build a ResearchAgent with mocked dependencies.
 
@@ -41,11 +48,20 @@ def _make_agent(
         gap_responses = [gap]
 
     completeness_resp = completeness_return or '{"status": "COMPLETE", "reasoning": "Report is thorough.", "follow_up_queries": []}'
+    verification_responses = verification_sequence or [
+        '{"claims_checked": 1, "issues": [], "status": "pass", "summary": "Report is supported."}'
+    ]
 
     call_count = {"n": 0}
     gap_call_count = {"n": 0}
+    summary_call_count = {"n": 0}
+    verification_call_count = {"n": 0}
 
     async def mock_generate(system, user, json_mode=False, model=None):
+        if json_mode and "verification agent" in system.lower():
+            idx = min(verification_call_count["n"], len(verification_responses) - 1)
+            verification_call_count["n"] += 1
+            return verification_responses[idx]
         if json_mode and "completeness" in system.lower():
             return completeness_resp
         if json_mode and "gaps" in system.lower():
@@ -53,6 +69,17 @@ def _make_agent(
             idx = min(gap_call_count["n"], len(gap_responses) - 1)
             gap_call_count["n"] += 1
             return gap_responses[idx]
+        if "repair agent" in system.lower():
+            return repair_return
+        if call_count["n"] == 0:
+            call_count["n"] += 1
+            return generate_responses[0]
+        if summary_always_fails:
+            raise TimeoutError("summary timed out")
+        if summary_call_count["n"] < summary_failures_before_success:
+            summary_call_count["n"] += 1
+            raise TimeoutError("summary timed out")
+        summary_call_count["n"] += 1
         idx = min(call_count["n"], len(generate_responses) - 1)
         call_count["n"] += 1
         return generate_responses[idx]
@@ -81,10 +108,12 @@ def _make_agent(
     mock_searxng.search = AsyncMock(return_value=results)
 
     cfg = ResearchConfig(**(config_overrides or {"max_rounds": 1, "deep_scrape": False}))
+    workspace_dir = Path(tempfile.mkdtemp(prefix="pythia-research-test-"))
 
     agent = ResearchAgent(
         ollama=mock_ollama, cache=mock_cache,
         searxng=mock_searxng, config=cfg,
+        workspace_dir=workspace_dir,
     )
     return agent, mock_ollama, mock_cache, mock_searxng
 
@@ -116,6 +145,11 @@ async def test_research_basic_flow():
     assert done_event.data["rounds_used"] == 1
     assert done_event.data["total_findings"] > 0
     assert done_event.data["elapsed_ms"] >= 0
+    assert Path(done_event.data["corpus_path"]).exists()
+    corpus = Path(done_event.data["corpus_path"]).read_text()
+    assert "## Final Report" in corpus
+    assert "## Findings" in corpus
+    assert "## Sources" in corpus
 
     # Should have stored research and findings (batch)
     mock_cache.store_research.assert_called_once()
@@ -198,6 +232,130 @@ async def test_research_gap_driven_early_stop():
 
 
 @pytest.mark.asyncio
+async def test_research_can_run_ten_autonomous_rounds():
+    """Research should support 10 gap-driven rounds without user interaction."""
+    gap_sequence = [
+        f'{{"sufficient": false, "gaps": ["Follow-up question {i}"], "reasoning": "More evidence needed."}}'
+        for i in range(1, 10)
+    ]
+    agent, _, _, _ = _make_agent(
+        gap_analysis_sequence=gap_sequence,
+        config_overrides={"max_rounds": 10, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("long-running autonomous investigation"):
+        events.append(event)
+
+    round_starts = [e for e in events if e.event_type == ResearchEventType.ROUND_START]
+    assert len(round_starts) == 10
+    assert round_starts[-1].data["round"] == 10
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["rounds_used"] == 10
+    assert done.data["total_findings"] >= 10
+    corpus = Path(done.data["corpus_path"]).read_text()
+    assert "Follow-up question 9" in corpus
+
+
+@pytest.mark.asyncio
+async def test_research_retries_failed_summarization():
+    """A transient summarization timeout should retry with smaller context."""
+    agent, _, _, _ = _make_agent(
+        summary_failures_before_success=1,
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("retry summarization"):
+        events.append(event)
+
+    finding_events = [e for e in events if e.event_type == ResearchEventType.FINDING]
+    assert finding_events
+    assert finding_events[0].data["summary_failed"] is False
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["failed_findings"] == 0
+
+
+@pytest.mark.asyncio
+async def test_research_counts_failed_summarization_after_retries():
+    """Persistent summary failures should be visible in events and final metadata."""
+    agent, _, _, _ = _make_agent(
+        summary_always_fails=True,
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("failed summarization"):
+        events.append(event)
+
+    finding_events = [e for e in events if e.event_type == ResearchEventType.FINDING]
+    assert finding_events
+    failed_events = [e for e in finding_events if e.data["summary_failed"] is True]
+    assert failed_events
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["failed_findings"] == len(failed_events)
+    corpus = Path(done.data["corpus_path"]).read_text()
+    assert "- Status: failed" in corpus
+
+
+@pytest.mark.asyncio
+async def test_research_repairs_report_after_failed_verification():
+    """Failed verification should trigger one repaired report and re-verification."""
+    agent, _, _, _ = _make_agent(
+        verification_sequence=[
+            '{"claims_checked": 1, "issues": [{"claim": "bad", "type": "unsourced", "severity": "major", "explanation": "not in sources"}], "status": "fail", "summary": "Unsupported claim."}',
+            '{"claims_checked": 1, "issues": [], "status": "pass", "summary": "Repaired report is supported."}',
+        ],
+        repair_return="# Repaired report\n\nOnly supported claims remain [N1].",
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("repair failed verification"):
+        events.append(event)
+
+    verify_events = [e for e in events if e.event_type == ResearchEventType.VERIFY]
+    assert [e.data["status"] for e in verify_events] == ["fail", "pass"]
+    assert verify_events[1].data["repaired"] is True
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["verification_status"] == "pass"
+    corpus = Path(done.data["corpus_path"]).read_text()
+    assert "# Repaired report" in corpus
+    assert "Only supported claims remain [1]." in corpus
+    assert "[N1]" not in corpus
+
+
+@pytest.mark.asyncio
+async def test_research_uses_evidence_ledger_when_repair_still_fails():
+    """A failed repair should fall back to a conservative source ledger report."""
+    agent, _, _, _ = _make_agent(
+        verification_sequence=[
+            '{"claims_checked": 1, "issues": [{"claim": "bad", "type": "unsourced", "severity": "major", "explanation": "not in sources"}], "status": "fail", "summary": "Unsupported claim."}',
+            '{"claims_checked": 1, "issues": [{"claim": "still bad", "type": "unsourced", "severity": "major", "explanation": "not in sources"}], "status": "fail", "summary": "Repair still unsupported."}',
+            '{"claims_checked": 1, "issues": [], "status": "pass", "summary": "Evidence ledger is supported."}',
+        ],
+        repair_return="# Uncited repaired report\n\nThis still has no citations.",
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("fallback after failed repair"):
+        events.append(event)
+
+    verify_events = [e for e in events if e.event_type == ResearchEventType.VERIFY]
+    assert [e.data["status"] for e in verify_events] == ["fail", "fail", "pass_with_notes"]
+    assert verify_events[2].data["fallback"] is True
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["verification_status"] == "pass_with_notes"
+    corpus = Path(done.data["corpus_path"]).read_text()
+    assert "# Evidence Ledger Report" in corpus
+    assert "Source excerpts:" in corpus
+
+
+@pytest.mark.asyncio
 async def test_research_model_override():
     """Model override should be passed through and restored."""
     agent, mock_ollama, _, _ = _make_agent()
@@ -260,6 +418,80 @@ async def test_research_empty_search_results():
     # Should complete without error
     done = next(e for e in events if e.event_type == ResearchEventType.DONE)
     assert done.data["rounds_used"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_research_deduplicates_repeated_source_urls():
+    """Repeated URLs across sub-queries should not inflate source counts."""
+    agent, _, _, _ = _make_agent(
+        search_results=[
+            SearchResult(
+                index=1,
+                title="Same source",
+                url="https://example.com/same",
+                snippet="Same source content",
+            )
+        ],
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("deduplicate sources"):
+        events.append(event)
+
+    finding_events = [e for e in events if e.event_type == ResearchEventType.FINDING]
+    assert len(finding_events) == 2
+    assert sorted(e.data["num_sources"] for e in finding_events) == [0, 1]
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["total_sources"] == 1
+    corpus = Path(done.data["corpus_path"]).read_text()
+    assert corpus.count("https://example.com/same") == 1
+
+
+@pytest.mark.asyncio
+async def test_research_scrapes_only_new_deduplicated_urls(monkeypatch):
+    """Scraping should not fetch sources that were already used by earlier sub-queries."""
+    agent, _, _, mock_searxng = _make_agent(
+        config_overrides={"max_rounds": 1, "deep_scrape": True, "max_completeness_checks": 0},
+    )
+    shared = SearchResult(
+        index=1,
+        title="Shared source",
+        url="https://example.com/shared",
+        snippet="Shared source content",
+    )
+    fresh = SearchResult(
+        index=2,
+        title="Fresh source",
+        url="https://example.com/fresh",
+        snippet="Fresh source content",
+    )
+
+    async def search(query):
+        if query == "sub q1":
+            return [shared]
+        return [shared, fresh]
+
+    scraped_batches = []
+
+    async def fake_scrape_urls(urls_snippets):
+        scraped_batches.append([url for url, _ in urls_snippets])
+        return []
+
+    mock_searxng.search.side_effect = search
+    monkeypatch.setattr("pythia.server.research.scrape_urls", fake_scrape_urls)
+
+    events = []
+    async for event in agent.research("deduplicate scrape inputs"):
+        events.append(event)
+
+    assert ["https://example.com/shared"] in scraped_batches
+    assert ["https://example.com/fresh"] in scraped_batches
+    assert ["https://example.com/shared", "https://example.com/fresh"] not in scraped_batches
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["total_sources"] == 2
 
 
 @pytest.mark.asyncio

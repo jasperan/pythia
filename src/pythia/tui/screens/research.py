@@ -88,80 +88,79 @@ class ResearchScreen(Screen):
 
         event_type = ""
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                async with client.stream(
-                    "POST",
-                    f"{self._api_base}/research",
-                    json={"query": query, "model": self.config.ollama.model},
-                ) as resp:
-                    async for line in resp.aiter_lines():
-                        if not line:
+            async with httpx.AsyncClient(timeout=300.0) as client, client.stream(
+                "POST",
+                f"{self._api_base}/research",
+                json={"query": query, "model": self.config.ollama.model},
+            ) as resp:
+                async for line in resp.aiter_lines():
+                    if not line:
+                        continue
+                    if line.startswith("event:"):
+                        event_type = line[6:].strip()
+                        continue
+                    if line.startswith("data:"):
+                        data_str = line[5:].strip()
+                        try:
+                            data = json.loads(data_str)
+                        except json.JSONDecodeError:
                             continue
-                        if line.startswith("event:"):
-                            event_type = line[6:].strip()
-                            continue
-                        if line.startswith("data:"):
-                            data_str = line[5:].strip()
-                            try:
-                                data = json.loads(data_str)
-                            except json.JSONDecodeError:
-                                continue
 
-                            elapsed = int((time.monotonic() - self._start_time) * 1000)
+                        elapsed = int((time.monotonic() - self._start_time) * 1000)
 
-                            if event_type == "status":
-                                activity.set_label(data.get("message", ""))
+                        if event_type == "status":
+                            activity.set_label(data.get("message", ""))
 
-                            elif event_type == "recall":
-                                findings = data.get("findings", [])
-                                tree.set_recall(findings)
+                        elif event_type == "recall":
+                            findings = data.get("findings", [])
+                            tree.set_recall(findings)
 
-                            elif event_type == "plan":
-                                sub_queries = data.get("sub_queries", [])
-                                tree.add_plan(sub_queries)
+                        elif event_type == "plan":
+                            sub_queries = data.get("sub_queries", [])
+                            tree.add_plan(sub_queries)
 
-                            elif event_type == "round_start":
-                                current_round = data.get("round", 1)
-                                max_rounds = data.get("max_rounds", max_rounds)
-                                tree.start_round(current_round, max_rounds)
-                                progress.update_progress(
-                                    round_num=current_round, max_rounds=max_rounds,
-                                    elapsed_ms=elapsed,
-                                )
+                        elif event_type == "round_start":
+                            current_round = data.get("round", 1)
+                            max_rounds = data.get("max_rounds", max_rounds)
+                            tree.start_round(current_round, max_rounds)
+                            progress.update_progress(
+                                round_num=current_round, max_rounds=max_rounds,
+                                elapsed_ms=elapsed,
+                            )
 
-                            elif event_type == "finding":
-                                sq = data.get("sub_query", "")
-                                num_src = data.get("num_sources", 0)
-                                preview = data.get("summary_preview", "")
-                                tree.complete_finding(sq, num_sources=num_src, preview=preview)
-                                self._findings_count += 1
-                                self._sources_count += num_src
-                                progress.update_progress(
-                                    findings=self._findings_count,
-                                    sources=self._sources_count,
-                                    elapsed_ms=elapsed,
-                                )
+                        elif event_type == "finding":
+                            sq = data.get("sub_query", "")
+                            num_src = data.get("num_sources", 0)
+                            preview = data.get("summary_preview", "")
+                            tree.complete_finding(sq, num_sources=num_src, preview=preview)
+                            self._findings_count += 1
+                            self._sources_count += num_src
+                            progress.update_progress(
+                                findings=self._findings_count,
+                                sources=self._sources_count,
+                                elapsed_ms=elapsed,
+                            )
 
-                            elif event_type == "gap_analysis":
-                                gaps = data.get("gaps", [])
-                                reasoning = data.get("reasoning", "")
-                                sufficient = data.get("sufficient", True)
-                                if not sufficient and gaps:
-                                    tree.add_gaps(gaps, reasoning=reasoning)
+                        elif event_type == "gap_analysis":
+                            gaps = data.get("gaps", [])
+                            reasoning = data.get("reasoning", "")
+                            sufficient = data.get("sufficient", True)
+                            if not sufficient and gaps:
+                                tree.add_gaps(gaps, reasoning=reasoning)
 
-                            elif event_type == "token":
-                                result_card.append_token(data.get("content", ""))
+                        elif event_type == "token":
+                            result_card.append_token(data.get("content", ""))
 
-                            elif event_type == "done":
-                                activity.stop()
-                                tree.mark_complete()
-                                progress.update_progress(
-                                    round_num=data.get("rounds_used", current_round),
-                                    max_rounds=max_rounds,
-                                    findings=data.get("total_findings", self._findings_count),
-                                    sources=data.get("total_sources", self._sources_count),
-                                    elapsed_ms=data.get("elapsed_ms", elapsed),
-                                )
+                        elif event_type == "done":
+                            activity.stop()
+                            tree.mark_complete()
+                            progress.update_progress(
+                                round_num=data.get("rounds_used", current_round),
+                                max_rounds=max_rounds,
+                                findings=data.get("total_findings", self._findings_count),
+                                sources=data.get("total_sources", self._sources_count),
+                                elapsed_ms=data.get("elapsed_ms", elapsed),
+                            )
 
         except Exception as e:
             activity.stop()
