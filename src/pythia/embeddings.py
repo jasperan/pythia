@@ -1,4 +1,5 @@
 """Shared embedding generation using sentence-transformers."""
+
 from __future__ import annotations
 
 import threading
@@ -17,6 +18,7 @@ def _get_model():
         with _lock:
             if _model is None:
                 from sentence_transformers import SentenceTransformer
+
                 _model = SentenceTransformer(MODEL_NAME)
     return _model
 
@@ -30,4 +32,4 @@ def generate_embedding_list(text: str) -> list[float]:
 def generate_embedding(text: str) -> str:
     """Generate embedding as a JSON array string (for Oracle TO_VECTOR)."""
     values = generate_embedding_list(text)
-    return '[' + ','.join(map(str, values)) + ']'
+    return "[" + ",".join(map(str, values)) + "]"

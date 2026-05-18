@@ -1,4 +1,5 @@
 """Skills panel — displays available research skills and active skill indicator."""
+
 from __future__ import annotations
 
 import httpx
@@ -42,10 +43,26 @@ class SkillsPanel(Static):
                     self._render()
         except Exception:
             self._skills = [
-                {"name": "deep-research", "description": "Multi-round iterative research", "triggers": ["deepresearch"]},
-                {"name": "compare", "description": "Structured comparison matrix", "triggers": ["compare", "vs"]},
-                {"name": "lit-review", "description": "Literature review with consensus", "triggers": ["literature review"]},
-                {"name": "quick-answer", "description": "Single-shot search", "triggers": ["quick", "brief"]},
+                {
+                    "name": "deep-research",
+                    "description": "Multi-round iterative research",
+                    "triggers": ["deepresearch"],
+                },
+                {
+                    "name": "compare",
+                    "description": "Structured comparison matrix",
+                    "triggers": ["compare", "vs"],
+                },
+                {
+                    "name": "lit-review",
+                    "description": "Literature review with consensus",
+                    "triggers": ["literature review"],
+                },
+                {
+                    "name": "quick-answer",
+                    "description": "Single-shot search",
+                    "triggers": ["quick", "brief"],
+                },
             ]
             self._render()
 

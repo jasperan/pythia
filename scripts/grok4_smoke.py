@@ -3,6 +3,7 @@
 
 Skips cleanly if the OCI compartment is unset or the proxy is not running.
 """
+
 from __future__ import annotations
 
 import asyncio

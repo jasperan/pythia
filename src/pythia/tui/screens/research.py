@@ -1,4 +1,5 @@
 """Research theater screen — live visualization of multi-round research."""
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,9 @@ class ResearchScreen(Screen):
     #research-main-pane { width: 1fr; overflow-y: auto; padding: 1 2; }
     """
 
-    def __init__(self, config: PythiaConfig, host: str | None = None, port: int | None = None) -> None:
+    def __init__(
+        self, config: PythiaConfig, host: str | None = None, port: int | None = None
+    ) -> None:
         super().__init__()
         self.config = config
         api_host = host or config.server.host
@@ -52,6 +55,7 @@ class ResearchScreen(Screen):
     def on_mount(self) -> None:
         # Check for pending research query from search screen or history
         from pythia.tui.app import PythiaApp
+
         app = self.app
         if isinstance(app, PythiaApp) and app._pending_research_query:
             query = app._pending_research_query
@@ -88,11 +92,14 @@ class ResearchScreen(Screen):
 
         event_type = ""
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client, client.stream(
-                "POST",
-                f"{self._api_base}/research",
-                json={"query": query, "model": self.config.ollama.model},
-            ) as resp:
+            async with (
+                httpx.AsyncClient(timeout=300.0) as client,
+                client.stream(
+                    "POST",
+                    f"{self._api_base}/research",
+                    json={"query": query, "model": self.config.ollama.model},
+                ) as resp,
+            ):
                 async for line in resp.aiter_lines():
                     if not line:
                         continue
@@ -124,7 +131,8 @@ class ResearchScreen(Screen):
                             max_rounds = data.get("max_rounds", max_rounds)
                             tree.start_round(current_round, max_rounds)
                             progress.update_progress(
-                                round_num=current_round, max_rounds=max_rounds,
+                                round_num=current_round,
+                                max_rounds=max_rounds,
                                 elapsed_ms=elapsed,
                             )
 

@@ -1,4 +1,5 @@
 """Slug generation and workspace changelog utilities."""
+
 from __future__ import annotations
 
 import re
@@ -25,7 +26,69 @@ def generate_slug(text: str, max_words: int = 5) -> str:
     """
     text = unicodedata.normalize("NFKD", text).lower()
 
-    fillers = {"the", "a", "an", "is", "of", "for", "to", "in", "on", "at", "and", "or", "but", "with", "between", "what", "are", "how", "why", "do", "does", "did", "can", "could", "would", "should", "will", "shall", "from", "by", "about", "into", "through", "during", "before", "after", "above", "below", "up", "down", "out", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "which", "who", "whom", "this", "that", "these", "those", "its", "it"}
+    fillers = {
+        "the",
+        "a",
+        "an",
+        "is",
+        "of",
+        "for",
+        "to",
+        "in",
+        "on",
+        "at",
+        "and",
+        "or",
+        "but",
+        "with",
+        "between",
+        "what",
+        "are",
+        "how",
+        "why",
+        "do",
+        "does",
+        "did",
+        "can",
+        "could",
+        "would",
+        "should",
+        "will",
+        "shall",
+        "from",
+        "by",
+        "about",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "up",
+        "down",
+        "out",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "when",
+        "where",
+        "which",
+        "who",
+        "whom",
+        "this",
+        "that",
+        "these",
+        "those",
+        "its",
+        "it",
+    }
 
     words = re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", text)
     meaningful = [w for w in words if w not in fillers and len(w) > 1]

@@ -1,4 +1,5 @@
 """Activity indicator with spinning dot — Pythia search phases."""
+
 from __future__ import annotations
 
 from rich.text import Text

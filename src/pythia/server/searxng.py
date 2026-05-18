@@ -1,4 +1,5 @@
 """SearXNG client — free, unlimited web search."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

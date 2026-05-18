@@ -1,4 +1,5 @@
 """Result card — streaming markdown answer area."""
+
 from __future__ import annotations
 
 from rich.markdown import Markdown

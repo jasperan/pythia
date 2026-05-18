@@ -1,4 +1,5 @@
 """Tests for the LLM client factory."""
+
 import pytest
 
 from pythia.config import PythiaConfig

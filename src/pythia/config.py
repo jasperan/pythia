@@ -1,4 +1,5 @@
 """Config loader and config-path resolution helpers."""
+
 from __future__ import annotations
 
 import os

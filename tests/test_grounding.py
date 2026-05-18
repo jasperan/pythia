@@ -1,4 +1,5 @@
 """Tests for answer grounding verification."""
+
 from pythia.server.grounding import (
     GroundingResult,
     GroundedClaim,
@@ -60,10 +61,20 @@ def test_word_overlap_ignores_stopwords():
 
 
 def test_verify_grounding_well_grounded():
-    answer = "Python is a popular programming language [1]. It supports object-oriented programming [2]."
+    answer = (
+        "Python is a popular programming language [1]. It supports object-oriented programming [2]."
+    )
     sources = [
-        {"index": 1, "title": "Python", "snippet": "Python is a popular programming language used widely"},
-        {"index": 2, "title": "OOP", "snippet": "Python supports object-oriented programming paradigm"},
+        {
+            "index": 1,
+            "title": "Python",
+            "snippet": "Python is a popular programming language used widely",
+        },
+        {
+            "index": 2,
+            "title": "OOP",
+            "snippet": "Python supports object-oriented programming paradigm",
+        },
     ]
     result = verify_grounding(answer, sources)
     assert result.score >= 0.5

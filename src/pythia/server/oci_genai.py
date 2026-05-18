@@ -1,4 +1,5 @@
 """OCI GenAI client — OpenAI-compatible HTTP backend for Pythia."""
+
 from __future__ import annotations
 
 import json
@@ -72,7 +73,7 @@ class OciGenAIClient:
                     continue
                 if not line.startswith("data: "):
                     continue
-                data = line[len("data: "):].strip()
+                data = line[len("data: ") :].strip()
                 if data == "[DONE]":
                     break
                 try:

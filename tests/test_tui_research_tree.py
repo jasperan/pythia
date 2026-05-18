@@ -1,4 +1,5 @@
 """Tests for research tree widget."""
+
 from pythia.tui.widgets.research_tree import ResearchTree, NodeState
 
 

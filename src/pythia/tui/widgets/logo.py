@@ -1,4 +1,5 @@
 """ASCII logo banner — Pythia, Pi/agent-harness style."""
+
 from rich.text import Text
 from textual.widgets import Static
 

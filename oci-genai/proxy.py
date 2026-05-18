@@ -49,9 +49,7 @@ class OCIProxyHandler(BaseHTTPRequestHandler):
     def _cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", PROXY_ALLOWED_ORIGIN)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header(
-            "Access-Control-Allow-Headers", "Content-Type, Authorization"
-        )
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -100,9 +98,7 @@ class OCIProxyHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
         except Exception as exc:
-            err = json.dumps(
-                {"error": {"message": str(exc), "type": "oci_genai_error"}}
-            )
+            err = json.dumps({"error": {"message": str(exc), "type": "oci_genai_error"}})
             self.wfile.write(f"data: {err}\n\n".encode())
             self.wfile.flush()
 
@@ -142,7 +138,9 @@ def main():
         host_ip = ip_address(PROXY_HOST)
     except ValueError:
         host_ip = None
-    if (host_ip is None or not host_ip.is_loopback) and PROXY_API_KEY == "oci-genai":  # pragma: allowlist secret
+    if (
+        host_ip is None or not host_ip.is_loopback
+    ) and PROXY_API_KEY == "oci-genai":  # pragma: allowlist secret
         print("ERROR: Set OCI_PROXY_API_KEY before binding the proxy to a non-loopback host.")
         sys.exit(1)
 

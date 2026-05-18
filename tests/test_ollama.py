@@ -1,12 +1,17 @@
 """Tests for Ollama client."""
+
 from pythia.server.ollama import build_search_prompt
 from pythia.server.searxng import SearchResult
 
 
 def test_build_search_prompt():
     results = [
-        SearchResult(index=1, title="RLHF Paper", url="https://arxiv.org/rlhf", snippet="RLHF aligns LLMs."),
-        SearchResult(index=2, title="HF Blog", url="https://hf.co/rlhf", snippet="Step by step RLHF guide."),
+        SearchResult(
+            index=1, title="RLHF Paper", url="https://arxiv.org/rlhf", snippet="RLHF aligns LLMs."
+        ),
+        SearchResult(
+            index=2, title="HF Blog", url="https://hf.co/rlhf", snippet="Step by step RLHF guide."
+        ),
     ]
     system, user = build_search_prompt("How does RLHF work?", results)
     assert "Pythia" in system
@@ -23,9 +28,13 @@ def test_build_search_prompt_empty_results():
 
 def test_build_search_prompt_with_scraped_content():
     results = [
-        SearchResult(index=1, title="Title 1", url="https://example.com/1", snippet="Short snippet"),
+        SearchResult(
+            index=1, title="Title 1", url="https://example.com/1", snippet="Short snippet"
+        ),
     ]
-    scraped = {"https://example.com/1": "Full page content here with lots of detail about the topic."}
+    scraped = {
+        "https://example.com/1": "Full page content here with lots of detail about the topic."
+    }
     system, user = build_search_prompt("test query", results, scraped_content=scraped)
     assert "Full page content" in user
     assert "[1]" in user
@@ -34,7 +43,9 @@ def test_build_search_prompt_with_scraped_content():
 
 def test_build_search_prompt_scraped_fallback_to_snippet():
     results = [
-        SearchResult(index=1, title="Title 1", url="https://example.com/1", snippet="Short snippet"),
+        SearchResult(
+            index=1, title="Title 1", url="https://example.com/1", snippet="Short snippet"
+        ),
     ]
     scraped = {}  # no scraped content available
     system, user = build_search_prompt("test query", results, scraped_content=scraped)

@@ -1,4 +1,5 @@
 """Status bar — model, Oracle status, SearXNG status, cache size."""
+
 from __future__ import annotations
 
 from rich.text import Text
@@ -23,7 +24,13 @@ class PythiaStatusBar(Static):
         self._searxng_ok = False
         self._cache_size = 0
 
-    def update_status(self, model: str | None = None, oracle_ok: bool | None = None, searxng_ok: bool | None = None, cache_size: int | None = None) -> None:
+    def update_status(
+        self,
+        model: str | None = None,
+        oracle_ok: bool | None = None,
+        searxng_ok: bool | None = None,
+        cache_size: int | None = None,
+    ) -> None:
         if model is not None:
             self._model = model
         if oracle_ok is not None:

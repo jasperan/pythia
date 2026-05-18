@@ -1,4 +1,5 @@
 """Command palette provider for Pythia TUI."""
+
 from __future__ import annotations
 
 from textual.command import Provider, Hit, Hits

@@ -1,4 +1,5 @@
 """Integration tests for CLI runner — requires no running services."""
+
 import json
 import tempfile
 from pathlib import Path

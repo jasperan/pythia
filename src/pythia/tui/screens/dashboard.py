@@ -1,4 +1,5 @@
 """Dashboard screen — stats, cache management, settings."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -23,7 +24,9 @@ class DashboardScreen(Screen):
     #dashboard-top { height: auto; min-height: 8; }
     """
 
-    def __init__(self, config: PythiaConfig, host: str | None = None, port: int | None = None) -> None:
+    def __init__(
+        self, config: PythiaConfig, host: str | None = None, port: int | None = None
+    ) -> None:
         super().__init__()
         self.config = config
         api_host = host or config.server.host
@@ -97,7 +100,9 @@ class DashboardScreen(Screen):
                 lines = ["# Pythia Search History\n"]
                 for h in history:
                     badge = "cache" if h.get("cache_hit") else "web"
-                    lines.append(f"- **{h.get('query', '')}** ({badge}, {h.get('response_time_ms', 0)}ms)")
+                    lines.append(
+                        f"- **{h.get('query', '')}** ({badge}, {h.get('response_time_ms', 0)}ms)"
+                    )
                 path.write_text("\n".join(lines))
                 self.notify(f"Exported to {path}", timeout=3)
             except Exception as e:
@@ -113,6 +118,7 @@ class DashboardScreen(Screen):
             self.notify(f"Model: {event.value}", timeout=2)
         elif event.key == "deep":
             from pythia.tui.app import PythiaApp
+
             app = self.app
             if isinstance(app, PythiaApp):
                 app._deep_mode = event.value

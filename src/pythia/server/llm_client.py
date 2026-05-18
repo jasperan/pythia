@@ -1,4 +1,5 @@
 """LLM backend protocol and factory — picks Ollama or OCI GenAI based on config."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
@@ -35,9 +36,7 @@ class LLMClient(Protocol):
     async def health(self) -> bool: ...
 
 
-def create_llm_client(
-    cfg: PythiaConfig, model_override: str | None = None
-) -> LLMClient:
+def create_llm_client(cfg: PythiaConfig, model_override: str | None = None) -> LLMClient:
     """Return an LLM client for the configured backend. Applies model_override if set."""
     backend = cfg.backend
     if backend == "ollama":

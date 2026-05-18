@@ -1,4 +1,5 @@
 """Tests for Phase 7 innovations: query rewriting, parallel prefetch, citation density."""
+
 import asyncio
 import pytest
 from unittest.mock import AsyncMock
@@ -9,6 +10,7 @@ from pythia.server.oracle_cache import CacheEntry
 
 
 # --- Innovation 3: Citation density ---
+
 
 def test_count_citations_basic():
     text = "LLMs use RLHF [1] and DPO [2] for alignment."
@@ -50,11 +52,13 @@ async def test_citation_density_in_done_event():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T1", url="https://t1.com", snippet="s1"),
-        SearchResult(index=2, title="T2", url="https://t2.com", snippet="s2"),
-        SearchResult(index=3, title="T3", url="https://t3.com", snippet="s3"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T1", url="https://t1.com", snippet="s1"),
+            SearchResult(index=2, title="T2", url="https://t2.com", snippet="s2"),
+            SearchResult(index=3, title="T3", url="https://t3.com", snippet="s3"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
@@ -67,6 +71,7 @@ async def test_citation_density_in_done_event():
 
 
 # --- Innovation 1: Query rewriting ---
+
 
 @pytest.mark.asyncio
 async def test_rewrite_query_basic():
@@ -139,9 +144,11 @@ async def test_search_with_rewrite_flag():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
@@ -158,6 +165,7 @@ async def test_search_with_rewrite_flag():
 
 # --- Innovation 2: Parallel cache + search prefetch ---
 
+
 @pytest.mark.asyncio
 async def test_parallel_prefetch_cache_hit_cancels_search():
     """On cache hit, web search should be cancelled (not awaited to completion)."""
@@ -166,8 +174,11 @@ async def test_parallel_prefetch_cache_hit_cancels_search():
     mock_ollama.generate_suggestions = AsyncMock(return_value=[])
 
     cached = CacheEntry(
-        query="test", answer="cached answer", sources=[],
-        model_used="test", similarity=0.95,
+        query="test",
+        answer="cached answer",
+        sources=[],
+        model_used="test",
+        similarity=0.95,
     )
     mock_cache = AsyncMock()
     mock_cache.lookup = AsyncMock(return_value=(cached, "[0.1]"))
@@ -212,9 +223,11 @@ async def test_parallel_prefetch_cache_miss_uses_search():
     mock_cache.record_search = AsyncMock()
 
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []

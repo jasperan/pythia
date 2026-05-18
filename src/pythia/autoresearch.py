@@ -1,4 +1,5 @@
 """Autoresearch agent — iterative experiment loop that optimizes a metric through measure-and-improve cycles."""
+
 from __future__ import annotations
 
 import json
@@ -134,94 +135,142 @@ class AutoresearchAgent:
         self.session_dir.mkdir(parents=True, exist_ok=True)
         self.records = []
 
-        yield AutoresearchEvent(AutoresearchEventType.STATUS, {
-            "message": f"Starting autoresearch: optimize {metric_name} ({metric_direction} is better)",
-        })
+        yield AutoresearchEvent(
+            AutoresearchEventType.STATUS,
+            {
+                "message": f"Starting autoresearch: optimize {metric_name} ({metric_direction} is better)",
+            },
+        )
 
-        yield AutoresearchEvent(AutoresearchEventType.STATUS, {"message": "Running baseline benchmark..."})
+        yield AutoresearchEvent(
+            AutoresearchEventType.STATUS, {"message": "Running baseline benchmark..."}
+        )
         baseline_output = self._run_benchmark(benchmark_cmd)
         baseline_metric = await self._extract_metric(
-            baseline_output, metric_name, model,
+            baseline_output,
+            metric_name,
+            model,
         )
 
         if baseline_metric is None:
-            yield AutoresearchEvent(AutoresearchEventType.STATUS, {
-                "message": f"Could not extract metric '{metric_name}' from baseline output. Aborting.",
-            })
+            yield AutoresearchEvent(
+                AutoresearchEventType.STATUS,
+                {
+                    "message": f"Could not extract metric '{metric_name}' from baseline output. Aborting.",
+                },
+            )
             return
 
         best_record = ExperimentRecord(
-            iteration=0, metric_value=baseline_metric,
-            metric_name=metric_name, metric_direction=metric_direction,
-            change_description="baseline", kept=True,
+            iteration=0,
+            metric_value=baseline_metric,
+            metric_name=metric_name,
+            metric_direction=metric_direction,
+            change_description="baseline",
+            kept=True,
             benchmark_output=baseline_output[:2000],
         )
         self.records.append(best_record)
 
-        yield AutoresearchEvent(AutoresearchEventType.BASELINE, {
-            "metric_name": metric_name,
-            "metric_value": baseline_metric,
-            "message": f"Baseline {metric_name}: {baseline_metric}",
-        })
+        yield AutoresearchEvent(
+            AutoresearchEventType.BASELINE,
+            {
+                "metric_name": metric_name,
+                "metric_value": baseline_metric,
+                "message": f"Baseline {metric_name}: {baseline_metric}",
+            },
+        )
 
         self._save_session()
 
         for iteration in range(1, max_iterations + 1):
-            yield AutoresearchEvent(AutoresearchEventType.STATUS, {
-                "message": f"Iteration {iteration}/{max_iterations} — planning improvement...",
-            })
+            yield AutoresearchEvent(
+                AutoresearchEventType.STATUS,
+                {
+                    "message": f"Iteration {iteration}/{max_iterations} — planning improvement...",
+                },
+            )
 
             plan = await self._propose_change(
-                metric_name, benchmark_cmd, files_in_scope,
-                metric_direction, best_record, model, target=target,
+                metric_name,
+                benchmark_cmd,
+                files_in_scope,
+                metric_direction,
+                best_record,
+                model,
+                target=target,
             )
             if not plan:
-                yield AutoresearchEvent(AutoresearchEventType.STATUS, {
-                    "message": "Could not propose a change. Stopping.",
-                })
+                yield AutoresearchEvent(
+                    AutoresearchEventType.STATUS,
+                    {
+                        "message": "Could not propose a change. Stopping.",
+                    },
+                )
                 break
 
-            yield AutoresearchEvent(AutoresearchEventType.PLAN, {
-                "iteration": iteration,
-                "change_description": plan.get("change_description", ""),
-                "file_to_modify": plan.get("file_to_modify", ""),
-                "confidence": plan.get("confidence", 0),
-            })
+            yield AutoresearchEvent(
+                AutoresearchEventType.PLAN,
+                {
+                    "iteration": iteration,
+                    "change_description": plan.get("change_description", ""),
+                    "file_to_modify": plan.get("file_to_modify", ""),
+                    "confidence": plan.get("confidence", 0),
+                },
+            )
 
-            yield AutoresearchEvent(AutoresearchEventType.STATUS, {
-                "message": f"Applying change: {plan.get('change_description', '')}",
-            })
+            yield AutoresearchEvent(
+                AutoresearchEventType.STATUS,
+                {
+                    "message": f"Applying change: {plan.get('change_description', '')}",
+                },
+            )
 
             change_applied = self._apply_change(plan, files_in_scope)
             if change_applied is None:
-                yield AutoresearchEvent(AutoresearchEventType.REVERT, {
-                    "message": "Change could not be applied. Skipping iteration.",
-                })
+                yield AutoresearchEvent(
+                    AutoresearchEventType.REVERT,
+                    {
+                        "message": "Change could not be applied. Skipping iteration.",
+                    },
+                )
                 continue
 
-            yield AutoresearchEvent(AutoresearchEventType.STATUS, {
-                "message": "Running benchmark...",
-            })
+            yield AutoresearchEvent(
+                AutoresearchEventType.STATUS,
+                {
+                    "message": "Running benchmark...",
+                },
+            )
 
             iteration_output = self._run_benchmark(benchmark_cmd)
             iteration_metric = await self._extract_metric(
-                iteration_output, metric_name, model,
+                iteration_output,
+                metric_name,
+                model,
             )
 
             if iteration_metric is None:
-                yield AutoresearchEvent(AutoresearchEventType.STATUS, {
-                    "message": "Could not extract metric from iteration output. Reverting.",
-                })
+                yield AutoresearchEvent(
+                    AutoresearchEventType.STATUS,
+                    {
+                        "message": "Could not extract metric from iteration output. Reverting.",
+                    },
+                )
                 self._revert_change(change_applied)
                 continue
 
             improved = self._is_improved(
-                iteration_metric, best_record.metric_value, metric_direction,
+                iteration_metric,
+                best_record.metric_value,
+                metric_direction,
             )
 
             record = ExperimentRecord(
-                iteration=iteration, metric_value=iteration_metric,
-                metric_name=metric_name, metric_direction=metric_direction,
+                iteration=iteration,
+                metric_value=iteration_metric,
+                metric_name=metric_name,
+                metric_direction=metric_direction,
                 change_description=plan.get("change_description", ""),
                 kept=improved,
                 benchmark_output=iteration_output[:2000],
@@ -231,22 +280,28 @@ class AutoresearchAgent:
 
             if improved:
                 best_record = record
-                yield AutoresearchEvent(AutoresearchEventType.METRIC, {
-                    "iteration": iteration,
-                    "metric_name": metric_name,
-                    "metric_value": iteration_metric,
-                    "improved": True,
-                    "message": f"{metric_name}: {best_record.metric_value} -> {iteration_metric} (improved)",
-                })
+                yield AutoresearchEvent(
+                    AutoresearchEventType.METRIC,
+                    {
+                        "iteration": iteration,
+                        "metric_name": metric_name,
+                        "metric_value": iteration_metric,
+                        "improved": True,
+                        "message": f"{metric_name}: {best_record.metric_value} -> {iteration_metric} (improved)",
+                    },
+                )
             else:
-                yield AutoresearchEvent(AutoresearchEventType.METRIC, {
-                    "iteration": iteration,
-                    "metric_name": metric_name,
-                    "metric_value": iteration_metric,
-                    "improved": False,
-                    "best_so_far": best_record.metric_value,
-                    "message": f"{metric_name}: {iteration_metric} (no improvement, best: {best_record.metric_value})",
-                })
+                yield AutoresearchEvent(
+                    AutoresearchEventType.METRIC,
+                    {
+                        "iteration": iteration,
+                        "metric_name": metric_name,
+                        "metric_value": iteration_metric,
+                        "improved": False,
+                        "best_so_far": best_record.metric_value,
+                        "message": f"{metric_name}: {iteration_metric} (no improvement, best: {best_record.metric_value})",
+                    },
+                )
                 self._revert_change(change_applied)
 
             self._save_session()
@@ -256,21 +311,30 @@ class AutoresearchAgent:
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
-        yield AutoresearchEvent(AutoresearchEventType.DONE, {
-            "best_metric": best_record.metric_value,
-            "best_iteration": best_record.iteration,
-            "total_iterations": len(self.records) - 1,
-            "improvement": self._improvement_pct(
-                best_record.metric_value, self.records[0].metric_value, metric_direction,
-            ),
-            "elapsed_ms": elapsed_ms,
-        })
+        yield AutoresearchEvent(
+            AutoresearchEventType.DONE,
+            {
+                "best_metric": best_record.metric_value,
+                "best_iteration": best_record.iteration,
+                "total_iterations": len(self.records) - 1,
+                "improvement": self._improvement_pct(
+                    best_record.metric_value,
+                    self.records[0].metric_value,
+                    metric_direction,
+                ),
+                "elapsed_ms": elapsed_ms,
+            },
+        )
 
     def _run_benchmark(self, cmd: str) -> str:
         try:
             result = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True,
-                timeout=300, cwd=self.workspace_dir,
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                cwd=self.workspace_dir,
             )
             return result.stdout + result.stderr
         except subprocess.TimeoutExpired:
@@ -283,7 +347,8 @@ class AutoresearchAgent:
             response = await self.ollama.generate(
                 _METRIC_EXTRACT_SYSTEM,
                 _METRIC_EXTRACT_USER.format(output=output[:4000], metric_name=metric_name),
-                json_mode=True, model=model,
+                json_mode=True,
+                model=model,
             )
             data = json.loads(response)
             return data.get("value")
@@ -300,15 +365,20 @@ class AutoresearchAgent:
         if match:
             return float(match.group(1))
 
-        match = re.search(rf'{metric_name}:\s*([\d.]+)', output)
+        match = re.search(rf"{metric_name}:\s*([\d.]+)", output)
         if match:
             return float(match.group(1))
 
         return None
 
     async def _propose_change(
-        self, metric_name: str, benchmark_cmd: str, files_in_scope: list[str],
-        metric_direction: str, best_record: ExperimentRecord, model: str,
+        self,
+        metric_name: str,
+        benchmark_cmd: str,
+        files_in_scope: list[str],
+        metric_direction: str,
+        best_record: ExperimentRecord,
+        model: str,
         target: str | None = None,
     ) -> dict | None:
         response = ""
@@ -327,12 +397,13 @@ class AutoresearchAgent:
                     previous_change=best_record.change_description,
                     file_context=file_context,
                 ),
-                json_mode=True, model=model,
+                json_mode=True,
+                model=model,
             )
             return json.loads(response)
         except json.JSONDecodeError as e:
             logger.warning(f"Change proposal JSON parse error: {e}")
-            match = re.search(r'\{.*\}', response, re.DOTALL)
+            match = re.search(r"\{.*\}", response, re.DOTALL)
             if match:
                 try:
                     return json.loads(match.group())
@@ -469,13 +540,18 @@ class AutoresearchAgent:
         session_file = self.session_dir / "session.jsonl"
         with open(session_file, "w") as f:
             for record in self.records:
-                f.write(json.dumps({
-                    "iteration": record.iteration,
-                    "metric_value": record.metric_value,
-                    "metric_name": record.metric_name,
-                    "metric_direction": record.metric_direction,
-                    "change_description": record.change_description,
-                    "kept": record.kept,
-                    "elapsed_ms": record.elapsed_ms,
-                    "changed_files": record.changed_files or [],
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "iteration": record.iteration,
+                            "metric_value": record.metric_value,
+                            "metric_name": record.metric_name,
+                            "metric_direction": record.metric_direction,
+                            "change_description": record.change_description,
+                            "kept": record.kept,
+                            "elapsed_ms": record.elapsed_ms,
+                            "changed_files": record.changed_files or [],
+                        }
+                    )
+                    + "\n"
+                )

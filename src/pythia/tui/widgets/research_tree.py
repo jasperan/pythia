@@ -1,4 +1,5 @@
 """Research tree — live visualization of multi-round research progress."""
+
 from __future__ import annotations
 
 from enum import Enum, auto

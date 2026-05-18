@@ -1,4 +1,5 @@
 """Stats panel — key metrics display for dashboard."""
+
 from __future__ import annotations
 
 from rich.text import Text

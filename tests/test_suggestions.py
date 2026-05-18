@@ -1,4 +1,5 @@
 """Tests for follow-up suggestion generation and conversation history."""
+
 import pytest
 from unittest.mock import AsyncMock
 
@@ -25,9 +26,11 @@ async def test_suggestions_emitted_on_cache_miss():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="RLHF", url="https://t.com", snippet="RLHF explained"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="RLHF", url="https://t.com", snippet="RLHF explained"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
@@ -37,7 +40,9 @@ async def test_suggestions_emitted_on_cache_miss():
     suggestions_events = [e for e in events if e.event_type == EventType.SUGGESTIONS]
     assert len(suggestions_events) == 1
     assert suggestions_events[0].data["suggestions"] == [
-        "What is DPO?", "How does PPO work?", "RLHF vs DPO"
+        "What is DPO?",
+        "How does PPO work?",
+        "RLHF vs DPO",
     ]
 
 
@@ -46,15 +51,14 @@ async def test_suggestions_emitted_on_cache_hit():
     """Suggestions should also work on cache hits."""
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
-    mock_ollama.generate_suggestions = AsyncMock(
-        return_value=["Follow-up 1", "Follow-up 2"]
-    )
+    mock_ollama.generate_suggestions = AsyncMock(return_value=["Follow-up 1", "Follow-up 2"])
 
     cached = CacheEntry(
-        query="test", answer="cached answer [1].", sources=[
-            {"index": 1, "title": "T", "url": "https://t.com", "snippet": "s"}
-        ],
-        model_used="test", similarity=0.95,
+        query="test",
+        answer="cached answer [1].",
+        sources=[{"index": 1, "title": "T", "url": "https://t.com", "snippet": "s"}],
+        model_used="test",
+        similarity=0.95,
     )
     mock_cache = AsyncMock()
     mock_cache.lookup = AsyncMock(return_value=(cached, "[0.1]"))
@@ -86,9 +90,11 @@ async def test_no_suggestions_when_empty():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
@@ -119,9 +125,11 @@ async def test_conversation_history_passed_to_prompt():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     history = [
         {"role": "user", "content": "What is Python?"},
@@ -154,10 +162,19 @@ async def test_grounding_event_emitted():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="Python", url="https://t.com", snippet="Python is a popular language"),
-        SearchResult(index=2, title="OOP", url="https://t2.com", snippet="Object oriented programming in Python"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(
+                index=1, title="Python", url="https://t.com", snippet="Python is a popular language"
+            ),
+            SearchResult(
+                index=2,
+                title="OOP",
+                url="https://t2.com",
+                snippet="Object oriented programming in Python",
+            ),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []

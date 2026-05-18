@@ -1,4 +1,5 @@
 """Textual TUI app for Pythia."""
+
 from __future__ import annotations
 
 import time
@@ -64,7 +65,11 @@ class PythiaApp(App):
 
     def _cycle_theme(self) -> None:
         """Advance to the next theme in AVAILABLE_THEMES, wrapping around."""
-        idx = AVAILABLE_THEMES.index(self._current_theme) if self._current_theme in AVAILABLE_THEMES else 0
+        idx = (
+            AVAILABLE_THEMES.index(self._current_theme)
+            if self._current_theme in AVAILABLE_THEMES
+            else 0
+        )
         self._current_theme = AVAILABLE_THEMES[(idx + 1) % len(AVAILABLE_THEMES)]
         self._apply_theme()
 
@@ -81,10 +86,18 @@ class PythiaApp(App):
             self.notify(f"Theme error: {e}", severity="error", timeout=3)
 
     def on_mount(self) -> None:
-        self.install_screen(SearchScreen(self.config, host=self._host, port=self._port), name="search")
-        self.install_screen(ResearchScreen(self.config, host=self._host, port=self._port), name="research")
-        self.install_screen(HistoryScreen(self.config, host=self._host, port=self._port), name="history")
-        self.install_screen(DashboardScreen(self.config, host=self._host, port=self._port), name="dashboard")
+        self.install_screen(
+            SearchScreen(self.config, host=self._host, port=self._port), name="search"
+        )
+        self.install_screen(
+            ResearchScreen(self.config, host=self._host, port=self._port), name="research"
+        )
+        self.install_screen(
+            HistoryScreen(self.config, host=self._host, port=self._port), name="history"
+        )
+        self.install_screen(
+            DashboardScreen(self.config, host=self._host, port=self._port), name="dashboard"
+        )
         self.push_screen("search")
         if self._auto_start:
             self._start_services()
@@ -111,6 +124,7 @@ class PythiaApp(App):
         screen = self.screen
         try:
             from textual.containers import VerticalScroll
+
             results_area = screen.query_one("#results-area", VerticalScroll)
             results_area.remove_children()
         except Exception:
@@ -120,6 +134,7 @@ class PythiaApp(App):
         from datetime import datetime
         from pathlib import Path
         import httpx
+
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(f"{self._api_base}/history", params={"limit": 1000})
@@ -129,7 +144,9 @@ class PythiaApp(App):
             lines = ["# Pythia Search History\n"]
             for h in history:
                 badge = "cache" if h.get("cache_hit") else "web"
-                lines.append(f"- **{h.get('query', '')}** ({badge}, {h.get('response_time_ms', 0)}ms)")
+                lines.append(
+                    f"- **{h.get('query', '')}** ({badge}, {h.get('response_time_ms', 0)}ms)"
+                )
             path.write_text("\n".join(lines))
             self.notify(f"Exported to {path}", timeout=3)
         except Exception as e:
@@ -138,6 +155,7 @@ class PythiaApp(App):
     async def action_clear_cache(self) -> None:
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.delete(f"{self._api_base}/cache")
                 data = resp.json()
@@ -176,6 +194,7 @@ class PythiaApp(App):
         screen_keys = {"1": "search", "2": "research", "3": "history", "4": "dashboard"}
         if event.key in screen_keys:
             from textual.widgets import Input
+
             focused = self.focused
             if focused is None or not isinstance(focused, Input):
                 self._switch_to(screen_keys[event.key])
@@ -197,6 +216,7 @@ class PythiaApp(App):
         if self._service_manager:
             await self._service_manager.stop_all()
             self._service_manager = None
+
 
 def run_tui(config, auto_start=True, host=None, port=None, config_path="pythia.yaml"):
     app = PythiaApp(config, auto_start=auto_start, host=host, port=port, config_path=config_path)

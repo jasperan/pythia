@@ -1,4 +1,5 @@
 """Battle hardening tests — edge cases, malformed inputs, failure modes."""
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -8,6 +9,7 @@ from pythia.server.oracle_cache import OracleCache, CacheEntry
 
 
 # --- Race condition / thread safety ---
+
 
 @pytest.mark.asyncio
 async def test_search_concurrent_model_override_no_mutation():
@@ -28,9 +30,11 @@ async def test_search_concurrent_model_override_no_mutation():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
@@ -44,6 +48,7 @@ async def test_search_concurrent_model_override_no_mutation():
 
 
 # --- SearXNG failure modes ---
+
 
 @pytest.mark.asyncio
 async def test_search_searxng_connection_error():
@@ -70,6 +75,7 @@ async def test_search_searxng_connection_error():
 async def test_search_searxng_timeout():
     """Search should handle SearXNG timeout gracefully."""
     import httpx
+
     mock_ollama = AsyncMock()
     mock_ollama.model = "test"
     mock_ollama.generate_suggestions = AsyncMock(return_value=[])
@@ -89,6 +95,7 @@ async def test_search_searxng_timeout():
 
 # --- Ollama failure modes ---
 
+
 @pytest.mark.asyncio
 async def test_search_ollama_error_during_stream():
     """Search should handle Ollama errors during token streaming."""
@@ -104,9 +111,11 @@ async def test_search_ollama_error_during_stream():
     mock_cache = AsyncMock()
     mock_cache.lookup = AsyncMock(return_value=(None, "[0.1,0.2]"))
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
@@ -137,9 +146,11 @@ async def test_search_ollama_empty_response():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
@@ -153,6 +164,7 @@ async def test_search_ollama_empty_response():
 
 
 # --- Deep search mode ---
+
 
 @pytest.mark.asyncio
 async def test_search_deep_mode_with_scraper():
@@ -170,14 +182,17 @@ async def test_search_deep_mode_with_scraper():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
     with patch("pythia.server.search.scrape_urls") as mock_scrape:
         from pythia.scraper import ScrapedContent
+
         mock_scrape.return_value = [
             ScrapedContent(url="https://t.com", content="Full page content", success=True)
         ]
@@ -190,6 +205,7 @@ async def test_search_deep_mode_with_scraper():
 
 
 # --- Unicode and special characters ---
+
 
 @pytest.mark.asyncio
 async def test_search_unicode_query():
@@ -207,9 +223,11 @@ async def test_search_unicode_query():
     mock_cache.store = AsyncMock()
     mock_cache.record_search = AsyncMock()
     mock_searxng = AsyncMock()
-    mock_searxng.search = AsyncMock(return_value=[
-        SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
-    ])
+    mock_searxng.search = AsyncMock(
+        return_value=[
+            SearchResult(index=1, title="T", url="https://t.com", snippet="s"),
+        ]
+    )
 
     orch = SearchOrchestrator(ollama=mock_ollama, cache=mock_cache, searxng=mock_searxng)
     events = []
@@ -221,6 +239,7 @@ async def test_search_unicode_query():
 
 
 # --- OracleCache no-pool graceful degradation ---
+
 
 @pytest.mark.asyncio
 async def test_cache_lookup_no_pool():
@@ -299,10 +318,13 @@ async def test_cache_store_research_no_pool():
 async def test_cache_store_findings_batch_no_pool():
     cache = OracleCache.__new__(OracleCache)
     cache._pool = None
-    await cache.store_findings_batch("abc", [{"sub_query": "q", "summary": "s", "sources": [], "round_num": 1}])
+    await cache.store_findings_batch(
+        "abc", [{"sub_query": "q", "summary": "s", "sources": [], "round_num": 1}]
+    )
 
 
 # --- CacheEntry edge cases ---
+
 
 def test_cache_entry_empty_sources():
     entry = CacheEntry(query="q", answer="a", sources=[], model_used="m")
@@ -324,6 +346,7 @@ def test_cache_hit_boundary():
 
 
 # --- Config env var override ---
+
 
 def test_oracle_config_env_override():
     """Environment variables should override Oracle config defaults."""
@@ -347,7 +370,9 @@ def test_oracle_config_env_partial_override():
     import os
     from pythia.config import OracleConfig
 
-    with patch.dict(os.environ, {"PYTHIA_ORACLE_PASSWORD": "better_password"}, clear=False):  # pragma: allowlist secret
+    with patch.dict(
+        os.environ, {"PYTHIA_ORACLE_PASSWORD": "better_password"}, clear=False
+    ):  # pragma: allowlist secret
         cfg = OracleConfig()
         assert cfg.password == "better_password"  # pragma: allowlist secret
         assert cfg.user == "pythia"  # default unchanged
@@ -378,24 +403,32 @@ def test_oracle_config_yaml_override_env():
 
 # --- Ollama client edge cases ---
 
+
 def test_ollama_build_prompt_special_chars():
     """Prompts should handle special characters in results."""
     from pythia.server.ollama import build_search_prompt
     from pythia.server.searxng import SearchResult
 
     results = [
-        SearchResult(index=1, title='<script>alert("xss")</script>', url="https://evil.com", snippet='"; DROP TABLE--'),
+        SearchResult(
+            index=1,
+            title='<script>alert("xss")</script>',
+            url="https://evil.com",
+            snippet='"; DROP TABLE--',
+        ),
     ]
     system, user = build_search_prompt("test", results)
     # Special chars should pass through (LLM prompt, not HTML)
     assert '<script>alert("xss")</script>' in user
-    assert 'DROP TABLE' in user
+    assert "DROP TABLE" in user
 
 
 # --- SearXNG client edge cases ---
 
+
 def test_searxng_parse_empty_response():
     from pythia.server.searxng import SearxngClient
+
     client = SearxngClient(base_url="http://localhost:8888")
     assert client._parse_results({}) == []
     assert client._parse_results({"results": []}) == []
@@ -404,6 +437,7 @@ def test_searxng_parse_empty_response():
 def test_searxng_parse_missing_fields():
     """Results with missing fields should be handled gracefully."""
     from pythia.server.searxng import SearxngClient
+
     client = SearxngClient(base_url="http://localhost:8888")
     data = {
         "results": [
@@ -421,9 +455,11 @@ def test_searxng_parse_missing_fields():
 
 # --- Scraper edge cases ---
 
+
 @pytest.mark.asyncio
 async def test_scrape_empty_urls():
     from pythia.scraper import scrape_urls
+
     results = await scrape_urls([])
     assert results == []
 
@@ -432,6 +468,7 @@ async def test_scrape_empty_urls():
 async def test_scrape_content_truncation():
     """ScrapedContent should preserve content as-is (truncation is in _scrape_one_sync)."""
     from pythia.scraper import ScrapedContent
+
     long_content = "x" * 5000
     sc = ScrapedContent(url="https://t.com", content=long_content, success=True)
     assert len(sc.content) == 5000

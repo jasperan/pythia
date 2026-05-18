@@ -1,4 +1,5 @@
 """Research progress bar — round N/M with live counters."""
+
 from __future__ import annotations
 
 from rich.text import Text
@@ -63,7 +64,11 @@ class ResearchProgressBar(Static):
         bar.append(f" · {self._findings} findings", style="#b5bd68")
         bar.append(f" · {self._sources} sources", style="#8abeb7")
 
-        elapsed_str = f"{self._elapsed_ms}ms" if self._elapsed_ms < 1000 else f"{self._elapsed_ms / 1000:.1f}s"
+        elapsed_str = (
+            f"{self._elapsed_ms}ms"
+            if self._elapsed_ms < 1000
+            else f"{self._elapsed_ms / 1000:.1f}s"
+        )
         bar.append(f" · {elapsed_str}", style="#666666")
 
         if self.is_attached:

@@ -1,4 +1,5 @@
 """Action bar — dashboard action buttons."""
+
 from __future__ import annotations
 
 from textual.app import ComposeResult

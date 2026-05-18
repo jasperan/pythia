@@ -1,4 +1,5 @@
 """Tests for the autonomous metric-improvement loop."""
+
 from __future__ import annotations
 
 import json

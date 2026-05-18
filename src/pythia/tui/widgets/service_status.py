@@ -1,4 +1,5 @@
 """Service status indicator — shows API, Oracle, and SearXNG status."""
+
 from __future__ import annotations
 
 from rich.text import Text

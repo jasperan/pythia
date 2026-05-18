@@ -1,4 +1,5 @@
 """Grounding badge — shows answer verification status."""
+
 from __future__ import annotations
 
 from textual.widget import Widget

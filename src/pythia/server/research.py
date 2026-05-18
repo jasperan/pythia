@@ -1,4 +1,5 @@
 """Deep Research agent — autonomous multi-step research with iterative search, synthesis, verification, and provenance."""
+
 from __future__ import annotations
 
 import asyncio
@@ -263,7 +264,9 @@ class ResearchAgent:
         self.changelog = WorkspaceChangelog(workspace_dir)
 
     async def research(
-        self, query: str, model_override: str | None = None,
+        self,
+        query: str,
+        model_override: str | None = None,
         skill_override: str | None = None,
     ) -> AsyncIterator[ResearchEvent]:
         """Run autonomous deep research on a query. Yields events as they occur."""
@@ -271,9 +274,19 @@ class ResearchAgent:
         model = model_override or self.ollama.model
 
         skill = self.skills.get(skill_override) if skill_override else self.skills.match(query)
-        effective_max_rounds = skill.max_rounds if skill and skill.max_rounds else self.config.max_rounds
-        effective_max_sub = skill.max_sub_queries if skill and skill.max_sub_queries else self.config.max_sub_queries
-        effective_scrape = skill.requires_scrape if skill and skill.requires_scrape is not None else self.config.deep_scrape
+        effective_max_rounds = (
+            skill.max_rounds if skill and skill.max_rounds else self.config.max_rounds
+        )
+        effective_max_sub = (
+            skill.max_sub_queries
+            if skill and skill.max_sub_queries
+            else self.config.max_sub_queries
+        )
+        effective_scrape = (
+            skill.requires_scrape
+            if skill and skill.requires_scrape is not None
+            else self.config.deep_scrape
+        )
 
         if skill:
             logger.info(f"Using skill: {skill.name}")
@@ -284,52 +297,76 @@ class ResearchAgent:
         source_counter = 0
         seen_source_urls: set[str] = set()
 
-        yield ResearchEvent(ResearchEventType.STATUS, {"message": "Searching knowledge base for related research..."})
+        yield ResearchEvent(
+            ResearchEventType.STATUS,
+            {"message": "Searching knowledge base for related research..."},
+        )
         recalled = []
         try:
             recalled = await self.cache.recall_findings(
-                query, threshold=self.config.recall_threshold, limit=5,
+                query,
+                threshold=self.config.recall_threshold,
+                limit=5,
             )
         except Exception as e:
             logger.debug(f"Recall failed (table may not exist yet): {e}")
 
         if recalled:
-            yield ResearchEvent(ResearchEventType.RECALL, {
-                "count": len(recalled),
-                "findings": [
-                    {"sub_query": r["sub_query"], "similarity": round(r["similarity"], 2), "from_query": r["research_query"]}
-                    for r in recalled
-                ],
-            })
+            yield ResearchEvent(
+                ResearchEventType.RECALL,
+                {
+                    "count": len(recalled),
+                    "findings": [
+                        {
+                            "sub_query": r["sub_query"],
+                            "similarity": round(r["similarity"], 2),
+                            "from_query": r["research_query"],
+                        }
+                        for r in recalled
+                    ],
+                },
+            )
 
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Planning research strategy..."})
         sub_queries = await self._decompose_query(query, model, max_sub=effective_max_sub)
         yield ResearchEvent(ResearchEventType.PLAN, {"sub_queries": sub_queries, "slug": slug})
 
-        self.changelog.append_entry(slug, "Research started", f"Query: {query}", "in_progress", "Execute research rounds")
+        self.changelog.append_entry(
+            slug, "Research started", f"Query: {query}", "in_progress", "Execute research rounds"
+        )
 
         round_num = 1
         for round_num in range(1, effective_max_rounds + 1):
-            yield ResearchEvent(ResearchEventType.ROUND_START, {
-                "round": round_num,
-                "max_rounds": effective_max_rounds,
-                "num_queries": len(sub_queries),
-            })
+            yield ResearchEvent(
+                ResearchEventType.ROUND_START,
+                {
+                    "round": round_num,
+                    "max_rounds": effective_max_rounds,
+                    "num_queries": len(sub_queries),
+                },
+            )
 
             round_findings, round_sources, source_counter = await self._search_round(
-                sub_queries, round_num, source_counter, model,
-                scrape=effective_scrape, seen_source_urls=seen_source_urls,
+                sub_queries,
+                round_num,
+                source_counter,
+                model,
+                scrape=effective_scrape,
+                seen_source_urls=seen_source_urls,
             )
 
             for finding in round_findings:
-                yield ResearchEvent(ResearchEventType.FINDING, {
-                    "sub_query": finding.sub_query,
-                    "summary_preview": finding.summary[:200],
-                    "num_sources": len(finding.sources),
-                    "round": round_num,
-                    "summary_failed": finding.error is not None,
-                    "error": finding.error,
-                })
+                yield ResearchEvent(
+                    ResearchEventType.FINDING,
+                    {
+                        "sub_query": finding.sub_query,
+                        "summary_preview": finding.summary[:200],
+                        "num_sources": len(finding.sources),
+                        "round": round_num,
+                        "summary_failed": finding.error is not None,
+                        "error": finding.error,
+                    },
+                )
 
             all_findings.extend(round_findings)
             all_sources.extend(round_sources)
@@ -337,9 +374,15 @@ class ResearchAgent:
             if round_num >= effective_max_rounds:
                 break
 
-            yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Analyzing research completeness (round {round_num})..."})
+            yield ResearchEvent(
+                ResearchEventType.STATUS,
+                {"message": f"Analyzing research completeness (round {round_num})..."},
+            )
             gap_result = await self._analyze_gaps(
-                query, all_findings, model, max_follow_ups=effective_max_sub,
+                query,
+                all_findings,
+                model,
+                max_follow_ups=effective_max_sub,
             )
             yield ResearchEvent(ResearchEventType.GAP_ANALYSIS, gap_result)
 
@@ -351,9 +394,13 @@ class ResearchAgent:
                 break
 
             self.changelog.append_entry(
-                slug, f"Round {round_num} complete — {len(round_findings)} findings",
-                f"Gaps: {', '.join(gap_result.get('gaps', [])[:3])}" if not gap_result.get('sufficient') else "No significant gaps",
-                "in_progress", f"Continue with round {round_num + 1}",
+                slug,
+                f"Round {round_num} complete — {len(round_findings)} findings",
+                f"Gaps: {', '.join(gap_result.get('gaps', [])[:3])}"
+                if not gap_result.get("sufficient")
+                else "No significant gaps",
+                "in_progress",
+                f"Continue with round {round_num + 1}",
             )
 
         # --- Completeness verification loop ---
@@ -361,9 +408,13 @@ class ResearchAgent:
         report_text = ""
 
         for cc_attempt in range(max_cc + 1):
-            yield ResearchEvent(ResearchEventType.STATUS, {"message": "Synthesizing research report..."})
+            yield ResearchEvent(
+                ResearchEventType.STATUS, {"message": "Synthesizing research report..."}
+            )
             report_parts = []
-            async for token in self._synthesize_report(query, all_findings, all_sources, recalled, model):
+            async for token in self._synthesize_report(
+                query, all_findings, all_sources, recalled, model
+            ):
                 report_parts.append(token)
                 yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
 
@@ -372,15 +423,24 @@ class ResearchAgent:
             if cc_attempt >= max_cc:
                 break
 
-            yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Verifying report completeness (check {cc_attempt + 1}/{max_cc})..."})
-            cc_result = await self._verify_completeness(
-                query, report_text, model, max_follow_ups=effective_max_sub,
+            yield ResearchEvent(
+                ResearchEventType.STATUS,
+                {"message": f"Verifying report completeness (check {cc_attempt + 1}/{max_cc})..."},
             )
-            yield ResearchEvent(ResearchEventType.COMPLETENESS_CHECK, {
-                "attempt": cc_attempt + 1,
-                "max_attempts": max_cc,
-                **cc_result,
-            })
+            cc_result = await self._verify_completeness(
+                query,
+                report_text,
+                model,
+                max_follow_ups=effective_max_sub,
+            )
+            yield ResearchEvent(
+                ResearchEventType.COMPLETENESS_CHECK,
+                {
+                    "attempt": cc_attempt + 1,
+                    "max_attempts": max_cc,
+                    **cc_result,
+                },
+            )
 
             if cc_result["status"] in ("COMPLETE", "STUCK"):
                 break
@@ -389,35 +449,52 @@ class ResearchAgent:
             if not follow_ups:
                 break
 
-            yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Report incomplete, running {len(follow_ups)} follow-up queries..."})
+            yield ResearchEvent(
+                ResearchEventType.STATUS,
+                {"message": f"Report incomplete, running {len(follow_ups)} follow-up queries..."},
+            )
             round_num += 1
-            yield ResearchEvent(ResearchEventType.ROUND_START, {
-                "round": round_num,
-                "max_rounds": effective_max_rounds + max_cc,
-                "num_queries": len(follow_ups),
-            })
+            yield ResearchEvent(
+                ResearchEventType.ROUND_START,
+                {
+                    "round": round_num,
+                    "max_rounds": effective_max_rounds + max_cc,
+                    "num_queries": len(follow_ups),
+                },
+            )
 
             extra_findings, extra_sources, source_counter = await self._search_round(
-                follow_ups, round_num, source_counter, model,
-                scrape=effective_scrape, seen_source_urls=seen_source_urls,
+                follow_ups,
+                round_num,
+                source_counter,
+                model,
+                scrape=effective_scrape,
+                seen_source_urls=seen_source_urls,
             )
 
             for finding in extra_findings:
-                yield ResearchEvent(ResearchEventType.FINDING, {
-                    "sub_query": finding.sub_query,
-                    "summary_preview": finding.summary[:200],
-                    "num_sources": len(finding.sources),
-                    "round": round_num,
-                    "summary_failed": finding.error is not None,
-                    "error": finding.error,
-                })
+                yield ResearchEvent(
+                    ResearchEventType.FINDING,
+                    {
+                        "sub_query": finding.sub_query,
+                        "summary_preview": finding.summary[:200],
+                        "num_sources": len(finding.sources),
+                        "round": round_num,
+                        "summary_failed": finding.error is not None,
+                        "error": finding.error,
+                    },
+                )
 
             all_findings.extend(extra_findings)
             all_sources.extend(extra_sources)
 
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Verifying research output..."})
         report_text, verification, verify_events = await self._verify_and_repair_report(
-            query, report_text, all_findings, all_sources, model,
+            query,
+            report_text,
+            all_findings,
+            all_sources,
+            model,
         )
         for verify_event in verify_events:
             yield ResearchEvent(ResearchEventType.VERIFY, verify_event)
@@ -425,13 +502,16 @@ class ResearchAgent:
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         provenance = ProvenanceRecord(
-            topic=query, slug=slug, rounds=round_num,
+            topic=query,
+            slug=slug,
+            rounds=round_num,
             sources_consulted=len(all_sources),
             sources_accepted=len(all_sources),
             sources_rejected=0,
             verification_status=verification.status,
             verification_summary=verification.summary,
-            model_used=model, elapsed_ms=elapsed_ms,
+            model_used=model,
+            elapsed_ms=elapsed_ms,
         )
         corpus_path = self._write_corpus(
             slug=slug,
@@ -447,9 +527,14 @@ class ResearchAgent:
         try:
             all_sub_queries = list({f.sub_query for f in all_findings})
             research_id = await self.cache.store_research(
-                query=query, report=report_text, sub_queries=all_sub_queries,
-                rounds_used=round_num, total_sources=len(all_sources),
-                model_used=model, elapsed_ms=elapsed_ms, slug=slug,
+                query=query,
+                report=report_text,
+                sub_queries=all_sub_queries,
+                rounds_used=round_num,
+                total_sources=len(all_sources),
+                model_used=model,
+                elapsed_ms=elapsed_ms,
+                slug=slug,
                 provenance=provenance.to_markdown(),
                 sources_consulted=provenance.sources_consulted,
                 sources_accepted=provenance.sources_accepted,
@@ -474,54 +559,77 @@ class ResearchAgent:
             logger.warning(f"Failed to store research results: {e}")
 
         self.changelog.append_entry(
-            slug, "Research complete",
+            slug,
+            "Research complete",
             f"Report: {len(report_text)} chars, {len(all_findings)} findings, {len(all_sources)} sources. Verification: {verification.status}",
-            "completed", "Review report and provenance",
+            "completed",
+            "Review report and provenance",
         )
 
         await self.cache.record_search(
-            query=f"[research] {query}", cache_hit=False,
-            response_time_ms=elapsed_ms, model_used=model,
+            query=f"[research] {query}",
+            cache_hit=False,
+            response_time_ms=elapsed_ms,
+            model_used=model,
         )
 
-        yield ResearchEvent(ResearchEventType.DONE, {
-            "rounds_used": round_num,
-            "total_findings": len(all_findings),
-            "total_sources": len(all_sources),
-            "recalled_findings": len(recalled),
-            "elapsed_ms": elapsed_ms,
-            "slug": slug,
-            "verification_status": verification.status,
-            "provenance": provenance.to_dict(),
-            "corpus_path": corpus_path,
-            "failed_findings": sum(1 for f in all_findings if f.error),
-        })
+        yield ResearchEvent(
+            ResearchEventType.DONE,
+            {
+                "rounds_used": round_num,
+                "total_findings": len(all_findings),
+                "total_sources": len(all_sources),
+                "recalled_findings": len(recalled),
+                "elapsed_ms": elapsed_ms,
+                "slug": slug,
+                "verification_status": verification.status,
+                "provenance": provenance.to_dict(),
+                "corpus_path": corpus_path,
+                "failed_findings": sum(1 for f in all_findings if f.error),
+            },
+        )
 
     async def refine_research(
-        self, slug: str, directive: str,
+        self,
+        slug: str,
+        directive: str,
         model_override: str | None = None,
     ) -> AsyncIterator[ResearchEvent]:
         """Refine a prior investigation with a user-directed focus area."""
         start = time.monotonic()
         model = model_override or self.ollama.model
 
-        yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Loading investigation '{slug}' for refinement..."})
+        yield ResearchEvent(
+            ResearchEventType.STATUS,
+            {"message": f"Loading investigation '{slug}' for refinement..."},
+        )
 
         prior = await self.cache.get_research_by_slug(slug)
         if not prior:
-            yield ResearchEvent(ResearchEventType.DONE, {
-                "error": f"No investigation found with slug '{slug}'",
-                "rounds_used": 0, "total_findings": 0, "total_sources": 0,
-                "recalled_findings": 0, "elapsed_ms": 0, "slug": slug,
-                "verification_status": "fail", "provenance": {},
-            })
+            yield ResearchEvent(
+                ResearchEventType.DONE,
+                {
+                    "error": f"No investigation found with slug '{slug}'",
+                    "rounds_used": 0,
+                    "total_findings": 0,
+                    "total_sources": 0,
+                    "recalled_findings": 0,
+                    "elapsed_ms": 0,
+                    "slug": slug,
+                    "verification_status": "fail",
+                    "provenance": {},
+                },
+            )
             return
 
         prior_findings_raw = await self.cache.get_findings_for_research(prior["id"])
 
-        yield ResearchEvent(ResearchEventType.STATUS, {
-            "message": f"Loaded prior report. Generating focused queries for: {directive[:100]}",
-        })
+        yield ResearchEvent(
+            ResearchEventType.STATUS,
+            {
+                "message": f"Loaded prior report. Generating focused queries for: {directive[:100]}",
+            },
+        )
 
         original_query = prior["query"]
         effective_max_rounds = self.config.max_rounds
@@ -532,7 +640,9 @@ class ResearchAgent:
         report_preview = (prior.get("report") or "")[:2000]
         system = _REFINE_DECOMPOSE_SYSTEM.format(max_sub_queries=effective_max_sub)
         user = _REFINE_DECOMPOSE_USER.format(
-            query=original_query, directive=directive, report_preview=report_preview,
+            query=original_query,
+            directive=directive,
+            report_preview=report_preview,
         )
 
         try:
@@ -558,26 +668,36 @@ class ResearchAgent:
 
         round_num = 0
         for round_num in range(1, effective_max_rounds + 1):
-            yield ResearchEvent(ResearchEventType.ROUND_START, {
-                "round": round_num,
-                "max_rounds": effective_max_rounds,
-                "num_queries": len(sub_queries),
-            })
+            yield ResearchEvent(
+                ResearchEventType.ROUND_START,
+                {
+                    "round": round_num,
+                    "max_rounds": effective_max_rounds,
+                    "num_queries": len(sub_queries),
+                },
+            )
 
             round_findings, round_sources, source_counter = await self._search_round(
-                sub_queries, round_num, source_counter, model,
-                scrape=effective_scrape, seen_source_urls=seen_source_urls,
+                sub_queries,
+                round_num,
+                source_counter,
+                model,
+                scrape=effective_scrape,
+                seen_source_urls=seen_source_urls,
             )
 
             for finding in round_findings:
-                yield ResearchEvent(ResearchEventType.FINDING, {
-                    "sub_query": finding.sub_query,
-                    "summary_preview": finding.summary[:200],
-                    "num_sources": len(finding.sources),
-                    "round": round_num,
-                    "summary_failed": finding.error is not None,
-                    "error": finding.error,
-                })
+                yield ResearchEvent(
+                    ResearchEventType.FINDING,
+                    {
+                        "sub_query": finding.sub_query,
+                        "summary_preview": finding.summary[:200],
+                        "num_sources": len(finding.sources),
+                        "round": round_num,
+                        "summary_failed": finding.error is not None,
+                        "error": finding.error,
+                    },
+                )
 
             new_findings.extend(round_findings)
             all_sources.extend(round_sources)
@@ -587,7 +707,12 @@ class ResearchAgent:
 
             # Gap analysis against directive, not just original query
             all_so_far = [
-                Finding(sub_query=f["sub_query"], summary=f["summary"], sources=f["sources"], round_num=f["round_num"])
+                Finding(
+                    sub_query=f["sub_query"],
+                    summary=f["summary"],
+                    sources=f["sources"],
+                    round_num=f["round_num"],
+                )
                 for f in prior_findings_raw
             ] + new_findings
             gap_result = await self._analyze_gaps(
@@ -613,16 +738,20 @@ class ResearchAgent:
         prior_report = prior.get("report") or ""
 
         refine_user = _REFINE_REPORT_USER.format(
-            query=original_query, directive=directive,
-            prior_report=prior_report, new_findings_text=new_findings_text,
+            query=original_query,
+            directive=directive,
+            prior_report=prior_report,
+            new_findings_text=new_findings_text,
             new_sources_text=new_sources_text,
         )
         if len(refine_user) > self._MAX_SYNTHESIS_CHARS:
-            refine_user = refine_user[:self._MAX_SYNTHESIS_CHARS] + "\n\n[Content truncated.]"
+            refine_user = refine_user[: self._MAX_SYNTHESIS_CHARS] + "\n\n[Content truncated.]"
 
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Synthesizing refined report..."})
         report_parts = []
-        async for token in self.ollama.generate_stream(_REFINE_REPORT_SYSTEM, refine_user, model=model):
+        async for token in self.ollama.generate_stream(
+            _REFINE_REPORT_SYSTEM, refine_user, model=model
+        ):
             report_parts.append(token)
             yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
 
@@ -630,7 +759,11 @@ class ResearchAgent:
 
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Verifying refined report..."})
         report_text, verification, verify_events = await self._verify_and_repair_report(
-            original_query, report_text, new_findings, all_sources, model,
+            original_query,
+            report_text,
+            new_findings,
+            all_sources,
+            model,
         )
         for verify_event in verify_events:
             yield ResearchEvent(ResearchEventType.VERIFY, verify_event)
@@ -638,13 +771,16 @@ class ResearchAgent:
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         provenance = ProvenanceRecord(
-            topic=original_query, slug=slug, rounds=round_num,
+            topic=original_query,
+            slug=slug,
+            rounds=round_num,
             sources_consulted=len(all_sources),
             sources_accepted=len(all_sources),
             sources_rejected=0,
             verification_status=verification.status,
             verification_summary=verification.summary,
-            model_used=model, elapsed_ms=elapsed_ms,
+            model_used=model,
+            elapsed_ms=elapsed_ms,
         )
         corpus_path = self._write_corpus(
             slug=slug,
@@ -661,9 +797,14 @@ class ResearchAgent:
         try:
             all_sub_queries = list({f.sub_query for f in new_findings})
             research_id = await self.cache.store_research(
-                query=original_query, report=report_text, sub_queries=all_sub_queries,
-                rounds_used=round_num, total_sources=len(all_sources),
-                model_used=model, elapsed_ms=elapsed_ms, slug=slug,
+                query=original_query,
+                report=report_text,
+                sub_queries=all_sub_queries,
+                rounds_used=round_num,
+                total_sources=len(all_sources),
+                model_used=model,
+                elapsed_ms=elapsed_ms,
+                slug=slug,
                 parent_id=prior["id"],
                 verification_status=verification.status,
                 verification_summary=verification.summary,
@@ -674,8 +815,10 @@ class ResearchAgent:
                     research_id=research_id,
                     findings=[
                         {
-                            "sub_query": f.sub_query, "summary": f.summary,
-                            "sources": f.sources, "round_num": f.round_num,
+                            "sub_query": f.sub_query,
+                            "summary": f.summary,
+                            "sources": f.sources,
+                            "round_num": f.round_num,
                         }
                         for f in new_findings
                     ],
@@ -683,22 +826,27 @@ class ResearchAgent:
         except Exception as e:
             logger.warning(f"Failed to store refinement results: {e}")
 
-        yield ResearchEvent(ResearchEventType.DONE, {
-            "rounds_used": round_num,
-            "total_findings": len(new_findings),
-            "total_sources": len(all_sources),
-            "refined_from": slug,
-            "directive": directive,
-            "recalled_findings": 0,
-            "elapsed_ms": elapsed_ms,
-            "slug": slug,
-            "verification_status": verification.status,
-            "provenance": provenance.to_dict(),
-            "corpus_path": corpus_path,
-            "failed_findings": sum(1 for f in new_findings if f.error),
-        })
+        yield ResearchEvent(
+            ResearchEventType.DONE,
+            {
+                "rounds_used": round_num,
+                "total_findings": len(new_findings),
+                "total_sources": len(all_sources),
+                "refined_from": slug,
+                "directive": directive,
+                "recalled_findings": 0,
+                "elapsed_ms": elapsed_ms,
+                "slug": slug,
+                "verification_status": verification.status,
+                "provenance": provenance.to_dict(),
+                "corpus_path": corpus_path,
+                "failed_findings": sum(1 for f in new_findings if f.error),
+            },
+        )
 
-    async def _decompose_query(self, query: str, model: str, max_sub: int | None = None) -> list[str]:
+    async def _decompose_query(
+        self, query: str, model: str, max_sub: int | None = None
+    ) -> list[str]:
         max_sub = max_sub or self.config.max_sub_queries
         system = _DECOMPOSE_SYSTEM.format(max_sub_queries=max_sub)
         user = _DECOMPOSE_USER.format(query=query)
@@ -716,7 +864,11 @@ class ResearchAgent:
         return [query, f"What is {query}", f"{query} latest developments"][:max_sub]
 
     async def _search_round(
-        self, sub_queries: list[str], round_num: int, source_counter: int, model: str,
+        self,
+        sub_queries: list[str],
+        round_num: int,
+        source_counter: int,
+        model: str,
         scrape: bool = True,
         seen_source_urls: set[str] | None = None,
     ) -> tuple[list[Finding], list[dict], int]:
@@ -741,7 +893,11 @@ class ResearchAgent:
         pre_built: list[Finding] = []
         for sq, results in search_results:
             if results is None:
-                pre_built.append(Finding(sub_query=sq, summary="No results found.", sources=[], round_num=round_num))
+                pre_built.append(
+                    Finding(
+                        sub_query=sq, summary="No results found.", sources=[], round_num=round_num
+                    )
+                )
                 continue
             round_sources = []
             new_results = []
@@ -751,23 +907,31 @@ class ResearchAgent:
                 seen_source_urls.add(r.url)
                 new_results.append(r)
                 source_counter += 1
-                round_sources.append({
-                    "index": source_counter, "title": r.title,
-                    "url": r.url, "snippet": r.snippet,
-                })
+                round_sources.append(
+                    {
+                        "index": source_counter,
+                        "title": r.title,
+                        "url": r.url,
+                        "snippet": r.snippet,
+                    }
+                )
             if not round_sources:
-                pre_built.append(Finding(
-                    sub_query=sq,
-                    summary="No new sources found; all search results were already used.",
-                    sources=[],
-                    round_num=round_num,
-                ))
+                pre_built.append(
+                    Finding(
+                        sub_query=sq,
+                        summary="No new sources found; all search results were already used.",
+                        sources=[],
+                        round_num=round_num,
+                    )
+                )
                 continue
             indexed_items.append((sq, round_sources, new_results))
 
         # Phase 3: Scrape + summarize in parallel (bounded by semaphore)
         async def _scrape_and_summarize(
-            sq: str, round_sources: list[dict], results: list[SearchResult],
+            sq: str,
+            round_sources: list[dict],
+            results: list[SearchResult],
         ) -> tuple[Finding, list[dict]]:
             async with sem:
                 scraped_content: dict[str, str] = {}
@@ -782,7 +946,9 @@ class ResearchAgent:
                     context_parts.append(f"[{s['index']}] {s['title']}\nURL: {s['url']}\n{content}")
                 context = "\n\n".join(context_parts)
 
-                summary, error = await self._summarize_with_retries(sq, context, len(results), model)
+                summary, error = await self._summarize_with_retries(
+                    sq, context, len(results), model
+                )
 
                 finding = Finding(
                     sub_query=sq,
@@ -797,7 +963,9 @@ class ResearchAgent:
         all_sources: list[dict] = []
 
         if indexed_items:
-            summarize_tasks = [_scrape_and_summarize(sq, src, res) for sq, src, res in indexed_items]
+            summarize_tasks = [
+                _scrape_and_summarize(sq, src, res) for sq, src, res in indexed_items
+            ]
             summarize_results = await asyncio.gather(*summarize_tasks)
             for finding, sources in summarize_results:
                 findings.append(finding)
@@ -834,7 +1002,10 @@ class ResearchAgent:
                 )
 
         error = type(last_error).__name__ if last_error else "UnknownError"
-        return f"Search returned {result_count} results but summarization failed after retry.", error
+        return (
+            f"Search returned {result_count} results but summarization failed after retry.",
+            error,
+        )
 
     async def _analyze_gaps(
         self,
@@ -845,9 +1016,7 @@ class ResearchAgent:
     ) -> dict:
         """Use LLM to identify gaps in current research findings."""
         max_follow_ups = max_follow_ups or self.config.max_sub_queries
-        findings_text = "\n\n".join(
-            f"### {f.sub_query}\n{f.summary}" for f in findings
-        )
+        findings_text = "\n\n".join(f"### {f.sub_query}\n{f.summary}" for f in findings)
         system = _GAP_ANALYSIS_SYSTEM.format(max_follow_ups=max_follow_ups)
         user = _GAP_ANALYSIS_USER.format(query=query, findings_text=findings_text)
 
@@ -861,7 +1030,11 @@ class ResearchAgent:
             }
         except (json.JSONDecodeError, KeyError) as e:
             logger.warning(f"Failed to parse gap analysis: {e}")
-            return {"sufficient": True, "gaps": [], "reasoning": "Gap analysis failed, proceeding with synthesis."}
+            return {
+                "sufficient": True,
+                "gaps": [],
+                "reasoning": "Gap analysis failed, proceeding with synthesis.",
+            }
 
     async def _verify_completeness(
         self,
@@ -885,7 +1058,11 @@ class ResearchAgent:
             }
         except (json.JSONDecodeError, KeyError) as e:
             logger.warning(f"Completeness verification failed: {e}")
-            return {"status": "COMPLETE", "reasoning": "Verification failed, proceeding.", "follow_up_queries": []}
+            return {
+                "status": "COMPLETE",
+                "reasoning": "Verification failed, proceeding.",
+                "follow_up_queries": [],
+            }
 
     async def _verify_and_repair_report(
         self,
@@ -920,7 +1097,10 @@ class ResearchAgent:
             verification = await verify_report(self.ollama, query, report_text, all_sources, model)
             events.append(
                 self._verification_event_data(
-                    verification, attempt=3, repaired=True, fallback=True,
+                    verification,
+                    attempt=3,
+                    repaired=True,
+                    fallback=True,
                 )
             )
         return report_text, verification, events
@@ -935,11 +1115,14 @@ class ResearchAgent:
         verification,
         model: str,
     ) -> str:
-        issues = "\n".join(
-            f"- {issue.get('severity', 'unknown')} {issue.get('type', 'issue')}: "
-            f"{issue.get('claim', '')} — {issue.get('explanation', '')}"
-            for issue in verification.issues
-        ) or "(No structured issues returned.)"
+        issues = (
+            "\n".join(
+                f"- {issue.get('severity', 'unknown')} {issue.get('type', 'issue')}: "
+                f"{issue.get('claim', '')} — {issue.get('explanation', '')}"
+                for issue in verification.issues
+            )
+            or "(No structured issues returned.)"
+        )
 
         user = _REPAIR_USER.format(
             query=query,
@@ -951,7 +1134,10 @@ class ResearchAgent:
             sources_text=self._format_sources_for_prompt(all_sources),
         )
         if len(user) > self._MAX_SYNTHESIS_CHARS:
-            user = user[:self._MAX_SYNTHESIS_CHARS] + "\n\n[Content truncated for context length. Repair from available evidence.]"
+            user = (
+                user[: self._MAX_SYNTHESIS_CHARS]
+                + "\n\n[Content truncated for context length. Repair from available evidence.]"
+            )
 
         try:
             repaired = await self.ollama.generate(_REPAIR_SYSTEM, user, model=model)
@@ -961,7 +1147,12 @@ class ResearchAgent:
             return report_text
 
     def _verification_event_data(
-        self, verification, *, attempt: int, repaired: bool, fallback: bool = False,
+        self,
+        verification,
+        *,
+        attempt: int,
+        repaired: bool,
+        fallback: bool = False,
     ) -> dict:
         return {
             "status": verification.status,
@@ -974,8 +1165,12 @@ class ResearchAgent:
         }
 
     async def _synthesize_report(
-        self, query: str, findings: list[Finding],
-        all_sources: list[dict], recalled: list[dict], model: str,
+        self,
+        query: str,
+        findings: list[Finding],
+        all_sources: list[dict],
+        recalled: list[dict],
+        model: str,
     ) -> AsyncIterator[str]:
         """Stream the final research report synthesis."""
         findings_text = self._format_findings_for_prompt(findings)
@@ -986,7 +1181,7 @@ class ResearchAgent:
             recall_parts = ["Related findings from past research sessions:"]
             for r in recalled:
                 recall_parts.append(
-                    f"- From \"{r['research_query']}\" (similarity {r['similarity']:.2f}): {r['summary'][:300]}"
+                    f'- From "{r["research_query"]}" (similarity {r["similarity"]:.2f}): {r["summary"][:300]}'
                 )
             recall_section = "\n".join(recall_parts)
 
@@ -1002,8 +1197,13 @@ class ResearchAgent:
 
         # Truncate if prompt exceeds model context limits
         if len(user) > self._MAX_SYNTHESIS_CHARS:
-            logger.warning(f"Synthesis prompt too long ({len(user)} chars), truncating to {self._MAX_SYNTHESIS_CHARS}")
-            user = user[:self._MAX_SYNTHESIS_CHARS] + "\n\n[Content truncated for context length. Synthesize from available findings.]"
+            logger.warning(
+                f"Synthesis prompt too long ({len(user)} chars), truncating to {self._MAX_SYNTHESIS_CHARS}"
+            )
+            user = (
+                user[: self._MAX_SYNTHESIS_CHARS]
+                + "\n\n[Content truncated for context length. Synthesize from available findings.]"
+            )
 
         async for token in self.ollama.generate_stream(_REPORT_SYSTEM, user, model=model):
             yield token
@@ -1039,11 +1239,13 @@ class ResearchAgent:
             "",
         ]
         for finding in findings:
-            lines.extend([
-                f"### Round {finding.round_num}: {finding.sub_query}",
-                "",
-                f"Search returned {len(finding.sources)} source(s) for this sub-question.",
-            ])
+            lines.extend(
+                [
+                    f"### Round {finding.round_num}: {finding.sub_query}",
+                    "",
+                    f"Search returned {len(finding.sources)} source(s) for this sub-question.",
+                ]
+            )
             if finding.error:
                 lines.append(f"Summary generation failed with {finding.error}.")
             if finding.sources:
@@ -1051,7 +1253,9 @@ class ResearchAgent:
                 for source in finding.sources:
                     index = source.get("index", "?")
                     title = source.get("title", "Untitled")
-                    snippet = source.get("snippet", "").strip() or "No source excerpt was available."
+                    snippet = (
+                        source.get("snippet", "").strip() or "No source excerpt was available."
+                    )
                     lines.append(f"- [{index}] {title}: {snippet}")
             lines.append("")
         return "\n".join(lines).strip()
@@ -1087,16 +1291,18 @@ class ResearchAgent:
         lines.extend(["", "## Final Report", "", report.strip(), "", "## Findings", ""])
 
         for idx, finding in enumerate(findings, 1):
-            lines.extend([
-                f"### Finding {idx}: {finding.sub_query}",
-                "",
-                f"- Round: {finding.round_num}",
-                f"- Source count: {len(finding.sources)}",
-                f"- Status: {'failed' if finding.error else 'ok'}",
-                "",
-                finding.summary.strip(),
-                "",
-            ])
+            lines.extend(
+                [
+                    f"### Finding {idx}: {finding.sub_query}",
+                    "",
+                    f"- Round: {finding.round_num}",
+                    f"- Source count: {len(finding.sources)}",
+                    f"- Status: {'failed' if finding.error else 'ok'}",
+                    "",
+                    finding.summary.strip(),
+                    "",
+                ]
+            )
 
         lines.extend(["## Sources", ""])
         for source in sources:
@@ -1104,11 +1310,13 @@ class ResearchAgent:
             title = source.get("title", "Untitled")
             url = source.get("url", "")
             snippet = source.get("snippet", "")
-            lines.extend([
-                f"### [{index}] {title}",
-                "",
-                f"- URL: {url}",
-            ])
+            lines.extend(
+                [
+                    f"### [{index}] {title}",
+                    "",
+                    f"- URL: {url}",
+                ]
+            )
             if snippet:
                 lines.extend(["", snippet.strip()])
             lines.append("")
@@ -1118,38 +1326,54 @@ class ResearchAgent:
         return str(path)
 
     async def continue_research(
-        self, slug: str, focus: str | None = None,
+        self,
+        slug: str,
+        focus: str | None = None,
         model_override: str | None = None,
     ) -> AsyncIterator[ResearchEvent]:
         """Continue a prior investigation by slug, running additional rounds to fill gaps."""
         start = time.monotonic()
         model = model_override or self.ollama.model
 
-        yield ResearchEvent(ResearchEventType.STATUS, {"message": f"Loading prior investigation '{slug}'..."})
+        yield ResearchEvent(
+            ResearchEventType.STATUS, {"message": f"Loading prior investigation '{slug}'..."}
+        )
 
         prior = await self.cache.get_research_by_slug(slug)
         if not prior:
-            yield ResearchEvent(ResearchEventType.DONE, {
-                "error": f"No investigation found with slug '{slug}'",
-                "rounds_used": 0, "total_findings": 0, "total_sources": 0,
-                "recalled_findings": 0, "elapsed_ms": 0, "slug": slug,
-                "verification_status": "fail",
-                "provenance": {},
-            })
+            yield ResearchEvent(
+                ResearchEventType.DONE,
+                {
+                    "error": f"No investigation found with slug '{slug}'",
+                    "rounds_used": 0,
+                    "total_findings": 0,
+                    "total_sources": 0,
+                    "recalled_findings": 0,
+                    "elapsed_ms": 0,
+                    "slug": slug,
+                    "verification_status": "fail",
+                    "provenance": {},
+                },
+            )
             return
 
         prior_findings_raw = await self.cache.get_findings_for_research(prior["id"])
         prior_findings = [
             Finding(
-                sub_query=f["sub_query"], summary=f["summary"],
-                sources=f["sources"], round_num=f["round_num"],
+                sub_query=f["sub_query"],
+                summary=f["summary"],
+                sources=f["sources"],
+                round_num=f["round_num"],
             )
             for f in prior_findings_raw
         ]
 
-        yield ResearchEvent(ResearchEventType.STATUS, {
-            "message": f"Loaded {len(prior_findings)} prior findings. Planning continuation...",
-        })
+        yield ResearchEvent(
+            ResearchEventType.STATUS,
+            {
+                "message": f"Loaded {len(prior_findings)} prior findings. Planning continuation...",
+            },
+        )
 
         original_query = prior["query"]
         effective_max_rounds = self.config.max_rounds
@@ -1157,13 +1381,12 @@ class ResearchAgent:
         effective_scrape = self.config.deep_scrape
 
         # Decompose with awareness of prior findings
-        prior_findings_text = "\n\n".join(
-            f"### {f.sub_query}\n{f.summary}" for f in prior_findings
-        )
+        prior_findings_text = "\n\n".join(f"### {f.sub_query}\n{f.summary}" for f in prior_findings)
         focus_section = f"Focus area for continuation: {focus}" if focus else ""
         system = _CONTINUE_DECOMPOSE_SYSTEM.format(max_sub_queries=effective_max_sub)
         user = _CONTINUE_DECOMPOSE_USER.format(
-            query=original_query, focus_section=focus_section,
+            query=original_query,
+            focus_section=focus_section,
             prior_findings_text=prior_findings_text,
         )
 
@@ -1172,7 +1395,10 @@ class ResearchAgent:
             data = json.loads(response)
             sub_queries = data.get("sub_queries", [])[:effective_max_sub]
             if not sub_queries:
-                sub_queries = [f"{original_query} latest developments", f"{original_query} in depth"]
+                sub_queries = [
+                    f"{original_query} latest developments",
+                    f"{original_query} in depth",
+                ]
         except (json.JSONDecodeError, KeyError):
             sub_queries = [f"{original_query} latest developments", f"{original_query} in depth"]
 
@@ -1191,26 +1417,36 @@ class ResearchAgent:
 
         round_num = 0
         for round_num in range(1, effective_max_rounds + 1):
-            yield ResearchEvent(ResearchEventType.ROUND_START, {
-                "round": round_num,
-                "max_rounds": effective_max_rounds,
-                "num_queries": len(sub_queries),
-            })
+            yield ResearchEvent(
+                ResearchEventType.ROUND_START,
+                {
+                    "round": round_num,
+                    "max_rounds": effective_max_rounds,
+                    "num_queries": len(sub_queries),
+                },
+            )
 
             round_findings, round_sources, source_counter = await self._search_round(
-                sub_queries, round_num, source_counter, model,
-                scrape=effective_scrape, seen_source_urls=seen_source_urls,
+                sub_queries,
+                round_num,
+                source_counter,
+                model,
+                scrape=effective_scrape,
+                seen_source_urls=seen_source_urls,
             )
 
             for finding in round_findings:
-                yield ResearchEvent(ResearchEventType.FINDING, {
-                    "sub_query": finding.sub_query,
-                    "summary_preview": finding.summary[:200],
-                    "num_sources": len(finding.sources),
-                    "round": round_num,
-                    "summary_failed": finding.error is not None,
-                    "error": finding.error,
-                })
+                yield ResearchEvent(
+                    ResearchEventType.FINDING,
+                    {
+                        "sub_query": finding.sub_query,
+                        "summary_preview": finding.summary[:200],
+                        "num_sources": len(finding.sources),
+                        "round": round_num,
+                        "summary_failed": finding.error is not None,
+                        "error": finding.error,
+                    },
+                )
 
             all_findings.extend(round_findings)
             new_findings.extend(round_findings)
@@ -1220,7 +1456,10 @@ class ResearchAgent:
                 break
 
             gap_result = await self._analyze_gaps(
-                original_query, all_findings, model, max_follow_ups=effective_max_sub,
+                original_query,
+                all_findings,
+                model,
+                max_follow_ups=effective_max_sub,
             )
             yield ResearchEvent(ResearchEventType.GAP_ANALYSIS, gap_result)
 
@@ -1235,7 +1474,9 @@ class ResearchAgent:
 
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Synthesizing updated report..."})
         report_parts = []
-        async for token in self._synthesize_report(original_query, all_findings, all_sources, [], model):
+        async for token in self._synthesize_report(
+            original_query, all_findings, all_sources, [], model
+        ):
             report_parts.append(token)
             yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
 
@@ -1243,7 +1484,11 @@ class ResearchAgent:
 
         yield ResearchEvent(ResearchEventType.STATUS, {"message": "Verifying research output..."})
         report_text, verification, verify_events = await self._verify_and_repair_report(
-            original_query, report_text, all_findings, all_sources, model,
+            original_query,
+            report_text,
+            all_findings,
+            all_sources,
+            model,
         )
         for verify_event in verify_events:
             yield ResearchEvent(ResearchEventType.VERIFY, verify_event)
@@ -1251,13 +1496,16 @@ class ResearchAgent:
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         provenance = ProvenanceRecord(
-            topic=original_query, slug=slug, rounds=prior.get("rounds_used", 0) + round_num,
+            topic=original_query,
+            slug=slug,
+            rounds=prior.get("rounds_used", 0) + round_num,
             sources_consulted=len(all_sources) + prior.get("total_sources", 0),
             sources_accepted=len(all_sources) + prior.get("total_sources", 0),
             sources_rejected=0,
             verification_status=verification.status,
             verification_summary=verification.summary,
-            model_used=model, elapsed_ms=elapsed_ms,
+            model_used=model,
+            elapsed_ms=elapsed_ms,
         )
         corpus_path = self._write_corpus(
             slug=slug,
@@ -1274,9 +1522,14 @@ class ResearchAgent:
         try:
             all_sub_queries = list({f.sub_query for f in new_findings})
             research_id = await self.cache.store_research(
-                query=original_query, report=report_text, sub_queries=all_sub_queries,
-                rounds_used=round_num, total_sources=len(all_sources),
-                model_used=model, elapsed_ms=elapsed_ms, slug=slug,
+                query=original_query,
+                report=report_text,
+                sub_queries=all_sub_queries,
+                rounds_used=round_num,
+                total_sources=len(all_sources),
+                model_used=model,
+                elapsed_ms=elapsed_ms,
+                slug=slug,
                 parent_id=prior["id"],
                 verification_status=verification.status,
                 verification_summary=verification.summary,
@@ -1287,8 +1540,10 @@ class ResearchAgent:
                     research_id=research_id,
                     findings=[
                         {
-                            "sub_query": f.sub_query, "summary": f.summary,
-                            "sources": f.sources, "round_num": f.round_num,
+                            "sub_query": f.sub_query,
+                            "summary": f.summary,
+                            "sources": f.sources,
+                            "round_num": f.round_num,
                         }
                         for f in new_findings
                     ],
@@ -1296,17 +1551,20 @@ class ResearchAgent:
         except Exception as e:
             logger.warning(f"Failed to store continuation results: {e}")
 
-        yield ResearchEvent(ResearchEventType.DONE, {
-            "rounds_used": round_num,
-            "total_findings": len(new_findings),
-            "total_sources": len(all_sources),
-            "prior_findings_loaded": len(prior_findings),
-            "continued_from": slug,
-            "recalled_findings": 0,
-            "elapsed_ms": elapsed_ms,
-            "slug": slug,
-            "verification_status": verification.status,
-            "provenance": provenance.to_dict(),
-            "corpus_path": corpus_path,
-            "failed_findings": sum(1 for f in new_findings if f.error),
-        })
+        yield ResearchEvent(
+            ResearchEventType.DONE,
+            {
+                "rounds_used": round_num,
+                "total_findings": len(new_findings),
+                "total_sources": len(all_sources),
+                "prior_findings_loaded": len(prior_findings),
+                "continued_from": slug,
+                "recalled_findings": 0,
+                "elapsed_ms": elapsed_ms,
+                "slug": slug,
+                "verification_status": verification.status,
+                "provenance": provenance.to_dict(),
+                "corpus_path": corpus_path,
+                "failed_findings": sum(1 for f in new_findings if f.error),
+            },
+        )

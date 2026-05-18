@@ -1,4 +1,5 @@
 """History list — filterable query history with keyboard navigation."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -113,7 +114,11 @@ class HistoryList(Static):
             else:
                 text.append("              \U0001f50d web search", style="#00d7ff")
 
-            time_str = f"{entry.response_time_ms}ms" if entry.response_time_ms < 1000 else f"{entry.response_time_ms / 1000:.1f}s"
+            time_str = (
+                f"{entry.response_time_ms}ms"
+                if entry.response_time_ms < 1000
+                else f"{entry.response_time_ms / 1000:.1f}s"
+            )
             text.append(f" \u00b7 {time_str}", style="#666666")
             text.append(f" \u00b7 {entry.model}\n\n", style="#666666")
 

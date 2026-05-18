@@ -1,4 +1,5 @@
 """Provenance tracking for research sessions — source accounting and verification status."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

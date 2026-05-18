@@ -1,4 +1,5 @@
 """Tests for search orchestrator."""
+
 import pytest
 from unittest.mock import AsyncMock
 from pythia.server.search import SearchOrchestrator, EventType

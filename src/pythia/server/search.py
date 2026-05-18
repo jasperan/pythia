@@ -1,4 +1,5 @@
 """Search orchestrator — ties SearXNG, Ollama, and Oracle cache together."""
+
 from __future__ import annotations
 
 import asyncio
@@ -34,7 +35,7 @@ class SearchEvent:
 
 def _count_citations(text: str) -> int:
     """Count unique [N] citation references in an answer."""
-    return len(set(re.findall(r'\[(\d+)\]', text)))
+    return len(set(re.findall(r"\[(\d+)\]", text)))
 
 
 class SearchOrchestrator:
@@ -57,8 +58,11 @@ class SearchOrchestrator:
             return query
 
     async def search(
-        self, query: str, model_override: str | None = None,
-        deep: bool = False, rewrite: bool = False,
+        self,
+        query: str,
+        model_override: str | None = None,
+        deep: bool = False,
+        rewrite: bool = False,
         conversation_history: list[dict] | None = None,
     ) -> AsyncIterator[SearchEvent]:
         start = time.monotonic()
@@ -85,7 +89,9 @@ class SearchOrchestrator:
                 await search_task
 
             elapsed_ms = int((time.monotonic() - start) * 1000)
-            yield SearchEvent(EventType.STATUS, {"message": f"Cache hit ({cached.similarity:.2f} similarity)"})
+            yield SearchEvent(
+                EventType.STATUS, {"message": f"Cache hit ({cached.similarity:.2f} similarity)"}
+            )
 
             for source in cached.sources:
                 yield SearchEvent(EventType.SOURCE, source)
@@ -96,14 +102,19 @@ class SearchOrchestrator:
 
             # Innovation 4: Grounding verification on cached answers too
             grounding = verify_grounding(cached.answer, cached.sources)
-            yield SearchEvent(EventType.GROUNDING, {
-                "score": grounding.score,
-                "label": grounding.label,
-                "total_claims": grounding.total_claims,
-                "grounded_claims": grounding.grounded_claims,
-            })
+            yield SearchEvent(
+                EventType.GROUNDING,
+                {
+                    "score": grounding.score,
+                    "label": grounding.label,
+                    "total_claims": grounding.total_claims,
+                    "grounded_claims": grounding.grounded_claims,
+                },
+            )
 
-            await self.cache.record_search(query, cache_hit=True, response_time_ms=elapsed_ms, model_used=cached.model_used)
+            await self.cache.record_search(
+                query, cache_hit=True, response_time_ms=elapsed_ms, model_used=cached.model_used
+            )
 
             # Innovation 5: Follow-up suggestions (before DONE so clients don't close early)
             suggestions = await self.ollama.generate_suggestions(query, cached.answer, model=model)
@@ -112,7 +123,12 @@ class SearchOrchestrator:
 
             yield SearchEvent(
                 EventType.DONE,
-                {"cache_hit": True, "similarity": cached.similarity, "response_time_ms": elapsed_ms, "sources_count": len(cached.sources)},
+                {
+                    "cache_hit": True,
+                    "similarity": cached.similarity,
+                    "response_time_ms": elapsed_ms,
+                    "sources_count": len(cached.sources),
+                },
             )
             return
 
@@ -122,12 +138,22 @@ class SearchOrchestrator:
             results = await search_task
         except Exception as e:
             yield SearchEvent(EventType.STATUS, {"message": f"SearXNG error: {e}"})
-            yield SearchEvent(EventType.DONE, {"cache_hit": False, "error": str(e), "response_time_ms": int((time.monotonic() - start) * 1000)})
+            yield SearchEvent(
+                EventType.DONE,
+                {
+                    "cache_hit": False,
+                    "error": str(e),
+                    "response_time_ms": int((time.monotonic() - start) * 1000),
+                },
+            )
             return
         yield SearchEvent(EventType.STATUS, {"message": f"Found {len(results)} results"})
 
         for r in results:
-            yield SearchEvent(EventType.SOURCE, {"index": r.index, "title": r.title, "url": r.url, "snippet": r.snippet})
+            yield SearchEvent(
+                EventType.SOURCE,
+                {"index": r.index, "title": r.title, "url": r.url, "snippet": r.snippet},
+            )
 
         if deep:
             yield SearchEvent(EventType.STATUS, {"message": "Scraping pages for full content..."})
@@ -135,8 +161,12 @@ class SearchOrchestrator:
             scraped = await scrape_urls(urls_snippets)
             scraped_content = {s.url: s.content for s in scraped}
             success_count = sum(1 for s in scraped if s.success)
-            yield SearchEvent(EventType.STATUS, {"message": f"Scraped {success_count}/{len(scraped)} pages"})
-            system, user = build_search_prompt(query, results, conversation_history, scraped_content=scraped_content)
+            yield SearchEvent(
+                EventType.STATUS, {"message": f"Scraped {success_count}/{len(scraped)} pages"}
+            )
+            system, user = build_search_prompt(
+                query, results, conversation_history, scraped_content=scraped_content
+            )
         else:
             system, user = build_search_prompt(query, results, conversation_history)
 
@@ -149,7 +179,14 @@ class SearchOrchestrator:
                 yield SearchEvent(EventType.TOKEN, {"content": token})
         except Exception as e:
             yield SearchEvent(EventType.STATUS, {"message": f"Ollama error: {e}"})
-            yield SearchEvent(EventType.DONE, {"cache_hit": False, "error": str(e), "response_time_ms": int((time.monotonic() - start) * 1000)})
+            yield SearchEvent(
+                EventType.DONE,
+                {
+                    "cache_hit": False,
+                    "error": str(e),
+                    "response_time_ms": int((time.monotonic() - start) * 1000),
+                },
+            )
             return
 
         answer_text = "".join(full_answer)
@@ -159,31 +196,48 @@ class SearchOrchestrator:
         citation_count = _count_citations(answer_text)
         citation_density = citation_count / max(len(results), 1)
 
-        sources_dicts = [{"index": r.index, "title": r.title, "url": r.url, "snippet": r.snippet} for r in results]
+        sources_dicts = [
+            {"index": r.index, "title": r.title, "url": r.url, "snippet": r.snippet}
+            for r in results
+        ]
 
         # Innovation 4: Answer grounding — verify claims against sources
         grounding = verify_grounding(answer_text, sources_dicts)
-        yield SearchEvent(EventType.GROUNDING, {
-            "score": grounding.score,
-            "label": grounding.label,
-            "total_claims": grounding.total_claims,
-            "grounded_claims": grounding.grounded_claims,
-        })
+        yield SearchEvent(
+            EventType.GROUNDING,
+            {
+                "score": grounding.score,
+                "label": grounding.label,
+                "total_claims": grounding.total_claims,
+                "grounded_claims": grounding.grounded_claims,
+            },
+        )
 
-        await self.cache.store(query=query, answer=answer_text, sources=sources_dicts, model_used=model, query_embedding=query_embedding)
-        await self.cache.record_search(query, cache_hit=False, response_time_ms=elapsed_ms, model_used=model)
+        await self.cache.store(
+            query=query,
+            answer=answer_text,
+            sources=sources_dicts,
+            model_used=model,
+            query_embedding=query_embedding,
+        )
+        await self.cache.record_search(
+            query, cache_hit=False, response_time_ms=elapsed_ms, model_used=model
+        )
 
         # Innovation 5: Follow-up suggestions (before DONE so clients don't close early)
         suggestions = await self.ollama.generate_suggestions(query, answer_text, model=model)
         if suggestions:
             yield SearchEvent(EventType.SUGGESTIONS, {"suggestions": suggestions})
 
-        yield SearchEvent(EventType.DONE, {
-            "cache_hit": False,
-            "response_time_ms": elapsed_ms,
-            "sources_count": len(results),
-            "citations_used": citation_count,
-            "citation_density": round(citation_density, 2),
-            "grounding_score": grounding.score,
-            "grounding_label": grounding.label,
-        })
+        yield SearchEvent(
+            EventType.DONE,
+            {
+                "cache_hit": False,
+                "response_time_ms": elapsed_ms,
+                "sources_count": len(results),
+                "citations_used": citation_count,
+                "citation_density": round(citation_density, 2),
+                "grounding_score": grounding.score,
+                "grounding_label": grounding.label,
+            },
+        )

@@ -1,4 +1,5 @@
 """Tests for service manager — unit tests with mocked infrastructure."""
+
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -7,6 +8,7 @@ from pythia.services import ServiceManager, ServiceStatus, ServiceInfo
 
 
 # --- Data classes ---
+
 
 def test_service_status_values():
     assert ServiceStatus.STOPPED.name == "STOPPED"
@@ -29,8 +31,11 @@ def test_service_info_with_message():
 
 # --- ServiceManager init ---
 
+
 def test_service_manager_init():
-    with patch.object(ServiceManager, "_find_docker_compose", return_value="/path/docker-compose.yml"):
+    with patch.object(
+        ServiceManager, "_find_docker_compose", return_value="/path/docker-compose.yml"
+    ):
         mgr = ServiceManager(config_path="test.yaml", host="127.0.0.1", port=9000)
         assert mgr.config_path == "test.yaml"
         assert mgr.host == "127.0.0.1"
@@ -52,6 +57,7 @@ def test_find_docker_compose_not_found():
 
 
 # --- Status callbacks ---
+
 
 def test_register_and_notify_callbacks():
     with patch.object(ServiceManager, "_find_docker_compose", return_value="/path"):
@@ -80,6 +86,7 @@ def test_notify_callback_error_doesnt_crash():
 
 
 # --- Health checks ---
+
 
 @pytest.mark.asyncio
 async def test_check_oracle_ready_success():
@@ -214,7 +221,9 @@ async def test_start_api_server_uses_manager_config_path(tmp_path):
     mock_proc.returncode = None
     mock_proc.stderr = None
 
-    with patch("pythia.services.asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_proc)) as mock_exec:
+    with patch(
+        "pythia.services.asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_proc)
+    ) as mock_exec:
         await mgr._start_api_server()
 
     kwargs = mock_exec.call_args.kwargs
@@ -291,6 +300,7 @@ async def test_stop_all_only_stops_owned_resources():
 
 
 # --- Stop when nothing running ---
+
 
 @pytest.mark.asyncio
 async def test_stop_api_server_noop_when_no_process():

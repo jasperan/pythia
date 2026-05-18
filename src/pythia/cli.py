@@ -1,4 +1,5 @@
 """CLI entry point for Pythia."""
+
 from __future__ import annotations
 
 import sys
@@ -103,7 +104,9 @@ def query(
     embed: bool = typer.Option(False, "--embed", help="Include query embedding in output"),
     no_cache: bool = typer.Option(False, "--no-cache", help="Skip cache lookup/storage"),
     deep: bool = typer.Option(False, "--deep", help="Scrape top URLs for full content"),
-    stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
+    stream: bool = typer.Option(
+        False, "--stream", help="Stream NDJSON events instead of flat JSON"
+    ),
     backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
 ) -> None:
     """Run a search query and return structured JSON."""
@@ -112,7 +115,9 @@ def query(
 
     query_text = text or sys.stdin.read().strip()
     if not query_text:
-        print('{"error": "No query provided. Pass as argument or pipe via stdin."}', file=sys.stderr)
+        print(
+            '{"error": "No query provided. Pass as argument or pipe via stdin."}', file=sys.stderr
+        )
         raise typer.Exit(1)
 
     cfg, _ = _load_required_config(config, command_name="query")
@@ -120,15 +125,17 @@ def query(
         cfg.backend = backend
     model_override = model if model else None
 
-    asyncio.run(_run_query(
-        cfg,
-        query_text,
-        include_embedding=embed,
-        use_cache=not no_cache,
-        model_override=model_override,
-        deep=deep,
-        stream=stream,
-    ))
+    asyncio.run(
+        _run_query(
+            cfg,
+            query_text,
+            include_embedding=embed,
+            use_cache=not no_cache,
+            model_override=model_override,
+            deep=deep,
+            stream=stream,
+        )
+    )
 
 
 @app.command()
@@ -136,8 +143,12 @@ def research(
     text: str = typer.Argument("", help="Research question (reads stdin if omitted)"),
     config: str = typer.Option("pythia.yaml", help="Config file path"),
     model: str = typer.Option("", help="Override Ollama model"),
-    stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
-    max_rounds: int = typer.Option(0, "--max-rounds", help="Override max research rounds (0 = use config)"),
+    stream: bool = typer.Option(
+        False, "--stream", help="Stream NDJSON events instead of flat JSON"
+    ),
+    max_rounds: int = typer.Option(
+        0, "--max-rounds", help="Override max research rounds (0 = use config)"
+    ),
     backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
 ) -> None:
     """Run autonomous deep research on a topic. Returns structured report with citations."""
@@ -146,7 +157,9 @@ def research(
 
     query_text = text or sys.stdin.read().strip()
     if not query_text:
-        print('{"error": "No query provided. Pass as argument or pipe via stdin."}', file=sys.stderr)
+        print(
+            '{"error": "No query provided. Pass as argument or pipe via stdin."}', file=sys.stderr
+        )
         raise typer.Exit(1)
 
     cfg, _ = _load_required_config(config, command_name="research")
@@ -155,13 +168,15 @@ def research(
     model_override = model if model else None
     rounds_override = max_rounds if max_rounds > 0 else None
 
-    asyncio.run(_run_research(
-        cfg,
-        query_text,
-        model_override=model_override,
-        stream=stream,
-        max_rounds=rounds_override,
-    ))
+    asyncio.run(
+        _run_research(
+            cfg,
+            query_text,
+            model_override=model_override,
+            stream=stream,
+            max_rounds=rounds_override,
+        )
+    )
 
 
 @app.command("research-continue")
@@ -170,8 +185,12 @@ def research_continue(
     focus: str = typer.Option("", "--focus", "-f", help="Optional continuation focus"),
     config: str = typer.Option("pythia.yaml", help="Config file path"),
     model: str = typer.Option("", help="Override Ollama model"),
-    stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
-    max_rounds: int = typer.Option(0, "--max-rounds", help="Override max continuation rounds (0 = use config)"),
+    stream: bool = typer.Option(
+        False, "--stream", help="Stream NDJSON events instead of flat JSON"
+    ),
+    max_rounds: int = typer.Option(
+        0, "--max-rounds", help="Override max continuation rounds (0 = use config)"
+    ),
     backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
 ) -> None:
     """Continue a stored research session by slug."""
@@ -184,14 +203,16 @@ def research_continue(
     model_override = model if model else None
     rounds_override = max_rounds if max_rounds > 0 else None
 
-    asyncio.run(_run_continue_research(
-        cfg,
-        slug,
-        focus=focus or None,
-        model_override=model_override,
-        stream=stream,
-        max_rounds=rounds_override,
-    ))
+    asyncio.run(
+        _run_continue_research(
+            cfg,
+            slug,
+            focus=focus or None,
+            model_override=model_override,
+            stream=stream,
+            max_rounds=rounds_override,
+        )
+    )
 
 
 @app.command("research-refine")
@@ -200,8 +221,12 @@ def research_refine(
     directive: str = typer.Argument(..., help="Refinement directive"),
     config: str = typer.Option("pythia.yaml", help="Config file path"),
     model: str = typer.Option("", help="Override Ollama model"),
-    stream: bool = typer.Option(False, "--stream", help="Stream NDJSON events instead of flat JSON"),
-    max_rounds: int = typer.Option(0, "--max-rounds", help="Override max refinement rounds (0 = use config)"),
+    stream: bool = typer.Option(
+        False, "--stream", help="Stream NDJSON events instead of flat JSON"
+    ),
+    max_rounds: int = typer.Option(
+        0, "--max-rounds", help="Override max refinement rounds (0 = use config)"
+    ),
     backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),
 ) -> None:
     """Refine a stored research session by slug with a focused directive."""
@@ -218,14 +243,16 @@ def research_refine(
     model_override = model if model else None
     rounds_override = max_rounds if max_rounds > 0 else None
 
-    asyncio.run(_run_refine_research(
-        cfg,
-        slug,
-        directive=directive,
-        model_override=model_override,
-        stream=stream,
-        max_rounds=rounds_override,
-    ))
+    asyncio.run(
+        _run_refine_research(
+            cfg,
+            slug,
+            directive=directive,
+            model_override=model_override,
+            stream=stream,
+            max_rounds=rounds_override,
+        )
+    )
 
 
 @app.command()
@@ -263,8 +290,10 @@ def embed(
     else:
         embed_text = text or sys.stdin.read().strip()
         if not embed_text:
-            print('{"error": "No text provided. Pass as argument, pipe via stdin, or use --file."}',
-                  file=sys.stderr)
+            print(
+                '{"error": "No text provided. Pass as argument, pipe via stdin, or use --file."}',
+                file=sys.stderr,
+            )
             raise typer.Exit(1)
         texts = [embed_text]
         print(run_embed_single(embed_text))
@@ -276,6 +305,7 @@ def embed(
 
 async def _store_embeddings(cfg, texts: list[str]) -> None:
     from pythia.server.oracle_cache import OracleCache
+
     cache = OracleCache(
         dsn=cfg.oracle.dsn,
         user=cfg.oracle.user,
@@ -336,15 +366,20 @@ def skill_show(
     if not skill:
         print(f'{{"error": "Skill not found: {name}"}}', file=sys.stderr)
         raise typer.Exit(1)
-    print(json.dumps({
-        "name": skill.name,
-        "description": skill.description,
-        "triggers": skill.triggers,
-        "max_rounds": skill.max_rounds,
-        "max_sub_queries": skill.max_sub_queries,
-        "requires_scrape": skill.requires_scrape,
-        "output_format": skill.output_format,
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "name": skill.name,
+                "description": skill.description,
+                "triggers": skill.triggers,
+                "max_rounds": skill.max_rounds,
+                "max_sub_queries": skill.max_sub_queries,
+                "requires_scrape": skill.requires_scrape,
+                "output_format": skill.output_format,
+            },
+            indent=2,
+        )
+    )
 
 
 @app.command()
@@ -352,8 +387,12 @@ def autoresearch(
     target: str = typer.Argument("", help="What to optimize (e.g. 'test speed', 'bundle size')"),
     benchmark: str = typer.Option("", "--benchmark", "-b", help="Benchmark command to run"),
     metric: str = typer.Option("", "--metric", "-m", help="Metric name to track"),
-    direction: str = typer.Option("higher", "--direction", "-d", help="Direction: higher or lower is better"),
-    max_iterations: int = typer.Option(10, "--max-iterations", "-n", help="Max optimization iterations"),
+    direction: str = typer.Option(
+        "higher", "--direction", "-d", help="Direction: higher or lower is better"
+    ),
+    max_iterations: int = typer.Option(
+        10, "--max-iterations", "-n", help="Max optimization iterations"
+    ),
     files: list[str] | None = typer.Option(
         None,
         "--file",
@@ -383,17 +422,19 @@ def autoresearch(
         cfg.backend = backend
     model_override = model if model else None
 
-    asyncio.run(_run_autoresearch(
-        cfg,
-        target=target,
-        benchmark_cmd=benchmark,
-        metric_name=metric,
-        metric_direction=direction,
-        max_iterations=max_iterations,
-        files_in_scope=files or [],
-        model_override=model_override,
-        stream=stream,
-    ))
+    asyncio.run(
+        _run_autoresearch(
+            cfg,
+            target=target,
+            benchmark_cmd=benchmark,
+            metric_name=metric,
+            metric_direction=direction,
+            max_iterations=max_iterations,
+            files_in_scope=files or [],
+            model_override=model_override,
+            stream=stream,
+        )
+    )
 
 
 def main() -> None:

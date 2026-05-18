@@ -1,4 +1,5 @@
 """Tests for research progress bar."""
+
 from pythia.tui.widgets.research_progress import ResearchProgressBar
 
 

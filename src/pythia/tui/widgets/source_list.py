@@ -1,4 +1,5 @@
 """Source list — numbered citations below the answer."""
+
 from __future__ import annotations
 
 from rich.text import Text

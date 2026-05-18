@@ -1,4 +1,5 @@
 """Verification pass — validates claims against sources, checks URL liveness."""
+
 from __future__ import annotations
 
 import json
@@ -94,7 +95,9 @@ async def verify_report(
     # Truncate to stay within model context limits
     truncated_report = report[:_MAX_VERIFY_REPORT_CHARS]
     if len(report) > _MAX_VERIFY_REPORT_CHARS:
-        truncated_report += "\n\n[Report truncated for verification. Check claims in the portion above.]"
+        truncated_report += (
+            "\n\n[Report truncated for verification. Check claims in the portion above.]"
+        )
 
     sources_text = "\n\n".join(
         _format_source_for_verification(source, i)
@@ -115,7 +118,9 @@ async def verify_report(
         status = _normalize_verification_status(data.get("status"))
         summary = data.get("summary", "")
         if status == "fail" and data.get("status") not in {"pass", "pass_with_notes", "fail"}:
-            summary = f"Verifier returned unsupported status {data.get('status')!r}. {summary}".strip()
+            summary = (
+                f"Verifier returned unsupported status {data.get('status')!r}. {summary}".strip()
+            )
         return VerificationResult(
             claims_checked=data.get("claims_checked", 0),
             issues=data.get("issues", []),
@@ -197,8 +202,7 @@ def _normalize_verification_status(status: object) -> str:
 
 def _verify_evidence_ledger(report: str, sources: list[dict]) -> VerificationResult:
     source_indices = {
-        _safe_source_index(source, fallback)
-        for fallback, source in enumerate(sources, 1)
+        _safe_source_index(source, fallback) for fallback, source in enumerate(sources, 1)
     }
     cited = {int(raw) for raw in re.findall(r"\[(\d+)\]", report)}
     if not cited:

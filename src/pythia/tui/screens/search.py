@@ -1,4 +1,5 @@
 """Main search screen — composes all widgets into the Pythia TUI."""
+
 from __future__ import annotations
 
 import contextlib
@@ -26,7 +27,9 @@ from pythia.tui.widgets.suggestions import Suggestions
 
 
 class SearchScreen(Screen):
-    def __init__(self, config: PythiaConfig, host: str | None = None, port: int | None = None) -> None:
+    def __init__(
+        self, config: PythiaConfig, host: str | None = None, port: int | None = None
+    ) -> None:
         super().__init__()
         self.config = config
         api_host = host or config.server.host
@@ -52,6 +55,7 @@ class SearchScreen(Screen):
         self._try_connect_service_manager()
         # Check for pending search query from history re-run
         from pythia.tui.app import PythiaApp
+
         app = self.app
         if isinstance(app, PythiaApp) and app._pending_search_query:
             query = app._pending_search_query
@@ -64,6 +68,7 @@ class SearchScreen(Screen):
         if not self.is_attached:
             return
         from pythia.tui.app import PythiaApp
+
         app = self.app
         if isinstance(app, PythiaApp):
             if app._service_manager:
@@ -101,7 +106,9 @@ class SearchScreen(Screen):
                     cache_size=data.get("cache_size", 0),
                 )
         except Exception:
-            status.update_status(model=self.config.ollama.model, oracle_ok=False, searxng_ok=False, cache_size=0)
+            status.update_status(
+                model=self.config.ollama.model, oracle_ok=False, searxng_ok=False, cache_size=0
+            )
 
     async def on_search_input_submitted(self, event: SearchInput.Submitted) -> None:
         query = event.value
@@ -117,6 +124,7 @@ class SearchScreen(Screen):
             query = query[2:].strip()
             if query:
                 from pythia.tui.app import PythiaApp
+
                 app = self.app
                 if isinstance(app, PythiaApp):
                     app._pending_research_query = query
@@ -129,6 +137,7 @@ class SearchScreen(Screen):
         # Get deep mode from app if not explicitly set by prefix
         if not deep:
             from pythia.tui.app import PythiaApp
+
             app = self.app
             if isinstance(app, PythiaApp):
                 deep = app._deep_mode
@@ -202,9 +211,14 @@ class SearchScreen(Screen):
                             elif event_type == "done":
                                 activity.stop()
                                 if data.get("cache_hit"):
-                                    cache_badge.show_cache_hit(data.get("similarity", 0), data.get("response_time_ms", 0))
+                                    cache_badge.show_cache_hit(
+                                        data.get("similarity", 0), data.get("response_time_ms", 0)
+                                    )
                                 else:
-                                    cache_badge.show_web_search(data.get("response_time_ms", 0), data.get("sources_count", 0))
+                                    cache_badge.show_web_search(
+                                        data.get("response_time_ms", 0),
+                                        data.get("sources_count", 0),
+                                    )
                                 await self._check_health()
                             elif event_type == "suggestions":
                                 suggestions_list = data.get("suggestions", [])
@@ -242,11 +256,13 @@ class SearchScreen(Screen):
             await results_area.remove_children()
         elif cmd == "/history":
             from pythia.tui.app import PythiaApp
+
             app = self.app
             if isinstance(app, PythiaApp):
                 app._switch_to("history")
         elif cmd == "/stats":
             from pythia.tui.app import PythiaApp
+
             app = self.app
             if isinstance(app, PythiaApp):
                 app._switch_to("dashboard")
@@ -265,7 +281,9 @@ class SearchScreen(Screen):
                     async with httpx.AsyncClient(timeout=5.0) as client:
                         resp = await client.delete(f"{self._api_base}/cache")
                         data = resp.json()
-                    result_card.set_content(f"Cache cleared. **{data.get('deleted', 0)}** entries deleted.")
+                    result_card.set_content(
+                        f"Cache cleared. **{data.get('deleted', 0)}** entries deleted."
+                    )
                     await self._check_health()
                 except Exception as e:
                     result_card.set_content(f"**Error:** {e}")
@@ -293,4 +311,6 @@ class SearchScreen(Screen):
                 "- **Suggestions** — Click follow-up questions below answers\n"
             )
         else:
-            result_card.set_content(f"Unknown command: `{cmd}`. Type `/help` for available commands.")
+            result_card.set_content(
+                f"Unknown command: `{cmd}`. Type `/help` for available commands."
+            )

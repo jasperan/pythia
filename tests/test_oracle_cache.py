@@ -1,4 +1,5 @@
 """Tests for Oracle vector cache — unit tests with mock connection."""
+
 import pytest
 from pythia.server.oracle_cache import OracleCache, CacheEntry
 
@@ -31,10 +32,17 @@ async def test_store_research_accepts_extended_fields():
     cache = OracleCache(dsn="localhost:1523/FREEPDB1", user="pythia", password="pythia")
     # No pool — should return "" gracefully, but shouldn't raise TypeError on the signature
     result = await cache.store_research(
-        query="test", report="report", sub_queries=["q1"],
-        rounds_used=1, total_sources=2, model_used="test", elapsed_ms=100,
-        slug="test-slug", parent_id=None,
-        verification_status="pass", verification_summary="All good.",
+        query="test",
+        report="report",
+        sub_queries=["q1"],
+        rounds_used=1,
+        total_sources=2,
+        model_used="test",
+        elapsed_ms=100,
+        slug="test-slug",
+        parent_id=None,
+        verification_status="pass",
+        verification_summary="All good.",
         provenance="# Provenance",
     )
     assert result == ""

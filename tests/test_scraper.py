@@ -1,4 +1,5 @@
 """Tests for scraper module."""
+
 import socket
 from unittest.mock import patch
 

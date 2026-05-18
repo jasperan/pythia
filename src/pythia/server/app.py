@@ -1,4 +1,5 @@
 """FastAPI server — exposes search as SSE endpoint."""
+
 from __future__ import annotations
 
 import json
@@ -104,13 +105,20 @@ def create_app(config: PythiaConfig) -> FastAPI:
 
     @app.post("/search")
     async def search(req: SearchRequest):
-        history = [m.model_dump() for m in req.conversation_history] if req.conversation_history else None
-        return EventSourceResponse(_sse_wrap(
-            orchestrator.search(
-                req.query, model_override=req.model, deep=req.deep,
-                rewrite=req.rewrite, conversation_history=history,
+        history = (
+            [m.model_dump() for m in req.conversation_history] if req.conversation_history else None
+        )
+        return EventSourceResponse(
+            _sse_wrap(
+                orchestrator.search(
+                    req.query,
+                    model_override=req.model,
+                    deep=req.deep,
+                    rewrite=req.rewrite,
+                    conversation_history=history,
+                )
             )
-        ))
+        )
 
     @app.post("/research")
     async def research(req: ResearchRequest):
@@ -118,12 +126,15 @@ def create_app(config: PythiaConfig) -> FastAPI:
         if req.max_rounds is not None:
             research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
         agent = ResearchAgent(
-            ollama=ollama, cache=cache, searxng=searxng, config=research_config,
+            ollama=ollama,
+            cache=cache,
+            searxng=searxng,
+            config=research_config,
             skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
         )
-        return EventSourceResponse(_sse_wrap(
-            agent.research(req.query, model_override=req.model, skill_override=req.skill)
-        ))
+        return EventSourceResponse(
+            _sse_wrap(agent.research(req.query, model_override=req.model, skill_override=req.skill))
+        )
 
     @app.post("/research/continue/{slug}")
     async def continue_research(slug: str, req: ContinueRequest):
@@ -131,12 +142,15 @@ def create_app(config: PythiaConfig) -> FastAPI:
         if req.max_rounds is not None:
             research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
         agent = ResearchAgent(
-            ollama=ollama, cache=cache, searxng=searxng, config=research_config,
+            ollama=ollama,
+            cache=cache,
+            searxng=searxng,
+            config=research_config,
             skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
         )
-        return EventSourceResponse(_sse_wrap(
-            agent.continue_research(slug, focus=req.focus, model_override=req.model)
-        ))
+        return EventSourceResponse(
+            _sse_wrap(agent.continue_research(slug, focus=req.focus, model_override=req.model))
+        )
 
     @app.post("/research/refine/{slug}")
     async def refine_research(slug: str, req: RefineRequest):
@@ -144,12 +158,17 @@ def create_app(config: PythiaConfig) -> FastAPI:
         if req.max_rounds is not None:
             research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
         agent = ResearchAgent(
-            ollama=ollama, cache=cache, searxng=searxng, config=research_config,
+            ollama=ollama,
+            cache=cache,
+            searxng=searxng,
+            config=research_config,
             skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
         )
-        return EventSourceResponse(_sse_wrap(
-            agent.refine_research(slug, directive=req.directive, model_override=req.model)
-        ))
+        return EventSourceResponse(
+            _sse_wrap(
+                agent.refine_research(slug, directive=req.directive, model_override=req.model)
+            )
+        )
 
     @app.get("/health")
     async def health():
@@ -157,7 +176,12 @@ def create_app(config: PythiaConfig) -> FastAPI:
         searxng_ok = await searxng.health()
         ollama_ok = await ollama.health()
         cache_size = await cache.get_cache_size()
-        return {"oracle": oracle_ok, "searxng": searxng_ok, "llm": ollama_ok, "cache_size": cache_size}
+        return {
+            "oracle": oracle_ok,
+            "searxng": searxng_ok,
+            "llm": ollama_ok,
+            "cache_size": cache_size,
+        }
 
     @app.get("/history")
     async def history(limit: int = Query(20, ge=1, le=100)):
@@ -175,12 +199,19 @@ def create_app(config: PythiaConfig) -> FastAPI:
     @app.post("/embed")
     def embed_text(req: EmbedRequest):
         from pythia.embeddings import generate_embedding_list, MODEL_NAME, DIMENSIONS
+
         embedding = generate_embedding_list(req.text)
-        return {"text": req.text, "embedding": embedding, "dimensions": DIMENSIONS, "model": MODEL_NAME}
+        return {
+            "text": req.text,
+            "embedding": embedding,
+            "dimensions": DIMENSIONS,
+            "model": MODEL_NAME,
+        }
 
     @app.get("/skills")
     async def list_skills():
         from pythia.skills import SkillLoader
+
         loader = SkillLoader(Path(__file__).parent.parent.parent.parent / "skills")
         return [
             {"name": s.name, "description": s.description, "triggers": s.triggers}

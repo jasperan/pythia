@@ -1,4 +1,5 @@
 """Service manager for Pythia infrastructure components."""
+
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class ServiceStatus(Enum):
     """Service health status."""
+
     STOPPED = auto()
     STARTING = auto()
     RUNNING = auto()
@@ -27,6 +29,7 @@ class ServiceStatus(Enum):
 @dataclass
 class ServiceInfo:
     """Service status information."""
+
     name: str
     status: ServiceStatus
     message: str = ""
@@ -90,11 +93,15 @@ class ServiceManager:
         self._owns_docker = not oracle_was_ready and not searxng_was_ready
 
         if docker_was_ready:
-            self._notify_status({
-                "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
-                "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
-                "api": ServiceInfo("API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."),
-            })
+            self._notify_status(
+                {
+                    "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
+                    "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
+                    "api": ServiceInfo(
+                        "API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."
+                    ),
+                }
+            )
         else:
             await self._start_docker_services()
 
@@ -103,11 +110,15 @@ class ServiceManager:
         api_was_ready = await self._check_api_server_ready()
         self._owns_api = not api_was_ready
         if api_was_ready:
-            self._notify_status({
-                "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
-                "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
-                "api": ServiceInfo("API Server", ServiceStatus.RUNNING, f"Running on port {self.port}"),
-            })
+            self._notify_status(
+                {
+                    "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
+                    "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
+                    "api": ServiceInfo(
+                        "API Server", ServiceStatus.RUNNING, f"Running on port {self.port}"
+                    ),
+                }
+            )
         else:
             await self._start_api_server()
 
@@ -134,15 +145,24 @@ class ServiceManager:
 
     async def _start_docker_services(self) -> None:
         """Start Oracle DB and SearXNG via docker compose."""
-        self._notify_status({
-            "oracle": ServiceInfo("Oracle DB", ServiceStatus.STARTING, "Starting container..."),
-            "searxng": ServiceInfo("SearXNG", ServiceStatus.STARTING, "Starting container..."),
-            "api": ServiceInfo("API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."),
-        })
+        self._notify_status(
+            {
+                "oracle": ServiceInfo("Oracle DB", ServiceStatus.STARTING, "Starting container..."),
+                "searxng": ServiceInfo("SearXNG", ServiceStatus.STARTING, "Starting container..."),
+                "api": ServiceInfo(
+                    "API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."
+                ),
+            }
+        )
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "docker", "compose", "-f", self.docker_compose_path, "up", "-d",
+                "docker",
+                "compose",
+                "-f",
+                self.docker_compose_path,
+                "up",
+                "-d",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -151,30 +171,52 @@ class ServiceManager:
             if proc.returncode != 0:
                 raise RuntimeError(f"docker compose up failed: {stderr.decode()}")
 
-            self._notify_status({
-                "oracle": ServiceInfo("Oracle DB", ServiceStatus.STARTING, "Container started, waiting for ready..."),
-                "searxng": ServiceInfo("SearXNG", ServiceStatus.STARTING, "Container started, waiting for ready..."),
-                "api": ServiceInfo("API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."),
-            })
+            self._notify_status(
+                {
+                    "oracle": ServiceInfo(
+                        "Oracle DB",
+                        ServiceStatus.STARTING,
+                        "Container started, waiting for ready...",
+                    ),
+                    "searxng": ServiceInfo(
+                        "SearXNG", ServiceStatus.STARTING, "Container started, waiting for ready..."
+                    ),
+                    "api": ServiceInfo(
+                        "API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."
+                    ),
+                }
+            )
 
         except FileNotFoundError:
-            self._notify_status({
-                "oracle": ServiceInfo("Oracle DB", ServiceStatus.ERROR, "Docker not found"),
-                "searxng": ServiceInfo("SearXNG", ServiceStatus.ERROR, "Docker not found"),
-                "api": ServiceInfo("API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."),
-            })
+            self._notify_status(
+                {
+                    "oracle": ServiceInfo("Oracle DB", ServiceStatus.ERROR, "Docker not found"),
+                    "searxng": ServiceInfo("SearXNG", ServiceStatus.ERROR, "Docker not found"),
+                    "api": ServiceInfo(
+                        "API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."
+                    ),
+                }
+            )
         except Exception as e:
-            self._notify_status({
-                "oracle": ServiceInfo("Oracle DB", ServiceStatus.ERROR, str(e)),
-                "searxng": ServiceInfo("SearXNG", ServiceStatus.ERROR, str(e)),
-                "api": ServiceInfo("API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."),
-            })
+            self._notify_status(
+                {
+                    "oracle": ServiceInfo("Oracle DB", ServiceStatus.ERROR, str(e)),
+                    "searxng": ServiceInfo("SearXNG", ServiceStatus.ERROR, str(e)),
+                    "api": ServiceInfo(
+                        "API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."
+                    ),
+                }
+            )
 
     async def _stop_docker_services(self) -> None:
         """Stop Docker containers."""
         try:
             proc = await asyncio.create_subprocess_exec(
-                "docker", "compose", "-f", self.docker_compose_path, "down",
+                "docker",
+                "compose",
+                "-f",
+                self.docker_compose_path,
+                "down",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -192,20 +234,28 @@ class ServiceManager:
             if not oracle_ready:
                 oracle_ready = await self._check_oracle_ready()
                 if oracle_ready:
-                    self._notify_status({
-                        "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
-                        "searxng": ServiceInfo("SearXNG", ServiceStatus.STARTING, "Waiting for ready..."),
-                        "api": ServiceInfo("API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."),
-                    })
+                    self._notify_status(
+                        {
+                            "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
+                            "searxng": ServiceInfo(
+                                "SearXNG", ServiceStatus.STARTING, "Waiting for ready..."
+                            ),
+                            "api": ServiceInfo(
+                                "API Server", ServiceStatus.STOPPED, "Waiting for infrastructure..."
+                            ),
+                        }
+                    )
 
             if not searxng_ready:
                 searxng_ready = await self._check_searxng_ready()
                 if searxng_ready:
-                    self._notify_status({
-                        "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
-                        "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
-                        "api": ServiceInfo("API Server", ServiceStatus.STARTING, "Starting..."),
-                    })
+                    self._notify_status(
+                        {
+                            "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
+                            "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
+                            "api": ServiceInfo("API Server", ServiceStatus.STARTING, "Starting..."),
+                        }
+                    )
 
             if oracle_ready and searxng_ready:
                 return
@@ -222,8 +272,7 @@ class ServiceManager:
         """Check if Oracle DB is ready by testing TCP connection."""
         try:
             _, writer = await asyncio.wait_for(
-                asyncio.open_connection("localhost", 1523),
-                timeout=2.0
+                asyncio.open_connection("localhost", 1523), timeout=2.0
             )
             writer.close()
             await writer.wait_closed()
@@ -251,11 +300,13 @@ class ServiceManager:
 
     async def _start_api_server(self) -> None:
         """Start the API server as an async subprocess."""
-        self._notify_status({
-            "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
-            "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
-            "api": ServiceInfo("API Server", ServiceStatus.STARTING, "Starting..."),
-        })
+        self._notify_status(
+            {
+                "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
+                "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
+                "api": ServiceInfo("API Server", ServiceStatus.STARTING, "Starting..."),
+            }
+        )
 
         try:
             project_root = Path(self.docker_compose_path).resolve().parent
@@ -265,9 +316,14 @@ class ServiceManager:
             env["PYTHIA_CONFIG"] = str(resolved_config)
 
             self._api_process = await asyncio.create_subprocess_exec(
-                sys.executable, "-m", "pythia", "serve",
-                "--host", self.host,
-                "--port", str(self.port),
+                sys.executable,
+                "-m",
+                "pythia",
+                "serve",
+                "--host",
+                self.host,
+                "--port",
+                str(self.port),
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(project_root),
@@ -277,11 +333,13 @@ class ServiceManager:
             await self._wait_for_api_server()
 
         except Exception as e:
-            self._notify_status({
-                "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
-                "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
-                "api": ServiceInfo("API Server", ServiceStatus.ERROR, str(e)),
-            })
+            self._notify_status(
+                {
+                    "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
+                    "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
+                    "api": ServiceInfo("API Server", ServiceStatus.ERROR, str(e)),
+                }
+            )
 
     async def _stop_api_server(self) -> None:
         """Stop the API server."""
@@ -302,11 +360,17 @@ class ServiceManager:
                 async with httpx.AsyncClient() as client:
                     resp = await client.get(f"http://localhost:{self.port}/health", timeout=2.0)
                     if resp.status_code == 200:
-                        self._notify_status({
-                            "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
-                            "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
-                            "api": ServiceInfo("API Server", ServiceStatus.RUNNING, f"Running on port {self.port}"),
-                        })
+                        self._notify_status(
+                            {
+                                "oracle": ServiceInfo("Oracle DB", ServiceStatus.RUNNING, "Ready"),
+                                "searxng": ServiceInfo("SearXNG", ServiceStatus.RUNNING, "Ready"),
+                                "api": ServiceInfo(
+                                    "API Server",
+                                    ServiceStatus.RUNNING,
+                                    f"Running on port {self.port}",
+                                ),
+                            }
+                        )
                         return
             except Exception:
                 pass
@@ -339,11 +403,19 @@ class ServiceManager:
                 self._notify_status(statuses)
             except Exception as e:
                 logger.exception(f"Health check failed: {e}")
-                self._notify_status({
-                    "api": ServiceInfo("API Server", ServiceStatus.ERROR, f"Health check error: {e}"),
-                    "oracle": ServiceInfo("Oracle DB", ServiceStatus.ERROR, "Health check failed"),
-                    "searxng": ServiceInfo("SearXNG", ServiceStatus.ERROR, "Health check failed"),
-                })
+                self._notify_status(
+                    {
+                        "api": ServiceInfo(
+                            "API Server", ServiceStatus.ERROR, f"Health check error: {e}"
+                        ),
+                        "oracle": ServiceInfo(
+                            "Oracle DB", ServiceStatus.ERROR, "Health check failed"
+                        ),
+                        "searxng": ServiceInfo(
+                            "SearXNG", ServiceStatus.ERROR, "Health check failed"
+                        ),
+                    }
+                )
             await asyncio.sleep(2.0)
 
     async def _check_all_health(self) -> dict[str, ServiceInfo]:
@@ -355,22 +427,30 @@ class ServiceManager:
                 resp = await client.get(f"http://localhost:{self.port}/health", timeout=2.0)
                 if resp.status_code == 200:
                     data = resp.json()
-                    statuses["api"] = ServiceInfo("API Server", ServiceStatus.RUNNING, f"Running on port {self.port}")
+                    statuses["api"] = ServiceInfo(
+                        "API Server", ServiceStatus.RUNNING, f"Running on port {self.port}"
+                    )
                     statuses["oracle"] = ServiceInfo(
                         "Oracle DB",
                         ServiceStatus.RUNNING if data.get("oracle") else ServiceStatus.ERROR,
-                        "Connected" if data.get("oracle") else "Connection failed"
+                        "Connected" if data.get("oracle") else "Connection failed",
                     )
                     statuses["searxng"] = ServiceInfo(
                         "SearXNG",
                         ServiceStatus.RUNNING if data.get("searxng") else ServiceStatus.ERROR,
-                        f"Connected ({data.get('cache_size', 0)} cached)" if data.get("searxng") else "Connection failed"
+                        f"Connected ({data.get('cache_size', 0)} cached)"
+                        if data.get("searxng")
+                        else "Connection failed",
                     )
                 else:
-                    statuses["api"] = ServiceInfo("API Server", ServiceStatus.ERROR, f"Status: {resp.status_code}")
+                    statuses["api"] = ServiceInfo(
+                        "API Server", ServiceStatus.ERROR, f"Status: {resp.status_code}"
+                    )
         except Exception as e:
             statuses["api"] = ServiceInfo("API Server", ServiceStatus.ERROR, str(e))
-            statuses["oracle"] = ServiceInfo("Oracle DB", ServiceStatus.ERROR, "Health check failed")
+            statuses["oracle"] = ServiceInfo(
+                "Oracle DB", ServiceStatus.ERROR, "Health check failed"
+            )
             statuses["searxng"] = ServiceInfo("SearXNG", ServiceStatus.ERROR, "Health check failed")
 
         return statuses

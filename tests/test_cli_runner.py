@@ -1,4 +1,5 @@
 """Tests for CLI runner module."""
+
 import json
 from pythia.cli_runner import run_embed_single, run_embed_batch
 

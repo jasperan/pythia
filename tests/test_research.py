@@ -1,4 +1,5 @@
 """Tests for deep research agent."""
+
 import tempfile
 from pathlib import Path
 
@@ -47,7 +48,10 @@ def _make_agent(
         gap = gap_analysis_return or '{"sufficient": true, "gaps": [], "reasoning": "All covered."}'
         gap_responses = [gap]
 
-    completeness_resp = completeness_return or '{"status": "COMPLETE", "reasoning": "Report is thorough.", "follow_up_queries": []}'
+    completeness_resp = (
+        completeness_return
+        or '{"status": "COMPLETE", "reasoning": "Report is thorough.", "follow_up_queries": []}'
+    )
     verification_responses = verification_sequence or [
         '{"claims_checked": 1, "issues": [], "status": "pass", "summary": "Report is supported."}'
     ]
@@ -111,8 +115,10 @@ def _make_agent(
     workspace_dir = Path(tempfile.mkdtemp(prefix="pythia-research-test-"))
 
     agent = ResearchAgent(
-        ollama=mock_ollama, cache=mock_cache,
-        searxng=mock_searxng, config=cfg,
+        ollama=mock_ollama,
+        cache=mock_cache,
+        searxng=mock_searxng,
+        config=cfg,
         workspace_dir=workspace_dir,
     )
     return agent, mock_ollama, mock_cache, mock_searxng
@@ -184,7 +190,9 @@ async def test_research_with_recall():
 @pytest.mark.asyncio
 async def test_research_multi_round():
     """Research should iterate when gap analysis says findings are insufficient."""
-    gap_round1 = '{"sufficient": false, "gaps": ["What about cost?"], "reasoning": "Cost not covered."}'
+    gap_round1 = (
+        '{"sufficient": false, "gaps": ["What about cost?"], "reasoning": "Cost not covered."}'
+    )
     agent, _, mock_cache, mock_searxng = _make_agent(
         gap_analysis_return=gap_round1,
         config_overrides={"max_rounds": 2, "deep_scrape": False},
@@ -587,7 +595,12 @@ async def test_continue_research_loads_prior_and_runs():
         "parent_id": None,
     }
     prior_findings = [
-        {"sub_query": "sub q1", "summary": "ARM is power efficient.", "sources": [], "round_num": 1},
+        {
+            "sub_query": "sub q1",
+            "summary": "ARM is power efficient.",
+            "sources": [],
+            "round_num": 1,
+        },
         {"sub_query": "sub q2", "summary": "RISC-V is open.", "sources": [], "round_num": 1},
     ]
 
@@ -641,7 +654,12 @@ async def test_refine_research_uses_directive():
         "parent_id": None,
     }
     prior_findings = [
-        {"sub_query": "sub q1", "summary": "RISC-V is open-source ISA.", "sources": [], "round_num": 1},
+        {
+            "sub_query": "sub q1",
+            "summary": "RISC-V is open-source ISA.",
+            "sources": [],
+            "round_num": 1,
+        },
     ]
 
     agent, _, mock_cache, _ = _make_agent(
@@ -651,7 +669,9 @@ async def test_refine_research_uses_directive():
     mock_cache.get_findings_for_research = AsyncMock(return_value=prior_findings)
 
     events = []
-    async for event in agent.refine_research("risc-v-arm", directive="Focus on power consumption comparison"):
+    async for event in agent.refine_research(
+        "risc-v-arm", directive="Focus on power consumption comparison"
+    ):
         events.append(event)
 
     types = [e.event_type for e in events]

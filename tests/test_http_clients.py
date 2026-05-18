@@ -1,4 +1,5 @@
 """Tests for HTTP clients — Ollama and SearXNG with mocked httpx."""
+
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -9,6 +10,7 @@ from pythia.server.searxng import SearxngClient
 
 
 # --- OllamaClient ---
+
 
 @pytest.mark.asyncio
 async def test_ollama_generate_parses_response():
@@ -56,7 +58,9 @@ async def test_ollama_generate_json_mode():
         MockClient.return_value = mock_http
 
         await client.generate("sys", "user", json_mode=True)
-        payload = mock_http.post.call_args.kwargs.get("json") or mock_http.post.call_args[1].get("json")
+        payload = mock_http.post.call_args.kwargs.get("json") or mock_http.post.call_args[1].get(
+            "json"
+        )
         assert payload["format"] == "json"
 
 
@@ -77,7 +81,9 @@ async def test_ollama_generate_model_override():
         MockClient.return_value = mock_http
 
         await client.generate("sys", "user", model="override-model")
-        payload = mock_http.post.call_args.kwargs.get("json") or mock_http.post.call_args[1].get("json")
+        payload = mock_http.post.call_args.kwargs.get("json") or mock_http.post.call_args[1].get(
+            "json"
+        )
         assert payload["model"] == "override-model"
 
 
@@ -137,10 +143,13 @@ async def test_ollama_health_failure():
 
 # --- SearxngClient ---
 
+
 @pytest.mark.asyncio
 async def test_searxng_search_http_call():
     """search() should call SearXNG with correct params and parse results."""
-    client = SearxngClient(base_url="http://localhost:8889", max_results=5, categories=["general", "science"])
+    client = SearxngClient(
+        base_url="http://localhost:8889", max_results=5, categories=["general", "science"]
+    )
 
     mock_response = MagicMock()
     mock_response.json.return_value = {

@@ -1,4 +1,5 @@
 """History screen — filterable query history with re-run."""
+
 from __future__ import annotations
 
 import logging
@@ -34,7 +35,9 @@ class HistoryScreen(Screen):
         ("d", "delete_entry", "Delete"),
     ]
 
-    def __init__(self, config: PythiaConfig, host: str | None = None, port: int | None = None) -> None:
+    def __init__(
+        self, config: PythiaConfig, host: str | None = None, port: int | None = None
+    ) -> None:
         super().__init__()
         self.config = config
         api_host = host or config.server.host
@@ -63,14 +66,16 @@ class HistoryScreen(Screen):
             for h in history:
                 query = h.get("query", "")
                 is_research = query.startswith("[research]")
-                entries.append(HistoryEntry(
-                    query=query.replace("[research] ", "") if is_research else query,
-                    cache_hit=h.get("cache_hit", False),
-                    response_time_ms=h.get("response_time_ms", 0),
-                    model=h.get("model_used", ""),
-                    is_research=is_research,
-                    timestamp=h.get("timestamp", ""),
-                ))
+                entries.append(
+                    HistoryEntry(
+                        query=query.replace("[research] ", "") if is_research else query,
+                        cache_hit=h.get("cache_hit", False),
+                        response_time_ms=h.get("response_time_ms", 0),
+                        model=h.get("model_used", ""),
+                        is_research=is_research,
+                        timestamp=h.get("timestamp", ""),
+                    )
+                )
 
             hl = self.query_one(HistoryList)
             hl.load_entries(entries)
@@ -93,7 +98,9 @@ class HistoryScreen(Screen):
         footer.append(f"  {total} queries", style="#e0e0e0")
         footer.append(f" \u00b7 {hits} cache hits ({rate})", style="#b5bd68")
         footer.append(f" \u00b7 avg {avg_str}", style="#666666")
-        footer.append("\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style="#808080")
+        footer.append(
+            "\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style="#808080"
+        )
         self.query_one("#history-footer", Static).update(footer)
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -110,6 +117,7 @@ class HistoryScreen(Screen):
         selected = self.query_one(HistoryList).get_selected()
         if selected:
             from pythia.tui.app import PythiaApp
+
             app = self.app
             if isinstance(app, PythiaApp):
                 app._pending_search_query = selected.query
@@ -119,6 +127,7 @@ class HistoryScreen(Screen):
         selected = self.query_one(HistoryList).get_selected()
         if selected:
             from pythia.tui.app import PythiaApp
+
             app = self.app
             if isinstance(app, PythiaApp):
                 app._pending_research_query = selected.query

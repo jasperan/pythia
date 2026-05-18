@@ -1,4 +1,5 @@
 """CLI contract tests around config discovery."""
+
 from __future__ import annotations
 
 import json

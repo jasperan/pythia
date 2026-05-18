@@ -1,4 +1,5 @@
 """Tests for embedding module."""
+
 from pythia.embeddings import generate_embedding, generate_embedding_list
 
 

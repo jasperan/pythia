@@ -1,4 +1,5 @@
 """Tests for new Feynman-inspired features: workspace, provenance, verification, skills, autoresearch."""
+
 from __future__ import annotations
 
 import tempfile
@@ -14,7 +15,10 @@ from pythia.workspace import WorkspaceChangelog, generate_slug
 
 class TestGenerateSlug:
     def test_basic_slug(self):
-        assert generate_slug("tradeoffs between RISC-V and ARM for edge AI") == "tradeoffs-risc-v-arm-edge-ai"
+        assert (
+            generate_slug("tradeoffs between RISC-V and ARM for edge AI")
+            == "tradeoffs-risc-v-arm-edge-ai"
+        )
 
     def test_removes_fillers(self):
         slug = generate_slug("what is the best way to learn python")
@@ -23,7 +27,9 @@ class TestGenerateSlug:
         assert "to" not in slug
 
     def test_max_words(self):
-        slug = generate_slug("cloud sandbox pricing comparison tools and services 2024", max_words=3)
+        slug = generate_slug(
+            "cloud sandbox pricing comparison tools and services 2024", max_words=3
+        )
         parts = slug.split("-")
         assert len(parts) <= 3
 
@@ -78,9 +84,15 @@ class TestProvenanceRecord:
 
     def test_to_markdown(self):
         p = ProvenanceRecord(
-            topic="test", slug="test-topic", rounds=2,
-            sources_consulted=10, sources_accepted=8, sources_rejected=2,
-            verification_status="pass", model_used="qwen3.5:9b", elapsed_ms=45000,
+            topic="test",
+            slug="test-topic",
+            rounds=2,
+            sources_consulted=10,
+            sources_accepted=8,
+            sources_rejected=2,
+            verification_status="pass",
+            model_used="qwen3.5:9b",
+            elapsed_ms=45000,
         )
         md = p.to_markdown()
         assert "test" in md
@@ -104,9 +116,17 @@ class TestVerificationResult:
 
     def test_to_markdown(self):
         v = VerificationResult(
-            claims_checked=10, status="pass_with_notes",
+            claims_checked=10,
+            status="pass_with_notes",
             summary="Minor issues found",
-            issues=[{"severity": "minor", "type": "overstated", "claim": "X is best", "explanation": "Source says X is good, not best"}],
+            issues=[
+                {
+                    "severity": "minor",
+                    "type": "overstated",
+                    "claim": "X is best",
+                    "explanation": "Source says X is good, not best",
+                }
+            ],
         )
         md = v.to_markdown()
         assert "pass_with_notes" in md

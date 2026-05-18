@@ -1,4 +1,5 @@
 """Tests for OciGenAIClient — mocks httpx.AsyncClient."""
+
 import json
 
 import httpx
@@ -14,9 +15,7 @@ async def test_oci_generate_parses_response():
     client = OciGenAIClient(base_url="http://localhost:9999/v1", model="xai.grok-4")
 
     mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "choices": [{"message": {"content": "The answer is 42."}}]
-    }
+    mock_response.json.return_value = {"choices": [{"message": {"content": "The answer is 42."}}]}
     mock_response.raise_for_status = MagicMock()
 
     with patch("httpx.AsyncClient") as MockClient:
@@ -67,9 +66,7 @@ async def test_oci_generate_json_mode_sets_response_format():
     client = OciGenAIClient(base_url="http://localhost:9999/v1", model="m")
 
     mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "choices": [{"message": {"content": '{"key": "value"}'}}]
-    }
+    mock_response.json.return_value = {"choices": [{"message": {"content": '{"key": "value"}'}}]}
     mock_response.raise_for_status = MagicMock()
 
     with patch("httpx.AsyncClient") as MockClient:
@@ -221,9 +218,7 @@ async def test_oci_suggestions_failure_returns_empty():
     client = OciGenAIClient(base_url="http://localhost:9999/v1", model="m")
 
     mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "choices": [{"message": {"content": "not valid json"}}]
-    }
+    mock_response.json.return_value = {"choices": [{"message": {"content": "not valid json"}}]}
     mock_response.raise_for_status = MagicMock()
 
     with patch("httpx.AsyncClient") as MockClient:

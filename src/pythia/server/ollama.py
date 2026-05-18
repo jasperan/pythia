@@ -1,4 +1,5 @@
 """Ollama client — LLM inference and embedding generation."""
+
 from __future__ import annotations
 
 import json
@@ -42,7 +43,8 @@ Return format: ["question 1", "question 2", "question 3"]"""
 
 
 def build_search_prompt(
-    query: str, results: list[SearchResult],
+    query: str,
+    results: list[SearchResult],
     conversation_history: list[dict] | None = None,
     scraped_content: dict[str, str] | None = None,
 ) -> tuple[str, str]:
@@ -100,7 +102,9 @@ class OllamaClient:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
 
-    async def generate_stream(self, system: str, user: str, model: str | None = None) -> AsyncIterator[str]:
+    async def generate_stream(
+        self, system: str, user: str, model: str | None = None
+    ) -> AsyncIterator[str]:
         """Stream tokens from Ollama chat completion."""
         payload = {
             "model": model or self.model,
@@ -124,7 +128,9 @@ class OllamaClient:
                 if chunk.get("done", False):
                     break
 
-    async def generate(self, system: str, user: str, json_mode: bool = False, model: str | None = None) -> str:
+    async def generate(
+        self, system: str, user: str, json_mode: bool = False, model: str | None = None
+    ) -> str:
         """Non-streaming generation. Returns complete response text."""
         payload = {
             "model": model or self.model,
@@ -146,7 +152,9 @@ class OllamaClient:
             content = _strip_json_fences(content)
         return content
 
-    async def generate_suggestions(self, query: str, answer: str, model: str | None = None) -> list[str]:
+    async def generate_suggestions(
+        self, query: str, answer: str, model: str | None = None
+    ) -> list[str]:
         """Generate follow-up question suggestions based on query and answer."""
         try:
             prompt = _SUGGESTIONS_PROMPT.format(query=query, answer=answer[:1000])

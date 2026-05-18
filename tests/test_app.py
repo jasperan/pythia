@@ -1,4 +1,5 @@
 """Tests for FastAPI application endpoints."""
+
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -16,19 +17,33 @@ def mock_config():
 @pytest.fixture
 def app(mock_config):
     """Create app with fully mocked backends."""
-    with patch("pythia.server.app.OracleCache") as MockCache, \
-         patch("pythia.server.app.OllamaClient") as MockOllama, \
-         patch("pythia.server.app.SearxngClient") as MockSearxng:
-
+    with (
+        patch("pythia.server.app.OracleCache") as MockCache,
+        patch("pythia.server.app.create_llm_client") as mock_create_llm_client,
+        patch("pythia.server.app.SearxngClient") as MockSearxng,
+    ):
         mock_cache = AsyncMock()
         mock_cache.health = AsyncMock(return_value=True)
         mock_cache.get_cache_size = AsyncMock(return_value=5)
-        mock_cache.get_history = AsyncMock(return_value=[
-            {"query": "test", "cache_hit": False, "response_time_ms": 100, "model_used": "qwen3.5:9b", "created_at": "2025-01-01T00:00:00"}
-        ])
-        mock_cache.get_stats = AsyncMock(return_value={
-            "total_searches": 10, "cache_hits": 3, "cache_hit_rate": 0.3, "avg_response_ms": 200
-        })
+        mock_cache.get_history = AsyncMock(
+            return_value=[
+                {
+                    "query": "test",
+                    "cache_hit": False,
+                    "response_time_ms": 100,
+                    "model_used": "qwen3.5:9b",
+                    "created_at": "2025-01-01T00:00:00",
+                }
+            ]
+        )
+        mock_cache.get_stats = AsyncMock(
+            return_value={
+                "total_searches": 10,
+                "cache_hits": 3,
+                "cache_hit_rate": 0.3,
+                "avg_response_ms": 200,
+            }
+        )
         mock_cache.clear_cache = AsyncMock(return_value=5)
         mock_cache.connect = AsyncMock()
         mock_cache.close = AsyncMock()
@@ -38,7 +53,7 @@ def app(mock_config):
         mock_ollama.health = AsyncMock(return_value=True)
         mock_ollama.close = AsyncMock()
         mock_ollama.model = "qwen3.5:9b"
-        MockOllama.return_value = mock_ollama
+        mock_create_llm_client.return_value = mock_ollama
 
         mock_searxng = MagicMock()
         mock_searxng.health = AsyncMock(return_value=True)
@@ -158,8 +173,11 @@ def test_refine_validation_empty_directive(client):
 
 
 def test_cors_headers(client):
-    resp = client.options("/health", headers={
-        "Origin": "http://localhost:3000",
-        "Access-Control-Request-Method": "GET",
-    })
+    resp = client.options(
+        "/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
     assert "access-control-allow-origin" in resp.headers

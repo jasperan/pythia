@@ -1,4 +1,5 @@
 """Tests for session divider widget."""
+
 from pythia.tui.widgets.session_divider import SessionDivider
 
 

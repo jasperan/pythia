@@ -1,4 +1,5 @@
 """Pluggable skill definitions for research workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -28,7 +29,12 @@ _DEFAULT_SKILLS: dict[str, SkillDef] = {
     "deep-research": SkillDef(
         name="deep-research",
         description="Multi-round iterative research with gap analysis and synthesis",
-        triggers=["deepresearch", "deep research", "thorough investigation", "comprehensive analysis"],
+        triggers=[
+            "deepresearch",
+            "deep research",
+            "thorough investigation",
+            "comprehensive analysis",
+        ],
         system_prompt="You are Pythia, an AI research engine. Conduct thorough multi-round research.",
         user_prompt_template="Research question: {query}\n\nConduct a thorough investigation with multiple rounds if needed.",
         output_format="markdown",
@@ -52,7 +58,13 @@ _DEFAULT_SKILLS: dict[str, SkillDef] = {
     "lit-review": SkillDef(
         name="lit-review",
         description="Literature review with consensus, disagreements, and open questions",
-        triggers=["literature review", "lit review", "state of the art", "survey of", "academic landscape"],
+        triggers=[
+            "literature review",
+            "lit review",
+            "state of the art",
+            "survey of",
+            "academic landscape",
+        ],
         system_prompt="You are Pythia, an AI research engine conducting a literature review. Identify consensus, disagreements, and open questions in the academic and technical literature.",
         user_prompt_template="Literature review topic: {query}\n\nSurvey the literature, identify consensus areas, disagreements, and open questions.",
         output_format="markdown",

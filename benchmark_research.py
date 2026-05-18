@@ -1,6 +1,7 @@
 """Benchmark for Pythia's deep research pipeline performance.
 Simulates the full research agent workflow with skill matching,
 provenance tracking, verification, and changelog operations."""
+
 import json
 import time
 from pythia.skills import SkillLoader
@@ -24,18 +25,32 @@ with tempfile.TemporaryDirectory() as td:
         slug = generate_slug(query)
 
         provenance = ProvenanceRecord(
-            topic=query, slug=slug, rounds=3,
-            sources_consulted=10, sources_accepted=8, sources_rejected=2,
-            verification_status="pass", model_used="qwen3.5:9b", elapsed_ms=45000,
+            topic=query,
+            slug=slug,
+            rounds=3,
+            sources_consulted=10,
+            sources_accepted=8,
+            sources_rejected=2,
+            verification_status="pass",
+            model_used="qwen3.5:9b",
+            elapsed_ms=45000,
         )
         provenance.to_markdown()
 
         changelog.append_entry(slug, f"Round {i} complete", f"Query: {query}", "completed")
 
         verification = VerificationResult(
-            claims_checked=10, status="pass_with_notes",
+            claims_checked=10,
+            status="pass_with_notes",
             summary="Minor issues found",
-            issues=[{"severity": "minor", "type": "overstated", "claim": "X is best", "explanation": "Source says X is good"}],
+            issues=[
+                {
+                    "severity": "minor",
+                    "type": "overstated",
+                    "claim": "X is best",
+                    "explanation": "Source says X is good",
+                }
+            ],
         )
         verification.to_markdown()
 

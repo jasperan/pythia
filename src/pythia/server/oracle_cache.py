@@ -1,4 +1,5 @@
 """Oracle AI Vector Search cache — semantic search memory with Python embeddings."""
+
 from __future__ import annotations
 
 import asyncio
@@ -32,7 +33,11 @@ class OracleCache:
     """Oracle AI Vector Search cache with Python-generated embeddings."""
 
     def __init__(
-        self, dsn: str, user: str, password: str, similarity_threshold: float = 0.85,
+        self,
+        dsn: str,
+        user: str,
+        password: str,
+        similarity_threshold: float = 0.85,
         embedding_model: str = "ALL_MINILM_L6_V2",
     ):
         self.dsn = dsn
@@ -116,7 +121,11 @@ class OracleCache:
             ), query_embedding
 
     async def store(
-        self, query: str, answer: str, sources: list[dict], model_used: str,
+        self,
+        query: str,
+        answer: str,
+        sources: list[dict],
+        model_used: str,
         query_embedding: str | None = None,
     ) -> None:
         """Store a search result in the cache. Accepts pre-computed embedding to avoid redundant work."""
@@ -135,7 +144,9 @@ class OracleCache:
             await cur.execute(sql, [query, query_embedding, answer, sources_json, model_used])
             await conn.commit()
 
-    async def record_search(self, query: str, cache_hit: bool, response_time_ms: int, model_used: str) -> None:
+    async def record_search(
+        self, query: str, cache_hit: bool, response_time_ms: int, model_used: str
+    ) -> None:
         """Record a search in history."""
         if not self._pool:
             return
@@ -157,7 +168,12 @@ class OracleCache:
             await cur.execute("SELECT * FROM pythia_stats")
             row = await cur.fetchone()
             if not row:
-                return {"total_searches": 0, "cache_hits": 0, "cache_hit_rate": 0, "avg_response_ms": 0}
+                return {
+                    "total_searches": 0,
+                    "cache_hits": 0,
+                    "cache_hit_rate": 0,
+                    "avg_response_ms": 0,
+                }
             return {
                 "total_searches": row[0] or 0,
                 "cache_hits": row[1] or 0,
@@ -220,7 +236,9 @@ class OracleCache:
         except Exception:
             return False
 
-    async def recall_findings(self, query: str, threshold: float = 0.70, limit: int = 5) -> list[dict]:
+    async def recall_findings(
+        self, query: str, threshold: float = 0.70, limit: int = 5
+    ) -> list[dict]:
         """Recall related findings from past research sessions via vector similarity."""
         if not self._pool:
             return []
@@ -241,19 +259,28 @@ class OracleCache:
                 sim = float(row[4])
                 if sim < threshold:
                     continue
-                results.append({
-                    "sub_query": row[0],
-                    "summary": row[1],
-                    "sources": json.loads(row[2]) if row[2] else [],
-                    "research_query": row[3],
-                    "similarity": sim,
-                })
+                results.append(
+                    {
+                        "sub_query": row[0],
+                        "summary": row[1],
+                        "sources": json.loads(row[2]) if row[2] else [],
+                        "research_query": row[3],
+                        "similarity": sim,
+                    }
+                )
             return results
 
     async def store_research(
-        self, query: str, report: str, sub_queries: list[str],
-        rounds_used: int, total_sources: int, model_used: str, elapsed_ms: int,
-        slug: str | None = None, parent_id: str | None = None,
+        self,
+        query: str,
+        report: str,
+        sub_queries: list[str],
+        rounds_used: int,
+        total_sources: int,
+        model_used: str,
+        elapsed_ms: int,
+        slug: str | None = None,
+        parent_id: str | None = None,
         verification_status: str | None = None,
         verification_summary: str | None = None,
         provenance: str | None = None,
@@ -278,17 +305,32 @@ class OracleCache:
         parent_id_bytes = bytes.fromhex(parent_id) if parent_id else None
         async with self._pool.acquire() as conn, conn.cursor() as cur:
             research_id_var = cur.var(oracledb.DB_TYPE_RAW)
-            await cur.execute(sql, [
-                query, query_embedding, report, json.dumps(sub_queries),
-                rounds_used, total_sources, model_used, elapsed_ms,
-                slug, parent_id_bytes, verification_status,
-                verification_summary, provenance, research_id_var,
-            ])
+            await cur.execute(
+                sql,
+                [
+                    query,
+                    query_embedding,
+                    report,
+                    json.dumps(sub_queries),
+                    rounds_used,
+                    total_sources,
+                    model_used,
+                    elapsed_ms,
+                    slug,
+                    parent_id_bytes,
+                    verification_status,
+                    verification_summary,
+                    provenance,
+                    research_id_var,
+                ],
+            )
             await conn.commit()
             return research_id_var.getvalue()[0].hex()
 
     async def store_findings_batch(
-        self, research_id: str, findings: list[dict],
+        self,
+        research_id: str,
+        findings: list[dict],
     ) -> None:
         """Store multiple findings in a single transaction. Each dict needs: sub_query, summary, sources, round_num."""
         if not self._pool or not findings:
@@ -299,14 +341,17 @@ class OracleCache:
         """
         # Generate all embeddings in parallel
         embedding_tasks = [
-            self.generate_embedding(f["sub_query"] + " " + f["summary"][:200])
-            for f in findings
+            self.generate_embedding(f["sub_query"] + " " + f["summary"][:200]) for f in findings
         ]
         embeddings = await asyncio.gather(*embedding_tasks)
         rows = [
             [
-                bytes.fromhex(research_id), f["sub_query"], emb,
-                f["summary"], json.dumps(f["sources"]), f["round_num"],
+                bytes.fromhex(research_id),
+                f["sub_query"],
+                emb,
+                f["summary"],
+                json.dumps(f["sources"]),
+                f["round_num"],
             ]
             for f, emb in zip(findings, embeddings, strict=False)
         ]

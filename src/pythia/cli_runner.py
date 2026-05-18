@@ -1,4 +1,5 @@
 """Async runners for CLI commands — direct mode, no API server needed."""
+
 from __future__ import annotations
 
 import json
@@ -16,12 +17,14 @@ from pythia.server.searxng import SearxngClient
 def run_embed_single(text: str) -> str:
     """Generate embedding for a single text. Returns JSON string."""
     embedding = generate_embedding_list(text)
-    return json.dumps({
-        "text": text,
-        "embedding": embedding,
-        "dimensions": DIMENSIONS,
-        "model": MODEL_NAME,
-    })
+    return json.dumps(
+        {
+            "text": text,
+            "embedding": embedding,
+            "dimensions": DIMENSIONS,
+            "model": MODEL_NAME,
+        }
+    )
 
 
 def run_embed_batch(texts: list[str]) -> list[str]:
@@ -66,7 +69,10 @@ async def run_query(
         try:
             await cache.connect()
         except Exception as e:
-            print(f"Warning: Oracle cache unavailable ({e}), proceeding without cache", file=sys.stderr)
+            print(
+                f"Warning: Oracle cache unavailable ({e}), proceeding without cache",
+                file=sys.stderr,
+            )
             use_cache = False
 
     orchestrator = SearchOrchestrator(ollama=ollama, cache=cache, searxng=searxng)
@@ -132,7 +138,10 @@ async def run_continue_research(
         await cache.connect()
         cache_connected = True
     except Exception as e:
-        print(f"Warning: Oracle cache unavailable ({e}), continuation cannot load prior research", file=sys.stderr)
+        print(
+            f"Warning: Oracle cache unavailable ({e}), continuation cannot load prior research",
+            file=sys.stderr,
+        )
 
     research_config = cfg.research
     if max_rounds is not None:
@@ -168,7 +177,10 @@ async def run_refine_research(
         await cache.connect()
         cache_connected = True
     except Exception as e:
-        print(f"Warning: Oracle cache unavailable ({e}), refinement cannot load prior research", file=sys.stderr)
+        print(
+            f"Warning: Oracle cache unavailable ({e}), refinement cannot load prior research",
+            file=sys.stderr,
+        )
 
     research_config = cfg.research
     if max_rounds is not None:
@@ -375,10 +387,15 @@ async def run_autoresearch(
             if event.event_type == AutoresearchEventType.STATUS:
                 print(json.dumps({"status": event.data.get("message", "")}), file=sys.stderr)
             elif event.event_type == AutoresearchEventType.BASELINE:
-                print(json.dumps({
-                    "baseline": event.data.get("metric_value"),
-                    "metric": event.data.get("metric_name"),
-                }), file=sys.stderr)
+                print(
+                    json.dumps(
+                        {
+                            "baseline": event.data.get("metric_value"),
+                            "metric": event.data.get("metric_name"),
+                        }
+                    ),
+                    file=sys.stderr,
+                )
             elif event.event_type == AutoresearchEventType.METRIC:
                 iterations.append(event.data)
                 if event.data.get("improved"):

@@ -1,4 +1,5 @@
 """Settings panel — model picker, toggles."""
+
 from __future__ import annotations
 
 import httpx

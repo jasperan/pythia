@@ -1,4 +1,5 @@
 """Follow-up suggestions widget — shows clickable related queries."""
+
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -37,6 +38,7 @@ class Suggestions(Widget):
 
     class Selected(Message):
         """Emitted when a suggestion is clicked."""
+
         def __init__(self, query: str) -> None:
             super().__init__()
             self.query = query

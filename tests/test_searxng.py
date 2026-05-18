@@ -1,4 +1,5 @@
 """Tests for SearXNG client."""
+
 import pytest
 from pythia.server.searxng import SearxngClient, SearchResult
 

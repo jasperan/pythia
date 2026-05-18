@@ -1,4 +1,5 @@
 """Cache badge — shows cache hit/miss status after search."""
+
 from __future__ import annotations
 
 from rich.text import Text

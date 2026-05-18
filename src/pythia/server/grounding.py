@@ -1,4 +1,5 @@
 """Answer grounding — verifies LLM claims against source text."""
+
 from __future__ import annotations
 
 import re
@@ -8,6 +9,7 @@ from dataclasses import dataclass, field
 @dataclass
 class GroundedClaim:
     """A single claim extracted from the answer with its grounding status."""
+
     text: str
     cited_sources: list[int]
     grounded: bool = False
@@ -16,6 +18,7 @@ class GroundedClaim:
 @dataclass
 class GroundingResult:
     """Overall grounding assessment for an answer."""
+
     score: float = 0.0  # 0.0 to 1.0
     total_claims: int = 0
     grounded_claims: int = 0
@@ -25,13 +28,13 @@ class GroundingResult:
 
 def _extract_claims(answer: str) -> list[GroundedClaim]:
     """Extract citation-bearing sentences from the answer."""
-    sentences = re.split(r'(?<=[.!?])\s+', answer.strip())
+    sentences = re.split(r"(?<=[.!?])\s+", answer.strip())
     claims = []
     for sent in sentences:
-        cited = [int(n) for n in re.findall(r'\[(\d+)\]', sent)]
+        cited = [int(n) for n in re.findall(r"\[(\d+)\]", sent)]
         if cited:
             # Strip citation markers for comparison
-            clean = re.sub(r'\[\d+\]', '', sent).strip()
+            clean = re.sub(r"\[\d+\]", "", sent).strip()
             if len(clean) > 10:  # Skip trivially short fragments
                 claims.append(GroundedClaim(text=clean, cited_sources=cited))
     return claims
@@ -42,9 +45,39 @@ def _word_overlap(claim_text: str, source_text: str) -> float:
     claim_words = set(claim_text.lower().split())
     source_words = set(source_text.lower().split())
     # Remove stop words for better signal
-    stop = {"the", "a", "an", "is", "are", "was", "were", "in", "on", "at", "to",
-            "for", "of", "and", "or", "but", "not", "with", "by", "from", "as",
-            "it", "its", "this", "that", "be", "has", "have", "had", "do", "does"}
+    stop = {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "and",
+        "or",
+        "but",
+        "not",
+        "with",
+        "by",
+        "from",
+        "as",
+        "it",
+        "its",
+        "this",
+        "that",
+        "be",
+        "has",
+        "have",
+        "had",
+        "do",
+        "does",
+    }
     claim_words -= stop
     source_words -= stop
     if not claim_words:

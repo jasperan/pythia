@@ -1,4 +1,5 @@
 """Sparkline panel — response time and cache hit visualization."""
+
 from __future__ import annotations
 
 from rich.text import Text

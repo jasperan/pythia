@@ -1,4 +1,5 @@
 """Capture TUI screenshots for README documentation."""
+
 from __future__ import annotations
 
 import asyncio
@@ -45,20 +46,40 @@ async def capture_search_screen(app, pilot):
     card1.set_content(
         "**Reinforcement Learning from Human Feedback (RLHF)** is a technique for fine-tuning "
         "language models using human preference data rather than traditional supervised labels.\n\n"
-        "The core idea: instead of telling the model what the \"right\" answer is, you show it pairs "
+        'The core idea: instead of telling the model what the "right" answer is, you show it pairs '
         "of outputs and let humans pick which one is better. A reward model learns these preferences, "
         "then the LLM is optimized via PPO to maximize that reward signal [1][2].\n\n"
-        "**Why it matters:** RLHF bridges the gap between \"technically correct\" and \"actually helpful.\" "
+        '**Why it matters:** RLHF bridges the gap between "technically correct" and "actually helpful." '
         "Models trained with RLHF are better at following instructions, refusing harmful requests, "
         "and producing responses that humans rate as more useful [3]."
     )
-    sources1.add_source({"index": 1, "title": "Training language models to follow instructions with human feedback", "url": "https://arxiv.org/abs/2203.02155"})
-    sources1.add_source({"index": 2, "title": "Learning to summarize from human feedback", "url": "https://arxiv.org/abs/2009.01325"})
-    sources1.add_source({"index": 3, "title": "Anthropic RLHF Research", "url": "https://www.anthropic.com/research"})
+    sources1.add_source(
+        {
+            "index": 1,
+            "title": "Training language models to follow instructions with human feedback",
+            "url": "https://arxiv.org/abs/2203.02155",
+        }
+    )
+    sources1.add_source(
+        {
+            "index": 2,
+            "title": "Learning to summarize from human feedback",
+            "url": "https://arxiv.org/abs/2009.01325",
+        }
+    )
+    sources1.add_source(
+        {
+            "index": 3,
+            "title": "Anthropic RLHF Research",
+            "url": "https://www.anthropic.com/research",
+        }
+    )
     badge1.show_cache_hit(0.92, 18)
 
     # Second query - web search
-    div2 = SessionDivider(query="How does Oracle AI Vector Search compare to pgvector?", timestamp="3:18 PM")
+    div2 = SessionDivider(
+        query="How does Oracle AI Vector Search compare to pgvector?", timestamp="3:18 PM"
+    )
     card2 = ResultCard()
     sources2 = SourceList()
     badge2 = CacheBadge()
@@ -81,9 +102,27 @@ async def capture_search_screen(app, pilot):
         "externally and store them. For high-security environments where data can't leave the DB, "
         "Oracle wins [3]."
     )
-    sources2.add_source({"index": 1, "title": "Oracle AI Vector Search Documentation", "url": "https://docs.oracle.com/en/database/oracle/oracle-database/23/vecse/"})
-    sources2.add_source({"index": 2, "title": "pgvector: Open-source vector similarity search for Postgres", "url": "https://github.com/pgvector/pgvector"})
-    sources2.add_source({"index": 3, "title": "Oracle 23ai Free: In-Database ML and Vector Search", "url": "https://blogs.oracle.com/database/post/oracle-23ai-vector-search"})
+    sources2.add_source(
+        {
+            "index": 1,
+            "title": "Oracle AI Vector Search Documentation",
+            "url": "https://docs.oracle.com/en/database/oracle/oracle-database/23/vecse/",
+        }
+    )
+    sources2.add_source(
+        {
+            "index": 2,
+            "title": "pgvector: Open-source vector similarity search for Postgres",
+            "url": "https://github.com/pgvector/pgvector",
+        }
+    )
+    sources2.add_source(
+        {
+            "index": 3,
+            "title": "Oracle 23ai Free: In-Database ML and Vector Search",
+            "url": "https://blogs.oracle.com/database/post/oracle-23ai-vector-search",
+        }
+    )
     badge2.show_web_search(2340, 8)
 
     results.scroll_end()
@@ -108,25 +147,55 @@ async def capture_research_screen(app, pilot):
     result_card = app.screen.query_one(ResultCard)
 
     # Simulate recalled findings
-    tree.set_recall([
-        {"sub_query": "RISC-V power efficiency benchmarks", "similarity": 0.82, "from_query": "ARM vs x86 power consumption"},
-    ])
+    tree.set_recall(
+        [
+            {
+                "sub_query": "RISC-V power efficiency benchmarks",
+                "similarity": 0.82,
+                "from_query": "ARM vs x86 power consumption",
+            },
+        ]
+    )
 
     # Round 1 - completed
-    tree.add_plan([
-        "What are the main RISC-V implementations for edge AI?",
-        "How does ARM Cortex-M compare for ML inference?",
-        "What are the power consumption tradeoffs?",
-    ])
+    tree.add_plan(
+        [
+            "What are the main RISC-V implementations for edge AI?",
+            "How does ARM Cortex-M compare for ML inference?",
+            "What are the power consumption tradeoffs?",
+        ]
+    )
     tree.start_round(1, 3)
-    tree.complete_finding("What are the main RISC-V implementations for edge AI?", num_sources=6, preview="SiFive, Kendryte K210...")
-    tree.complete_finding("How does ARM Cortex-M compare for ML inference?", num_sources=4, preview="Cortex-M55 with Ethos-U55...")
-    tree.complete_finding("What are the power consumption tradeoffs?", num_sources=5, preview="RISC-V custom extensions...")
+    tree.complete_finding(
+        "What are the main RISC-V implementations for edge AI?",
+        num_sources=6,
+        preview="SiFive, Kendryte K210...",
+    )
+    tree.complete_finding(
+        "How does ARM Cortex-M compare for ML inference?",
+        num_sources=4,
+        preview="Cortex-M55 with Ethos-U55...",
+    )
+    tree.complete_finding(
+        "What are the power consumption tradeoffs?",
+        num_sources=5,
+        preview="RISC-V custom extensions...",
+    )
 
     # Round 2 - in progress
-    tree.add_gaps(["What about RISC-V vector extensions for neural network acceleration?", "Cost comparison: RISC-V vs ARM licensing"], reasoning="Missing details on hardware acceleration and economics")
+    tree.add_gaps(
+        [
+            "What about RISC-V vector extensions for neural network acceleration?",
+            "Cost comparison: RISC-V vs ARM licensing",
+        ],
+        reasoning="Missing details on hardware acceleration and economics",
+    )
     tree.start_round(2, 3)
-    tree.complete_finding("What about RISC-V vector extensions for neural network acceleration?", num_sources=3, preview="RVV 1.0 specification...")
+    tree.complete_finding(
+        "What about RISC-V vector extensions for neural network acceleration?",
+        num_sources=3,
+        preview="RVV 1.0 specification...",
+    )
 
     progress.update_progress(round_num=2, max_rounds=3, findings=4, sources=18, elapsed_ms=12400)
 
@@ -167,14 +236,70 @@ async def capture_history_screen(app, pilot):
 
     hl = app.screen.query_one(HistoryList)
     entries = [
-        HistoryEntry(query="How does Oracle AI Vector Search compare to pgvector?", cache_hit=False, response_time_ms=2340, model="qwen3.5:9b", is_research=False, timestamp="3:18 PM"),
-        HistoryEntry(query="What is RLHF and why does it matter?", cache_hit=True, response_time_ms=18, model="qwen3.5:9b", is_research=False, timestamp="3:15 PM"),
-        HistoryEntry(query="RISC-V vs ARM for edge AI inference", cache_hit=False, response_time_ms=14200, model="qwen3.5:9b", is_research=True, timestamp="3:08 PM"),
-        HistoryEntry(query="Python asyncio vs threading for IO-bound work", cache_hit=False, response_time_ms=1820, model="qwen3.5:9b", is_research=False, timestamp="2:55 PM"),
-        HistoryEntry(query="What is semantic caching and how does it work?", cache_hit=True, response_time_ms=12, model="qwen3.5:9b", is_research=False, timestamp="2:41 PM"),
-        HistoryEntry(query="Textual framework best practices for complex TUIs", cache_hit=False, response_time_ms=3100, model="qwen3.5:9b", is_research=False, timestamp="2:30 PM"),
-        HistoryEntry(query="State of Rust async ecosystem 2025", cache_hit=False, response_time_ms=18900, model="qwen3.5:9b", is_research=True, timestamp="1:45 PM"),
-        HistoryEntry(query="Oracle 26ai Free Docker setup guide", cache_hit=True, response_time_ms=9, model="qwen3.5:9b", is_research=False, timestamp="1:20 PM"),
+        HistoryEntry(
+            query="How does Oracle AI Vector Search compare to pgvector?",
+            cache_hit=False,
+            response_time_ms=2340,
+            model="qwen3.5:9b",
+            is_research=False,
+            timestamp="3:18 PM",
+        ),
+        HistoryEntry(
+            query="What is RLHF and why does it matter?",
+            cache_hit=True,
+            response_time_ms=18,
+            model="qwen3.5:9b",
+            is_research=False,
+            timestamp="3:15 PM",
+        ),
+        HistoryEntry(
+            query="RISC-V vs ARM for edge AI inference",
+            cache_hit=False,
+            response_time_ms=14200,
+            model="qwen3.5:9b",
+            is_research=True,
+            timestamp="3:08 PM",
+        ),
+        HistoryEntry(
+            query="Python asyncio vs threading for IO-bound work",
+            cache_hit=False,
+            response_time_ms=1820,
+            model="qwen3.5:9b",
+            is_research=False,
+            timestamp="2:55 PM",
+        ),
+        HistoryEntry(
+            query="What is semantic caching and how does it work?",
+            cache_hit=True,
+            response_time_ms=12,
+            model="qwen3.5:9b",
+            is_research=False,
+            timestamp="2:41 PM",
+        ),
+        HistoryEntry(
+            query="Textual framework best practices for complex TUIs",
+            cache_hit=False,
+            response_time_ms=3100,
+            model="qwen3.5:9b",
+            is_research=False,
+            timestamp="2:30 PM",
+        ),
+        HistoryEntry(
+            query="State of Rust async ecosystem 2025",
+            cache_hit=False,
+            response_time_ms=18900,
+            model="qwen3.5:9b",
+            is_research=True,
+            timestamp="1:45 PM",
+        ),
+        HistoryEntry(
+            query="Oracle 26ai Free Docker setup guide",
+            cache_hit=True,
+            response_time_ms=9,
+            model="qwen3.5:9b",
+            is_research=False,
+            timestamp="1:20 PM",
+        ),
     ]
     hl.load_entries(entries)
 
@@ -183,7 +308,9 @@ async def capture_history_screen(app, pilot):
     footer.append(f"  {len(entries)} queries", style="#e0e0e0")
     footer.append(" \u00b7 3 cache hits (38%)", style="#b5bd68")
     footer.append(" \u00b7 avg 5.1s", style="#666666")
-    footer.append("\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style="#808080")
+    footer.append(
+        "\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style="#808080"
+    )
     app.screen.query_one("#history-footer", Static).update(footer)
 
     await pilot.pause(delay=0.5)
@@ -203,43 +330,47 @@ async def capture_dashboard_screen(app, pilot):
 
     # Stop dashboard refresh timer
     screen = app.screen
-    if hasattr(screen, '_refresh_interval') and screen._refresh_interval:
+    if hasattr(screen, "_refresh_interval") and screen._refresh_interval:
         screen._refresh_interval.stop()
         screen._refresh_interval = None
 
     stats = app.screen.query_one(StatsPanel)
-    stats.update_stats({
-        "total_searches": 142,
-        "cache_hits": 61,
-        "cache_hit_rate": 42.9,
-        "cache_size": 38,
-        "avg_response_ms": 1240,
-        "active_days": 12,
-    })
+    stats.update_stats(
+        {
+            "total_searches": 142,
+            "cache_hits": 61,
+            "cache_hit_rate": 42.9,
+            "cache_size": 38,
+            "avg_response_ms": 1240,
+            "active_days": 12,
+        }
+    )
 
     sparkline = app.screen.query_one(SparklinePanel)
-    sparkline.update_data([
-        {"response_time_ms": 18, "cache_hit": True},
-        {"response_time_ms": 2340, "cache_hit": False},
-        {"response_time_ms": 1820, "cache_hit": False},
-        {"response_time_ms": 12, "cache_hit": True},
-        {"response_time_ms": 3100, "cache_hit": False},
-        {"response_time_ms": 14200, "cache_hit": False},
-        {"response_time_ms": 9, "cache_hit": True},
-        {"response_time_ms": 890, "cache_hit": False},
-        {"response_time_ms": 15, "cache_hit": True},
-        {"response_time_ms": 4500, "cache_hit": False},
-        {"response_time_ms": 22, "cache_hit": True},
-        {"response_time_ms": 1100, "cache_hit": False},
-        {"response_time_ms": 2800, "cache_hit": False},
-        {"response_time_ms": 11, "cache_hit": True},
-        {"response_time_ms": 950, "cache_hit": False},
-        {"response_time_ms": 3400, "cache_hit": False},
-        {"response_time_ms": 16, "cache_hit": True},
-        {"response_time_ms": 2100, "cache_hit": False},
-        {"response_time_ms": 13, "cache_hit": True},
-        {"response_time_ms": 1600, "cache_hit": False},
-    ])
+    sparkline.update_data(
+        [
+            {"response_time_ms": 18, "cache_hit": True},
+            {"response_time_ms": 2340, "cache_hit": False},
+            {"response_time_ms": 1820, "cache_hit": False},
+            {"response_time_ms": 12, "cache_hit": True},
+            {"response_time_ms": 3100, "cache_hit": False},
+            {"response_time_ms": 14200, "cache_hit": False},
+            {"response_time_ms": 9, "cache_hit": True},
+            {"response_time_ms": 890, "cache_hit": False},
+            {"response_time_ms": 15, "cache_hit": True},
+            {"response_time_ms": 4500, "cache_hit": False},
+            {"response_time_ms": 22, "cache_hit": True},
+            {"response_time_ms": 1100, "cache_hit": False},
+            {"response_time_ms": 2800, "cache_hit": False},
+            {"response_time_ms": 11, "cache_hit": True},
+            {"response_time_ms": 950, "cache_hit": False},
+            {"response_time_ms": 3400, "cache_hit": False},
+            {"response_time_ms": 16, "cache_hit": True},
+            {"response_time_ms": 2100, "cache_hit": False},
+            {"response_time_ms": 13, "cache_hit": True},
+            {"response_time_ms": 1600, "cache_hit": False},
+        ]
+    )
 
     await pilot.pause(delay=0.5)
     svg = app.export_screenshot()
@@ -259,7 +390,7 @@ async def main():
 
         # Stop health check timer to prevent network errors
         screen = app.screen
-        if hasattr(screen, '_health_check_interval') and screen._health_check_interval:
+        if hasattr(screen, "_health_check_interval") and screen._health_check_interval:
             screen._health_check_interval.stop()
             screen._health_check_interval = None
 

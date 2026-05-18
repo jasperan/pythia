@@ -1,4 +1,5 @@
 """Deep scraping via Scrapling with per-URL fallback."""
+
 from __future__ import annotations
 
 import asyncio
@@ -35,7 +36,9 @@ def _scrape_one_sync(url: str, fallback_snippet: str) -> ScrapedContent:
         page = Fetcher.get(url, timeout=10)
         text = page.get_all_text(ignore_tags=("script", "style", "nav", "footer", "header"))
         if not text or len(text.strip()) < 50:
-            return ScrapedContent(url=url, content=fallback_snippet, success=False, error="insufficient content")
+            return ScrapedContent(
+                url=url, content=fallback_snippet, success=False, error="insufficient content"
+            )
         content = text.strip()[:4000]
         return ScrapedContent(url=url, content=content, success=True)
     except Exception as e:

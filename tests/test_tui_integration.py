@@ -1,4 +1,5 @@
 """End-to-end integration tests for Pythia TUI using Textual's test harness."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -294,6 +295,7 @@ async def test_search_screen_has_required_widgets(app):
 async def test_search_screen_results_area_starts_empty(app):
     async with app.run_test():
         from textual.containers import VerticalScroll
+
         results = app.screen.query_one("#results-area", VerticalScroll)
         assert len(results.children) == 0
 
@@ -364,7 +366,10 @@ async def test_research_requests_include_selected_model(app, monkeypatch):
     recorded: dict[str, object] = {}
     client_cls = _make_streaming_client(
         recorded,
-        ["event: done", 'data: {"rounds_used": 1, "total_findings": 0, "total_sources": 0, "elapsed_ms": 1}'],
+        [
+            "event: done",
+            'data: {"rounds_used": 1, "total_findings": 0, "total_sources": 0, "elapsed_ms": 1}',
+        ],
     )
     monkeypatch.setattr(research_screen_module.httpx, "AsyncClient", client_cls)
 
@@ -436,6 +441,7 @@ async def test_research_tree_in_app_context(app):
         app.set_focus(None)
         await pilot.press("2")
         from pythia.tui.widgets.research_tree import ResearchTree, NodeState
+
         tree = app.screen.query_one(ResearchTree)
         tree.add_plan(["Sub Q 1", "Sub Q 2", "Sub Q 3"])
         assert len(tree._rounds) == 1
@@ -452,6 +458,7 @@ async def test_research_progress_in_app_context(app):
         app.set_focus(None)
         await pilot.press("2")
         from pythia.tui.widgets.research_progress import ResearchProgressBar
+
         bar = app.screen.query_one(ResearchProgressBar)
         bar.update_progress(round_num=1, max_rounds=3, findings=2, sources=8, elapsed_ms=1500)
         assert bar._current_round == 1
@@ -465,11 +472,30 @@ async def test_history_list_in_app_context(app):
         app.set_focus(None)
         await pilot.press("3")
         from pythia.tui.widgets.history_list import HistoryList, HistoryEntry
+
         hl = app.screen.query_one(HistoryList)
         entries = [
-            HistoryEntry(query="vector databases", cache_hit=True, response_time_ms=23, model="qwen3.5:9b", is_research=False),
-            HistoryEntry(query="quantum computing", cache_hit=False, response_time_ms=2000, model="qwen3.5:9b", is_research=False),
-            HistoryEntry(query="[research] AI safety", cache_hit=False, response_time_ms=8000, model="qwen3.5:9b", is_research=True),
+            HistoryEntry(
+                query="vector databases",
+                cache_hit=True,
+                response_time_ms=23,
+                model="qwen3.5:9b",
+                is_research=False,
+            ),
+            HistoryEntry(
+                query="quantum computing",
+                cache_hit=False,
+                response_time_ms=2000,
+                model="qwen3.5:9b",
+                is_research=False,
+            ),
+            HistoryEntry(
+                query="[research] AI safety",
+                cache_hit=False,
+                response_time_ms=8000,
+                model="qwen3.5:9b",
+                is_research=True,
+            ),
         ]
         hl.load_entries(entries)
         assert len(hl._entries) == 3
@@ -492,6 +518,7 @@ async def test_clear_results_action(app):
     async with app.run_test() as pilot:
         from textual.containers import VerticalScroll
         from pythia.tui.widgets.result_card import ResultCard
+
         # Mount a result card in the results area
         results = app.screen.query_one("#results-area", VerticalScroll)
         card = ResultCard()
@@ -509,6 +536,7 @@ async def test_clear_results_action(app):
 
 def test_all_theme_files_exist():
     from pathlib import Path
+
     themes_dir = Path(__file__).parent.parent / "src" / "pythia" / "tui" / "themes"
     for theme in AVAILABLE_THEMES:
         path = themes_dir / f"{theme}.tcss"
@@ -527,4 +555,5 @@ def test_all_theme_files_exist():
 async def test_command_palette_registered(app):
     async with app.run_test():
         from pythia.tui.commands import PythiaCommands
+
         assert PythiaCommands in app.COMMANDS
