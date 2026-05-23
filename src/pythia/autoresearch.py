@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
+import shlex
 import subprocess
 import time
-import contextlib
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import StrEnum
@@ -328,9 +329,9 @@ class AutoresearchAgent:
 
     def _run_benchmark(self, cmd: str) -> str:
         try:
+            argv = self._parse_benchmark_cmd(cmd)
             result = subprocess.run(
-                cmd,
-                shell=True,
+                argv,
                 capture_output=True,
                 text=True,
                 timeout=300,
@@ -341,6 +342,13 @@ class AutoresearchAgent:
             return "Benchmark timed out (300s)"
         except Exception as e:
             return f"Benchmark error: {e}"
+
+    @staticmethod
+    def _parse_benchmark_cmd(cmd: str) -> list[str]:
+        argv = shlex.split(cmd)
+        if not argv:
+            raise ValueError("benchmark command is empty")
+        return argv
 
     async def _extract_metric(self, output: str, metric_name: str, model: str) -> float | None:
         try:

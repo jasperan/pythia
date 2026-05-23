@@ -163,6 +163,40 @@ async def test_research_basic_flow():
 
 
 @pytest.mark.asyncio
+async def test_gap_analysis_parse_failure_is_degraded_not_sufficient():
+    agent, *_ = _make_agent(gap_analysis_return="not json")
+
+    result = await agent._analyze_gaps("query", [], "test-model")
+
+    assert result["sufficient"] is False
+    assert result["degraded"] is True
+    assert result["gaps"] == []
+
+
+@pytest.mark.asyncio
+async def test_completeness_parse_failure_is_stuck_not_complete():
+    agent, *_ = _make_agent(completeness_return="not json")
+
+    result = await agent._verify_completeness("query", "report", "test-model")
+
+    assert result["status"] == "STUCK"
+    assert result["degraded"] is True
+    assert result["follow_up_queries"] == []
+
+
+@pytest.mark.asyncio
+async def test_completeness_unknown_status_is_stuck():
+    agent, *_ = _make_agent(
+        completeness_return='{"status": "MAYBE", "reasoning": "bad status"}'
+    )
+
+    result = await agent._verify_completeness("query", "report", "test-model")
+
+    assert result["status"] == "STUCK"
+    assert result["degraded"] is False
+
+
+@pytest.mark.asyncio
 async def test_research_with_recall():
     """Research should include recalled findings from past sessions."""
     recalled = [

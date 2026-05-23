@@ -234,3 +234,33 @@ async def test_autoresearch_requires_explicit_edit_scope(tmp_path):
 def test_autoresearch_lower_is_better_reports_positive_improvement(tmp_path):
     agent = AutoresearchAgent(FakePlannerLLM({}), workspace_dir=tmp_path)
     assert agent._improvement_pct(best=5, baseline=10, direction="lower") == 50.0
+
+
+def test_run_benchmark_supports_quoted_arguments(tmp_path):
+    benchmark = tmp_path / "benchmark with spaces.py"
+    benchmark.write_text("print('score:', 7)\n")
+    agent = AutoresearchAgent(FakePlannerLLM({}), workspace_dir=tmp_path)
+
+    output = agent._run_benchmark(f"{sys.executable} {str(benchmark.name)!r}")
+
+    assert "score: 7" in output
+
+
+def test_run_benchmark_does_not_execute_shell_metacharacters(tmp_path):
+    benchmark = tmp_path / "benchmark.py"
+    sentinel = tmp_path / "pwned"
+    benchmark.write_text("print('score:', 1)\n")
+    agent = AutoresearchAgent(FakePlannerLLM({}), workspace_dir=tmp_path)
+
+    output = agent._run_benchmark(f"{sys.executable} benchmark.py; touch {sentinel.name}")
+
+    assert not sentinel.exists()
+    assert "Benchmark error:" not in output
+    assert "can't open file" in output or "No such file" in output
+
+
+def test_parse_benchmark_cmd_rejects_empty_command():
+    agent = AutoresearchAgent(FakePlannerLLM({}))
+
+    with pytest.raises(ValueError, match="benchmark command is empty"):
+        agent._parse_benchmark_cmd(" ")

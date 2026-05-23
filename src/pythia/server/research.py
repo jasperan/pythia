@@ -1024,16 +1024,19 @@ class ResearchAgent:
             response = await self.ollama.generate(system, user, json_mode=True, model=model)
             data = json.loads(response)
             return {
-                "sufficient": data.get("sufficient", True),
+                "sufficient": bool(data.get("sufficient", False)),
                 "gaps": data.get("gaps", [])[:max_follow_ups],
                 "reasoning": data.get("reasoning", ""),
+                "degraded": False,
             }
         except (json.JSONDecodeError, KeyError) as e:
             logger.warning(f"Failed to parse gap analysis: {e}")
             return {
-                "sufficient": True,
+                "sufficient": False,
                 "gaps": [],
-                "reasoning": "Gap analysis failed, proceeding with synthesis.",
+                "reasoning": "Gap analysis failed; treating completeness as unknown.",
+                "degraded": True,
+                "error": type(e).__name__,
             }
 
     async def _verify_completeness(
@@ -1051,17 +1054,23 @@ class ResearchAgent:
         try:
             response = await self.ollama.generate(system, user, json_mode=True, model=model)
             data = json.loads(response)
+            status = data.get("status", "STUCK")
+            if status not in {"COMPLETE", "INCOMPLETE", "STUCK"}:
+                status = "STUCK"
             return {
-                "status": data.get("status", "COMPLETE"),
+                "status": status,
                 "reasoning": data.get("reasoning", ""),
                 "follow_up_queries": data.get("follow_up_queries", [])[:max_follow_ups],
+                "degraded": False,
             }
         except (json.JSONDecodeError, KeyError) as e:
             logger.warning(f"Completeness verification failed: {e}")
             return {
-                "status": "COMPLETE",
-                "reasoning": "Verification failed, proceeding.",
+                "status": "STUCK",
+                "reasoning": "Completeness verification failed; treating status as unknown.",
                 "follow_up_queries": [],
+                "degraded": True,
+                "error": type(e).__name__,
             }
 
     async def _verify_and_repair_report(
