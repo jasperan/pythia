@@ -536,9 +536,6 @@ class ResearchAgent:
                 elapsed_ms=elapsed_ms,
                 slug=slug,
                 provenance=provenance.to_markdown(),
-                sources_consulted=provenance.sources_consulted,
-                sources_accepted=provenance.sources_accepted,
-                sources_rejected=provenance.sources_rejected,
                 verification_status=provenance.verification_status,
                 verification_summary=provenance.verification_summary,
             )

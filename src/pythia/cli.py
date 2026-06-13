@@ -334,11 +334,10 @@ app.add_typer(skill_app, name="skill")
 def skill_list(
     config: str = typer.Option("pythia.yaml", help="Config file path"),
 ) -> None:
+    from pythia.paths import skills_dir
     from pythia.skills import SkillLoader
 
-    project_root = Path(__file__).parent.parent.parent.parent
-    skills_dir = project_root / "skills"
-    loader = SkillLoader(skills_dir)
+    loader = SkillLoader(skills_dir())
 
     skills = loader.list_skills()
     for s in skills:
@@ -356,11 +355,10 @@ def skill_show(
     config: str = typer.Option("pythia.yaml", help="Config file path"),
 ) -> None:
     import json
+    from pythia.paths import skills_dir
     from pythia.skills import SkillLoader
 
-    project_root = Path(__file__).parent.parent.parent.parent
-    skills_dir = project_root / "skills"
-    loader = SkillLoader(skills_dir)
+    loader = SkillLoader(skills_dir())
 
     skill = loader.get(name)
     if not skill:

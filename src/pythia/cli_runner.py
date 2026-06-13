@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import AsyncIterator, Callable
 
 from pythia.config import PythiaConfig
 from pythia.embeddings import generate_embedding_list, MODEL_NAME, DIMENSIONS
@@ -87,6 +88,48 @@ async def run_query(
             await cache.close()
 
 
+async def _run_agent_events(
+    cfg: PythiaConfig,
+    make_events: Callable[[ResearchAgent], AsyncIterator],
+    *,
+    report_label: str,
+    cache_warning: str,
+    model_override: str | None = None,
+    stream: bool = False,
+    max_rounds: int | None = None,
+) -> None:
+    """Shared driver for every research mode.
+
+    Builds the client trio, connects the cache (logging ``cache_warning`` on
+    failure), constructs the agent, and renders the event stream produced by
+    ``make_events`` either as streamed NDJSON or a single flat JSON report.
+    """
+    ollama, cache, searxng = _build_clients(cfg, model_override=model_override)
+
+    cache_connected = False
+    try:
+        await cache.connect()
+        cache_connected = True
+    except Exception as e:
+        print(f"Warning: Oracle cache unavailable ({e}), {cache_warning}", file=sys.stderr)
+
+    research_config = cfg.research
+    if max_rounds is not None:
+        research_config = research_config.model_copy(update={"max_rounds": max_rounds})
+
+    agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
+    events = make_events(agent)
+
+    try:
+        if stream:
+            await _stream_research_events(events)
+        else:
+            await _flat_research_events(agent, report_label, events, model_override)
+    finally:
+        if cache_connected:
+            await cache.close()
+
+
 async def run_research(
     cfg: PythiaConfig,
     query: str,
@@ -96,29 +139,15 @@ async def run_research(
     max_rounds: int | None = None,
 ) -> None:
     """Run a deep research session and print results to stdout."""
-    ollama, cache, searxng = _build_clients(cfg, model_override=model_override)
-
-    cache_connected = False
-    try:
-        await cache.connect()
-        cache_connected = True
-    except Exception as e:
-        print(f"Warning: Oracle cache unavailable ({e}), research recall disabled", file=sys.stderr)
-
-    research_config = cfg.research
-    if max_rounds is not None:
-        research_config = research_config.model_copy(update={"max_rounds": max_rounds})
-
-    agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
-
-    try:
-        if stream:
-            await _stream_research(agent, query, model_override)
-        else:
-            await _flat_research(agent, query, model_override)
-    finally:
-        if cache_connected:
-            await cache.close()
+    await _run_agent_events(
+        cfg,
+        lambda agent: agent.research(query, model_override=model_override),
+        report_label=query,
+        cache_warning="research recall disabled",
+        model_override=model_override,
+        stream=stream,
+        max_rounds=max_rounds,
+    )
 
 
 async def run_continue_research(
@@ -131,33 +160,15 @@ async def run_continue_research(
     max_rounds: int | None = None,
 ) -> None:
     """Continue a stored research session by slug and print results to stdout."""
-    ollama, cache, searxng = _build_clients(cfg, model_override=model_override)
-
-    cache_connected = False
-    try:
-        await cache.connect()
-        cache_connected = True
-    except Exception as e:
-        print(
-            f"Warning: Oracle cache unavailable ({e}), continuation cannot load prior research",
-            file=sys.stderr,
-        )
-
-    research_config = cfg.research
-    if max_rounds is not None:
-        research_config = research_config.model_copy(update={"max_rounds": max_rounds})
-
-    agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
-    events = agent.continue_research(slug, focus=focus, model_override=model_override)
-
-    try:
-        if stream:
-            await _stream_research_events(events)
-        else:
-            await _flat_research_events(agent, slug, events, model_override)
-    finally:
-        if cache_connected:
-            await cache.close()
+    await _run_agent_events(
+        cfg,
+        lambda agent: agent.continue_research(slug, focus=focus, model_override=model_override),
+        report_label=slug,
+        cache_warning="continuation cannot load prior research",
+        model_override=model_override,
+        stream=stream,
+        max_rounds=max_rounds,
+    )
 
 
 async def run_refine_research(
@@ -170,62 +181,23 @@ async def run_refine_research(
     max_rounds: int | None = None,
 ) -> None:
     """Refine a stored research session by slug and print results to stdout."""
-    ollama, cache, searxng = _build_clients(cfg, model_override=model_override)
-
-    cache_connected = False
-    try:
-        await cache.connect()
-        cache_connected = True
-    except Exception as e:
-        print(
-            f"Warning: Oracle cache unavailable ({e}), refinement cannot load prior research",
-            file=sys.stderr,
-        )
-
-    research_config = cfg.research
-    if max_rounds is not None:
-        research_config = research_config.model_copy(update={"max_rounds": max_rounds})
-
-    agent = ResearchAgent(ollama=ollama, cache=cache, searxng=searxng, config=research_config)
-    events = agent.refine_research(slug, directive=directive, model_override=model_override)
-
-    try:
-        if stream:
-            await _stream_research_events(events)
-        else:
-            await _flat_research_events(agent, slug, events, model_override)
-    finally:
-        if cache_connected:
-            await cache.close()
-
-
-async def _stream_research(
-    agent: ResearchAgent,
-    query: str,
-    model_override: str | None,
-) -> None:
-    """Print NDJSON research events to stdout."""
-    await _stream_research_events(agent.research(query, model_override=model_override))
+    await _run_agent_events(
+        cfg,
+        lambda agent: agent.refine_research(
+            slug, directive=directive, model_override=model_override
+        ),
+        report_label=slug,
+        cache_warning="refinement cannot load prior research",
+        model_override=model_override,
+        stream=stream,
+        max_rounds=max_rounds,
+    )
 
 
 async def _stream_research_events(event_stream) -> None:
     async for event in event_stream:
         line = json.dumps({"event": event.event_type.value, "data": event.data})
         print(line, flush=True)
-
-
-async def _flat_research(
-    agent: ResearchAgent,
-    query: str,
-    model_override: str | None,
-) -> None:
-    """Collect all events and print a single flat JSON research report."""
-    await _flat_research_events(
-        agent,
-        query,
-        agent.research(query, model_override=model_override),
-        model_override,
-    )
 
 
 async def _flat_research_events(

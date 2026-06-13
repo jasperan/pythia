@@ -565,15 +565,24 @@ pythia/
 │   ├── cli_runner.py           # Async runners for CLI commands
 │   ├── config.py               # YAML config loader (Pydantic models)
 │   ├── embeddings.py           # Shared embedding generation (sentence-transformers)
+│   ├── paths.py                # Project-root-anchored path helpers (skills dir, compose file)
 │   ├── scraper.py              # Deep scraping (Scrapling)
 │   ├── services.py             # Service manager (Docker + API server lifecycle)
+│   ├── skills.py               # Research skill definitions and loader
+│   ├── workspace.py            # Slug generation + research changelog
+│   ├── provenance.py           # Provenance records for research sessions
+│   ├── verification.py         # Report claim verification + repair
+│   ├── autoresearch.py         # Autonomous metric-optimization loop
 │   ├── server/
 │   │   ├── app.py              # FastAPI app factory
 │   │   ├── search.py           # SearchOrchestrator (single-shot)
 │   │   ├── research.py         # ResearchAgent (deep research)
 │   │   ├── oracle_cache.py     # Oracle Vector Search cache + research storage
 │   │   ├── searxng.py          # SearXNG client
-│   │   └── ollama.py           # Ollama LLM client
+│   │   ├── grounding.py        # Answer grounding (claim/source overlap)
+│   │   ├── llm_client.py       # LLM backend protocol + factory (Ollama / OCI GenAI)
+│   │   ├── ollama.py           # Ollama LLM client
+│   │   └── oci_genai.py        # OCI GenAI (OpenAI-compatible) LLM client
 │   └── tui/
 │       ├── app.py              # PythiaApp (multi-screen, keybindings, themes)
 │       ├── commands.py         # Command palette provider

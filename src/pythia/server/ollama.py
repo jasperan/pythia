@@ -42,6 +42,33 @@ Answer: {answer}
 Return format: ["question 1", "question 2", "question 3"]"""
 
 
+async def generate_suggestions(
+    generate, query: str, answer: str, model: str | None = None
+) -> list[str]:
+    """Generate up to 3 follow-up question suggestions for a query/answer pair.
+
+    Shared by every LLM backend; ``generate`` is the client's own JSON-capable
+    ``generate`` coroutine. Returns ``[]`` on any transport or parse failure.
+    """
+    try:
+        prompt = _SUGGESTIONS_PROMPT.format(query=query, answer=answer[:1000])
+        result = await generate(
+            "You are a helpful assistant. Return only valid JSON.",
+            prompt,
+            json_mode=True,
+            model=model,
+        )
+        parsed = json.loads(result)
+        if isinstance(parsed, list):
+            return [str(s) for s in parsed[:3]]
+        if isinstance(parsed, dict) and "suggestions" in parsed:
+            return [str(s) for s in parsed["suggestions"][:3]]
+        return []
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError):
+        logger.debug("Suggestion generation failed", exc_info=True)
+        return []
+
+
 def build_search_prompt(
     query: str,
     results: list[SearchResult],
@@ -156,23 +183,7 @@ class OllamaClient:
         self, query: str, answer: str, model: str | None = None
     ) -> list[str]:
         """Generate follow-up question suggestions based on query and answer."""
-        try:
-            prompt = _SUGGESTIONS_PROMPT.format(query=query, answer=answer[:1000])
-            result = await self.generate(
-                "You are a helpful assistant. Return only valid JSON.",
-                prompt,
-                json_mode=True,
-                model=model,
-            )
-            parsed = json.loads(result)
-            if isinstance(parsed, list):
-                return [str(s) for s in parsed[:3]]
-            if isinstance(parsed, dict) and "suggestions" in parsed:
-                return [str(s) for s in parsed["suggestions"][:3]]
-            return []
-        except (httpx.HTTPError, json.JSONDecodeError, ValueError):
-            logger.debug("Suggestion generation failed", exc_info=True)
-            return []
+        return await generate_suggestions(self.generate, query, answer, model=model)
 
     async def health(self) -> bool:
         """Check if Ollama is reachable."""

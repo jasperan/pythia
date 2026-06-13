@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from typing import Literal
 
@@ -14,6 +13,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from pythia.config import PythiaConfig
+from pythia.paths import skills_dir
 from pythia.server.llm_client import create_llm_client
 from pythia.server.ollama import OllamaClient  # re-exported for test patching
 from pythia.server.oracle_cache import OracleCache
@@ -99,6 +99,18 @@ def create_app(config: PythiaConfig) -> FastAPI:
     )
     orchestrator = SearchOrchestrator(ollama=ollama, cache=cache, searxng=searxng)
 
+    def _make_agent(max_rounds: int | None) -> ResearchAgent:
+        research_config = config.research
+        if max_rounds is not None:
+            research_config = research_config.model_copy(update={"max_rounds": max_rounds})
+        return ResearchAgent(
+            ollama=ollama,
+            cache=cache,
+            searxng=searxng,
+            config=research_config,
+            skills_dir=skills_dir(),
+        )
+
     async def _sse_wrap(event_stream):
         async for event in event_stream:
             yield {"event": event.event_type.value, "data": json.dumps(event.data)}
@@ -122,48 +134,21 @@ def create_app(config: PythiaConfig) -> FastAPI:
 
     @app.post("/research")
     async def research(req: ResearchRequest):
-        research_config = config.research
-        if req.max_rounds is not None:
-            research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
-        agent = ResearchAgent(
-            ollama=ollama,
-            cache=cache,
-            searxng=searxng,
-            config=research_config,
-            skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
-        )
+        agent = _make_agent(req.max_rounds)
         return EventSourceResponse(
             _sse_wrap(agent.research(req.query, model_override=req.model, skill_override=req.skill))
         )
 
     @app.post("/research/continue/{slug}")
     async def continue_research(slug: str, req: ContinueRequest):
-        research_config = config.research
-        if req.max_rounds is not None:
-            research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
-        agent = ResearchAgent(
-            ollama=ollama,
-            cache=cache,
-            searxng=searxng,
-            config=research_config,
-            skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
-        )
+        agent = _make_agent(req.max_rounds)
         return EventSourceResponse(
             _sse_wrap(agent.continue_research(slug, focus=req.focus, model_override=req.model))
         )
 
     @app.post("/research/refine/{slug}")
     async def refine_research(slug: str, req: RefineRequest):
-        research_config = config.research
-        if req.max_rounds is not None:
-            research_config = research_config.model_copy(update={"max_rounds": req.max_rounds})
-        agent = ResearchAgent(
-            ollama=ollama,
-            cache=cache,
-            searxng=searxng,
-            config=research_config,
-            skills_dir=Path(__file__).parent.parent.parent.parent / "skills",
-        )
+        agent = _make_agent(req.max_rounds)
         return EventSourceResponse(
             _sse_wrap(
                 agent.refine_research(slug, directive=req.directive, model_override=req.model)
@@ -212,7 +197,7 @@ def create_app(config: PythiaConfig) -> FastAPI:
     async def list_skills():
         from pythia.skills import SkillLoader
 
-        loader = SkillLoader(Path(__file__).parent.parent.parent.parent / "skills")
+        loader = SkillLoader(skills_dir())
         return [
             {"name": s.name, "description": s.description, "triggers": s.triggers}
             for s in loader.list_skills()

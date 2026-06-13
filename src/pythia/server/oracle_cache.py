@@ -284,7 +284,6 @@ class OracleCache:
         verification_status: str | None = None,
         verification_summary: str | None = None,
         provenance: str | None = None,
-        **_kwargs,
     ) -> str:
         """Store a research session. Returns the research ID."""
         if not self._pool:

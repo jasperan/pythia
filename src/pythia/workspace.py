@@ -7,26 +7,10 @@ import unicodedata
 from datetime import datetime, UTC
 from pathlib import Path
 
-
-def generate_slug(text: str, max_words: int = 5) -> str:
-    """Generate a URL-safe slug from arbitrary text.
-
-    Rules (matching Feynman conventions):
-    - Lowercase, hyphens as separators
-    - No filler words
-    - Max `max_words` words
-    - Only alphanumeric and hyphens
-    - Max 60 characters total
-
-    Examples:
-        >>> generate_slug("What are the tradeoffs between RISC-V and ARM for edge AI?")
-        'tradeoffs-risc-v-arm-edge'
-        >>> generate_slug("Cloud sandbox pricing comparison 2024")
-        'cloud-sandbox-pricing-comparison-2024'
-    """
-    text = unicodedata.normalize("NFKD", text).lower()
-
-    fillers = {
+# Filler words dropped when building slugs. Includes question words so slugs
+# stay focused on the topic ("what-are-X" -> "x"). Built once at import time.
+_SLUG_FILLERS = frozenset(
+    {
         "the",
         "a",
         "an",
@@ -89,9 +73,29 @@ def generate_slug(text: str, max_words: int = 5) -> str:
         "its",
         "it",
     }
+)
+
+
+def generate_slug(text: str, max_words: int = 5) -> str:
+    """Generate a URL-safe slug from arbitrary text.
+
+    Rules (matching Feynman conventions):
+    - Lowercase, hyphens as separators
+    - No filler words
+    - Max `max_words` words
+    - Only alphanumeric and hyphens
+    - Max 60 characters total
+
+    Examples:
+        >>> generate_slug("What are the tradeoffs between RISC-V and ARM for edge AI?")
+        'tradeoffs-risc-v-arm-edge'
+        >>> generate_slug("Cloud sandbox pricing comparison 2024")
+        'cloud-sandbox-pricing-comparison-2024'
+    """
+    text = unicodedata.normalize("NFKD", text).lower()
 
     words = re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", text)
-    meaningful = [w for w in words if w not in fillers and len(w) > 1]
+    meaningful = [w for w in words if w not in _SLUG_FILLERS and len(w) > 1]
 
     slug_words = meaningful[:max_words]
 

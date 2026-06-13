@@ -5,6 +5,44 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+# Common stop words removed before computing claim/source word overlap, so the
+# recall signal reflects content words rather than grammar. Built once.
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "and",
+        "or",
+        "but",
+        "not",
+        "with",
+        "by",
+        "from",
+        "as",
+        "it",
+        "its",
+        "this",
+        "that",
+        "be",
+        "has",
+        "have",
+        "had",
+        "do",
+        "does",
+    }
+)
+
 
 @dataclass
 class GroundedClaim:
@@ -45,41 +83,8 @@ def _word_overlap(claim_text: str, source_text: str) -> float:
     claim_words = set(claim_text.lower().split())
     source_words = set(source_text.lower().split())
     # Remove stop words for better signal
-    stop = {
-        "the",
-        "a",
-        "an",
-        "is",
-        "are",
-        "was",
-        "were",
-        "in",
-        "on",
-        "at",
-        "to",
-        "for",
-        "of",
-        "and",
-        "or",
-        "but",
-        "not",
-        "with",
-        "by",
-        "from",
-        "as",
-        "it",
-        "its",
-        "this",
-        "that",
-        "be",
-        "has",
-        "have",
-        "had",
-        "do",
-        "does",
-    }
-    claim_words -= stop
-    source_words -= stop
+    claim_words -= _STOP_WORDS
+    source_words -= _STOP_WORDS
     if not claim_words:
         return 0.0
     intersection = claim_words & source_words

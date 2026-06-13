@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from pythia.server.ollama import _SUGGESTIONS_PROMPT, _strip_json_fences
+from pythia.server.ollama import _strip_json_fences, generate_suggestions
 
 logger = logging.getLogger(__name__)
 
@@ -126,23 +126,7 @@ class OciGenAIClient:
         self, query: str, answer: str, model: str | None = None
     ) -> list[str]:
         """Generate follow-up question suggestions based on query and answer."""
-        try:
-            prompt = _SUGGESTIONS_PROMPT.format(query=query, answer=answer[:1000])
-            result = await self.generate(
-                "You are a helpful assistant. Return only valid JSON.",
-                prompt,
-                json_mode=True,
-                model=model,
-            )
-            parsed = json.loads(result)
-            if isinstance(parsed, list):
-                return [str(s) for s in parsed[:3]]
-            if isinstance(parsed, dict) and "suggestions" in parsed:
-                return [str(s) for s in parsed["suggestions"][:3]]
-            return []
-        except (httpx.HTTPError, json.JSONDecodeError, ValueError):
-            logger.debug("Suggestion generation failed", exc_info=True)
-            return []
+        return await generate_suggestions(self.generate, query, answer, model=model)
 
     async def health(self) -> bool:
         """Check if the OCI GenAI proxy is reachable."""
