@@ -7,6 +7,7 @@ from pathlib import Path
 
 from textual.app import App
 from textual import work
+from textual.theme import Theme
 
 from pythia.config import PythiaConfig
 from pythia.tui.commands import PythiaCommands
@@ -17,7 +18,57 @@ from pythia.tui.screens.history import HistoryScreen
 from pythia.tui.screens.dashboard import DashboardScreen
 
 AVAILABLE_THEMES = ["dark", "light", "catppuccin-mocha", "nord"]
-_THEMES_DIR = Path(__file__).parent / "themes"
+
+# Registered Textual themes. Widget DEFAULT_CSS references built-in design
+# tokens ($surface, $panel, $primary, $text-muted, ...) which are derived from
+# the active theme's colors; custom $vars in theme files are NOT visible to
+# widget stylesheets, so token values live here instead.
+_PYTHIA_THEMES: dict[str, Theme] = {
+    "dark": Theme(
+        name="dark",
+        primary="#89b4fa", secondary="#cba6f7", warning="#f9e2af",
+        error="#f38ba8", success="#a6e3a1", accent="#89dceb",
+        foreground="#cdd6f4", background="#1e1e2e", surface="#181825",
+        panel="#313244", boost="#45475a", dark=True,
+        variables={
+            "text-muted": "#6c7086", "text-disabled": "#585b70",
+            "text-secondary": "#a6adc8", "text-primary": "#cdd6f4",
+        },
+    ),
+    "catppuccin-mocha": Theme(
+        name="catppuccin-mocha",
+        primary="#89b4fa", secondary="#cba6f7", warning="#f9e2af",
+        error="#f38ba8", success="#a6e3a1", accent="#89dceb",
+        foreground="#cdd6f4", background="#1e1e2e", surface="#181825",
+        panel="#313244", boost="#45475a", dark=True,
+        variables={
+            "text-muted": "#6c7086", "text-disabled": "#585b70",
+            "text-secondary": "#a6adc8", "text-primary": "#cdd6f4",
+        },
+    ),
+    "light": Theme(
+        name="light",
+        primary="#1e66f5", secondary="#8839ef", warning="#df8e1d",
+        error="#d20f39", success="#40a02b", accent="#04a5e5",
+        foreground="#4c4f69", background="#eff1f5", surface="#e6e9ef",
+        panel="#ccd0da", boost="#bcc0cc", dark=False,
+        variables={
+            "text-muted": "#9ca0b0", "text-disabled": "#8c8fa1",
+            "text-secondary": "#5c5f77", "text-primary": "#4c4f69",
+        },
+    ),
+    "nord": Theme(
+        name="nord",
+        primary="#88c0d0", secondary="#b48ead", warning="#ebcb8b",
+        error="#bf616a", success="#a3be8c", accent="#88c0d0",
+        foreground="#d8dee9", background="#2e3440", surface="#3b4252",
+        panel="#434c5e", boost="#4c566a", dark=True,
+        variables={
+            "text-muted": "#81a1c1", "text-disabled": "#616e88",
+            "text-secondary": "#e5e9f0", "text-primary": "#d8dee9",
+        },
+    ),
+}
 
 
 class PythiaApp(App):
@@ -74,18 +125,21 @@ class PythiaApp(App):
         self._apply_theme()
 
     def _apply_theme(self) -> None:
-        """Load the current theme CSS file by updating CSS_PATH and refreshing."""
-        css_path = _THEMES_DIR / f"{self._current_theme}.tcss"
-        if not css_path.exists():
-            self.notify(f"Theme file not found: {css_path.name}", severity="error", timeout=3)
+        """Switch the active Textual theme (drives built-in design tokens)."""
+        theme_name = self._current_theme
+        if theme_name not in _PYTHIA_THEMES:
+            self.notify(f"Unknown theme: {theme_name}", severity="error", timeout=3)
             return
         try:
-            self.CSS_PATH = f"themes/{self._current_theme}.tcss"
+            self.theme = theme_name
             self.refresh_css(animate=False)
         except Exception as e:
             self.notify(f"Theme error: {e}", severity="error", timeout=3)
 
     def on_mount(self) -> None:
+        for theme in _PYTHIA_THEMES.values():
+            self.register_theme(theme)
+        self.theme = self._current_theme
         self.install_screen(
             SearchScreen(self.config, host=self._host, port=self._port), name="search"
         )
@@ -132,7 +186,6 @@ class PythiaApp(App):
 
     async def action_export_results(self) -> None:
         from datetime import datetime
-        from pathlib import Path
         import httpx
 
         try:

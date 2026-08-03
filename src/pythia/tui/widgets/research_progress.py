@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from rich.text import Text
 from textual.widgets import Static
+from pythia.tui import colors
 
 
 class ResearchProgressBar(Static):
@@ -11,7 +12,7 @@ class ResearchProgressBar(Static):
     ResearchProgressBar {
         height: 1;
         padding: 0 1;
-        background: #313244;
+        background: $panel;
     }
     """
 
@@ -56,20 +57,20 @@ class ResearchProgressBar(Static):
         total = self._max_rounds
         for i in range(total):
             if i < filled:
-                bar.append("▰", style="bold #89dceb")
+                bar.append("▰", style=f"bold {colors.INFO}")
             else:
-                bar.append("▱", style="#585b70")
+                bar.append("▱", style=f"{colors.DIM}")
 
-        bar.append(f"  Round {self._current_round}/{self._max_rounds}", style="#cdd6f4")
-        bar.append(f" · {self._findings} findings", style="#a6e3a1")
-        bar.append(f" · {self._sources} sources", style="#89dceb")
+        bar.append(f"  Round {self._current_round}/{self._max_rounds}", style=f"{colors.TEXT}")
+        bar.append(f" · {self._findings} findings", style=f"{colors.SUCCESS}")
+        bar.append(f" · {self._sources} sources", style=f"{colors.INFO}")
 
         elapsed_str = (
             f"{self._elapsed_ms}ms"
             if self._elapsed_ms < 1000
             else f"{self._elapsed_ms / 1000:.1f}s"
         )
-        bar.append(f" · {elapsed_str}", style="#585b70")
+        bar.append(f" · {elapsed_str}", style=f"{colors.DIM}")
 
         if self.is_attached:
             self.update(bar)

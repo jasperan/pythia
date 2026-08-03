@@ -7,6 +7,7 @@ from enum import Enum, auto
 
 from rich.text import Text
 from textual.widgets import Static
+from pythia.tui import colors
 
 
 class HistoryFilter(Enum):
@@ -89,37 +90,37 @@ class HistoryList(Static):
             is_selected = i == self._selected_index
 
             if entry.is_research:
-                text.append("  \u25c8 ", style="bold #cba6f7")
+                text.append("  \u25c8 ", style=f"bold {colors.SECONDARY}")
             elif entry.cache_hit:
-                text.append("  \u25cf ", style="bold #a6e3a1")
+                text.append("  \u25cf ", style=f"bold {colors.SUCCESS}")
             else:
-                text.append("  \u25cb ", style="bold #89dceb")
+                text.append("  \u25cb ", style=f"bold {colors.INFO}")
 
             if entry.timestamp:
-                text.append(f"{entry.timestamp}  ", style="#585b70")
+                text.append(f"{entry.timestamp}  ", style=f"{colors.DIM}")
 
             q = entry.query
             if len(q) > 55:
                 q = q[:52] + "..."
-            style = "bold #cdd6f4" if is_selected else "#cdd6f4"
+            style = f"bold {colors.TEXT}" if is_selected else f"{colors.TEXT}"
             if is_selected:
                 text.append(f"\u25b8 {q}\n", style=style)
             else:
                 text.append(f"  {q}\n", style=style)
 
             if entry.is_research:
-                text.append("              \U0001f52c research", style="#cba6f7")
+                text.append("              \U0001f52c research", style=f"{colors.SECONDARY}")
             elif entry.cache_hit:
-                text.append("              \u26a1 cache hit", style="#a6e3a1")
+                text.append("              \u26a1 cache hit", style=f"{colors.SUCCESS}")
             else:
-                text.append("              \U0001f50d web search", style="#89dceb")
+                text.append("              \U0001f50d web search", style=f"{colors.INFO}")
 
             time_str = (
                 f"{entry.response_time_ms}ms"
                 if entry.response_time_ms < 1000
                 else f"{entry.response_time_ms / 1000:.1f}s"
             )
-            text.append(f" \u00b7 {time_str}", style="#585b70")
-            text.append(f" \u00b7 {entry.model}\n\n", style="#585b70")
+            text.append(f" \u00b7 {time_str}", style=f"{colors.DIM}")
+            text.append(f" \u00b7 {entry.model}\n\n", style=f"{colors.DIM}")
 
         self.update(text)

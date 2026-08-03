@@ -2,6 +2,7 @@
 
 from rich.text import Text
 from textual.widgets import Static
+from pythia.tui import colors
 
 _PYTHIA_LINES = [
     "██████╗  ██╗   ██╗████████╗██╗  ██╗██╗ █████╗ ",
@@ -14,22 +15,12 @@ _PYTHIA_LINES = [
 
 _SUBTITLE = "The Oracle Answers"
 
-_CYAN_GRADIENT = [
-    "#89dceb",
-    "#89dceb",
-    "#89dceb",
-    "#89dceb",
-    "#89dceb",
-    "#89dceb",
-]
-
 
 def build_logo_text() -> Text:
     logo = Text()
-    for i, line in enumerate(_PYTHIA_LINES):
-        color = _CYAN_GRADIENT[i % len(_CYAN_GRADIENT)]
-        logo.append(f"  {line}\n", style=f"bold {color}")
-    logo.append(f"\n  {_SUBTITLE}\n", style="#89b4fa")
+    for line in _PYTHIA_LINES:
+        logo.append(f"  {line}\n", style=f"bold {colors.INFO}")
+    logo.append(f"\n  {_SUBTITLE}\n", style=f"{colors.PRIMARY}")
     return logo
 
 

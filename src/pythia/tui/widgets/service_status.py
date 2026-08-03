@@ -6,6 +6,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from pythia.services import ServiceInfo, ServiceStatus
+from pythia.tui import colors
 
 
 class ServiceStatusIndicator(Static):
@@ -16,8 +17,8 @@ class ServiceStatusIndicator(Static):
         height: auto;
         max-height: 2;
         dock: bottom;
-        background: #313244;
-        color: #6c7086;
+        background: $panel;
+        color: $text-muted;
         padding: 0 2;
     }
     """
@@ -39,51 +40,51 @@ class ServiceStatusIndicator(Static):
         # API Server status
         api_info = self._services.get("api")
         if api_info:
-            status_text.append("API: ", style="#585b70")
+            status_text.append("API: ", style=f"{colors.DIM}")
             dot, style = self._get_dot_style(api_info.status)
             status_text.append(f"{dot} ", style=style)
-            status_text.append(f"{api_info.message} ", style="#6c7086")
+            status_text.append(f"{api_info.message} ", style=f"{colors.MUTED}")
         else:
-            status_text.append("API: ", style="#585b70")
-            status_text.append("○ ", style="#585b70")
-            status_text.append("Initializing ", style="#6c7086")
+            status_text.append("API: ", style=f"{colors.DIM}")
+            status_text.append("○ ", style=f"{colors.DIM}")
+            status_text.append("Initializing ", style=f"{colors.MUTED}")
 
-        status_text.append(" │ ", style="#585b70")
+        status_text.append(" │ ", style=f"{colors.DIM}")
 
         # Oracle status
         oracle_info = self._services.get("oracle")
         if oracle_info:
-            status_text.append("Oracle: ", style="#585b70")
+            status_text.append("Oracle: ", style=f"{colors.DIM}")
             dot, style = self._get_dot_style(oracle_info.status)
             status_text.append(f"{dot} ", style=style)
-            status_text.append(f"{oracle_info.message} ", style="#6c7086")
+            status_text.append(f"{oracle_info.message} ", style=f"{colors.MUTED}")
         else:
-            status_text.append("Oracle: ", style="#585b70")
-            status_text.append("○ ", style="#585b70")
-            status_text.append("Starting ", style="#6c7086")
+            status_text.append("Oracle: ", style=f"{colors.DIM}")
+            status_text.append("○ ", style=f"{colors.DIM}")
+            status_text.append("Starting ", style=f"{colors.MUTED}")
 
-        status_text.append(" │ ", style="#585b70")
+        status_text.append(" │ ", style=f"{colors.DIM}")
 
         # SearXNG status
         searxng_info = self._services.get("searxng")
         if searxng_info:
-            status_text.append("SearXNG: ", style="#585b70")
+            status_text.append("SearXNG: ", style=f"{colors.DIM}")
             dot, style = self._get_dot_style(searxng_info.status)
             status_text.append(f"{dot} ", style=style)
-            status_text.append(f"{searxng_info.message}", style="#6c7086")
+            status_text.append(f"{searxng_info.message}", style=f"{colors.MUTED}")
         else:
-            status_text.append("SearXNG: ", style="#585b70")
-            status_text.append("○ ", style="#585b70")
-            status_text.append("Starting", style="#6c7086")
+            status_text.append("SearXNG: ", style=f"{colors.DIM}")
+            status_text.append("○ ", style=f"{colors.DIM}")
+            status_text.append("Starting", style=f"{colors.MUTED}")
 
         self.update(status_text)
 
     def _get_dot_style(self, status: ServiceStatus) -> tuple[str, str]:
         """Get dot character and style for status."""
         if status == ServiceStatus.RUNNING:
-            return "●", "#a6e3a1"  # Green
+            return "●", f"{colors.SUCCESS}"  # Green
         if status == ServiceStatus.STARTING:
-            return "◐", "#f9e2af"  # Orange
+            return "◐", f"{colors.WARNING}"  # Orange
         if status == ServiceStatus.ERROR:
-            return "●", "#f38ba8"  # Red
-        return "○", "#585b70"  # Gray
+            return "●", f"{colors.ERROR}"  # Red
+        return "○", f"{colors.DIM}"  # Gray

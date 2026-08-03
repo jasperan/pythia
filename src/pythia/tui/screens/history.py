@@ -13,6 +13,7 @@ from textual.widgets import Input, Static
 
 from pythia.config import PythiaConfig
 from pythia.tui.widgets.history_list import HistoryList, HistoryEntry
+from pythia.tui import colors
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,9 @@ logger = logging.getLogger(__name__)
 class HistoryScreen(Screen):
     DEFAULT_CSS = """
     HistoryScreen { layout: vertical; }
-    #history-filter-bar { height: 1; padding: 0 2; background: #313244; }
-    #history-filter-input { height: 3; padding: 0 1; border-top: solid #89b4fa; background: #181825; }
-    #history-footer { height: 2; dock: bottom; background: #313244; padding: 0 2; }
+    #history-filter-bar { height: 1; padding: 0 2; background: $panel; }
+    #history-filter-input { height: 3; padding: 0 1; border-top: solid $primary; background: $surface; }
+    #history-footer { height: 2; dock: bottom; background: $panel; padding: 0 2; }
     """
 
     BINDINGS = [
@@ -95,11 +96,11 @@ class HistoryScreen(Screen):
         avg_str = f"{avg_ms}ms" if avg_ms < 1000 else f"{avg_ms / 1000:.1f}s"
 
         footer = Text()
-        footer.append(f"  {total} queries", style="#cdd6f4")
-        footer.append(f" \u00b7 {hits} cache hits ({rate})", style="#a6e3a1")
-        footer.append(f" \u00b7 avg {avg_str}", style="#585b70")
+        footer.append(f"  {total} queries", style=f"{colors.TEXT}")
+        footer.append(f" \u00b7 {hits} cache hits ({rate})", style=f"{colors.SUCCESS}")
+        footer.append(f" \u00b7 avg {avg_str}", style=f"{colors.DIM}")
         footer.append(
-            "\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style="#6c7086"
+            "\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style=f"{colors.MUTED}"
         )
         self.query_one("#history-footer", Static).update(footer)
 

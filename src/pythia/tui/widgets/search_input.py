@@ -6,6 +6,7 @@ from rich.text import Text
 from textual.containers import Vertical
 from textual.message import Message
 from textual.widgets import Input, Static
+from pythia.tui import colors
 
 
 class SearchInput(Vertical):
@@ -14,9 +15,9 @@ class SearchInput(Vertical):
         height: auto;
         min-height: 3;
         max-height: 5;
-        border-top: solid #89b4fa;
+        border-top: solid $primary;
         padding: 0 1;
-        background: #181825;
+        background: $surface;
     }
 
     SearchInput > Input {
@@ -44,9 +45,9 @@ class SearchInput(Vertical):
     def set_mode(self, deep: bool = False) -> None:
         label = self.query_one("#mode-label", Static)
         if deep:
-            label.update(Text("  Search [DEEP]", style="bold #f9e2af"))
+            label.update(Text("  Search [DEEP]", style=f"bold {colors.WARNING}"))
         else:
-            label.update(Text("  Search", style="#585b70"))
+            label.update(Text("  Search", style=f"{colors.DIM}"))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()

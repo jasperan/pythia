@@ -19,19 +19,19 @@ class Suggestions(Widget):
         padding: 0 1;
     }
     Suggestions .suggestions-label {
-        color: #6c7086;
+        color: $text-muted;
         margin-bottom: 0;
     }
     Suggestions .suggestion-btn {
         margin: 0 1 0 0;
         min-width: 10;
         height: 1;
-        background: #181825;
+        background: $surface;
         color: $text;
         border: none;
     }
     Suggestions .suggestion-btn:hover {
-        background: #89dceb;
+        background: $accent;
         color: $text;
     }
     """

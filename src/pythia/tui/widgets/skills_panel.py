@@ -15,8 +15,8 @@ class SkillsPanel(Static):
     SkillsPanel {
         width: 1fr;
         height: auto;
-        background: #181825;
-        border: solid #89b4fa;
+        background: $surface;
+        border: solid $primary;
         padding: 1 2;
         margin: 1 0;
     }

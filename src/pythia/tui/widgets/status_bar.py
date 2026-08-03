@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from rich.text import Text
 from textual.widgets import Static
+from pythia.tui import colors
 
 
 class PythiaStatusBar(Static):
@@ -11,8 +12,8 @@ class PythiaStatusBar(Static):
     PythiaStatusBar {
         height: 1;
         dock: bottom;
-        background: #313244;
-        color: #6c7086;
+        background: $panel;
+        color: $text-muted;
         padding: 0 1;
     }
     """
@@ -44,19 +45,19 @@ class PythiaStatusBar(Static):
     def _rebuild(self) -> None:
         bar = Text()
         bar.append(" ")
-        bar.append("Model: ", style="#585b70")
-        bar.append(self._model, style="bold #89dceb")
-        bar.append(" \u2502 ", style="#585b70")
+        bar.append("Model: ", style=f"{colors.DIM}")
+        bar.append(self._model, style=f"bold {colors.INFO}")
+        bar.append(" \u2502 ", style=f"{colors.DIM}")
         oracle_dot = "\u25cf" if self._oracle_ok else "\u25cb"
-        oracle_style = "#a6e3a1" if self._oracle_ok else "#f38ba8"
-        bar.append("Oracle: ", style="#585b70")
+        oracle_style = f"{colors.SUCCESS}" if self._oracle_ok else f"{colors.ERROR}"
+        bar.append("Oracle: ", style=f"{colors.DIM}")
         bar.append(f"{oracle_dot} ", style=oracle_style)
-        bar.append(" \u2502 ", style="#585b70")
+        bar.append(" \u2502 ", style=f"{colors.DIM}")
         searxng_dot = "\u25cf" if self._searxng_ok else "\u25cb"
-        searxng_style = "#a6e3a1" if self._searxng_ok else "#f38ba8"
-        bar.append("SearXNG: ", style="#585b70")
+        searxng_style = f"{colors.SUCCESS}" if self._searxng_ok else f"{colors.ERROR}"
+        bar.append("SearXNG: ", style=f"{colors.DIM}")
         bar.append(f"{searxng_dot} ", style=searxng_style)
-        bar.append(" \u2502 ", style="#585b70")
-        bar.append("Cache: ", style="#585b70")
-        bar.append(str(self._cache_size), style="#89dceb")
+        bar.append(" \u2502 ", style=f"{colors.DIM}")
+        bar.append("Cache: ", style=f"{colors.DIM}")
+        bar.append(str(self._cache_size), style=f"{colors.INFO}")
         self.update(bar)

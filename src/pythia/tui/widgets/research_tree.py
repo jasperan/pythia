@@ -6,6 +6,7 @@ from enum import Enum, auto
 
 from rich.text import Text
 from textual.widgets import Static
+from pythia.tui import colors
 
 
 class NodeState(Enum):
@@ -15,9 +16,9 @@ class NodeState(Enum):
 
 
 _ICONS = {
-    NodeState.PENDING: ("○", "#585b70"),
-    NodeState.SEARCHING: ("◎", "#89dceb"),
-    NodeState.COMPLETE: ("◉", "#a6e3a1"),
+    NodeState.PENDING: ("○", f"{colors.DIM}"),
+    NodeState.SEARCHING: ("◎", f"{colors.INFO}"),
+    NodeState.COMPLETE: ("◉", f"{colors.SUCCESS}"),
 }
 
 
@@ -96,12 +97,12 @@ class ResearchTree(Static):
 
         if self._recall_count > 0:
             text.append("  \U0001f9e0 ", style="bold")
-            text.append(f"Recalled {self._recall_count} prior finding(s)\n", style="#cba6f7")
+            text.append(f"Recalled {self._recall_count} prior finding(s)\n", style=f"{colors.SECONDARY}")
             for item in self._recall_items:
-                text.append("    └ ", style="#585b70")
-                text.append(f"{item.get('from_query', '?')}", style="#6c7086")
+                text.append("    └ ", style=f"{colors.DIM}")
+                text.append(f"{item.get('from_query', '?')}", style=f"{colors.MUTED}")
                 sim = item.get("similarity", 0)
-                text.append(f" ({sim:.0%})\n", style="#585b70")
+                text.append(f" ({sim:.0%})\n", style=f"{colors.DIM}")
             text.append("\n")
 
         max_rounds = len(self._rounds)
@@ -111,18 +112,18 @@ class ResearchTree(Static):
             is_done = all(sq["state"] == NodeState.COMPLETE for sq in rnd["sub_queries"])
 
             if is_active and not is_done:
-                text.append(f"  ● Round {rnum}/{max_rounds}\n", style="bold #cdd6f4")
+                text.append(f"  ● Round {rnum}/{max_rounds}\n", style=f"bold {colors.TEXT}")
             elif is_done:
-                text.append(f"  ● Round {rnum}/{max_rounds}\n", style="#6c7086")
+                text.append(f"  ● Round {rnum}/{max_rounds}\n", style=f"{colors.MUTED}")
             else:
-                text.append(f"  ○ Round {rnum}/{max_rounds}\n", style="#585b70")
+                text.append(f"  ○ Round {rnum}/{max_rounds}\n", style=f"{colors.DIM}")
 
             for i, sq in enumerate(rnd["sub_queries"]):
                 is_last = i == len(rnd["sub_queries"]) - 1
                 branch = "└─" if is_last else "├─"
                 icon, color = _ICONS[sq["state"]]
 
-                text.append(f"  {branch} ", style="#585b70")
+                text.append(f"  {branch} ", style=f"{colors.DIM}")
                 text.append(f"{icon} ", style=color)
 
                 q = sq["query"]
@@ -131,16 +132,16 @@ class ResearchTree(Static):
                 text.append(f"{q}", style=color)
 
                 if sq["state"] == NodeState.COMPLETE and sq["num_sources"] > 0:
-                    text.append(f" ({sq['num_sources']} sources)", style="#585b70")
+                    text.append(f" ({sq['num_sources']} sources)", style=f"{colors.DIM}")
                 elif sq["state"] == NodeState.SEARCHING:
-                    text.append(" searching...", style="#89dceb")
+                    text.append(" searching...", style=f"{colors.INFO}")
 
                 text.append("\n")
 
             reasoning = rnd.get("reasoning", "")
             if reasoning and rnd["round_num"] > 1:
                 r = reasoning[:50] + "..." if len(reasoning) > 50 else reasoning
-                text.append(f"    \u2139 {r}\n", style="#585b70")
+                text.append(f"    \u2139 {r}\n", style=f"{colors.DIM}")
 
             text.append("\n")
 

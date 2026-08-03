@@ -535,17 +535,22 @@ async def test_clear_results_action(app):
 
 
 def test_all_theme_files_exist():
-    from pathlib import Path
+    from pythia.tui.app import PythiaApp, _PYTHIA_THEMES
+    from pythia.config import PythiaConfig
 
-    themes_dir = Path(__file__).parent.parent / "src" / "pythia" / "tui" / "themes"
+    app = PythiaApp(PythiaConfig(), auto_start=False)
+    # Every AVAILABLE_THEMES entry must have a registered Theme with colors
     for theme in AVAILABLE_THEMES:
-        path = themes_dir / f"{theme}.tcss"
-        assert path.exists(), f"Missing theme file: {path}"
-        content = path.read_text()
-        assert len(content) > 100, f"Theme file too small: {path}"
-        # Every theme should define Screen and SearchInput at minimum
-        assert "Screen" in content, f"Theme {theme} missing Screen selector"
-        assert "SearchInput" in content, f"Theme {theme} missing SearchInput selector"
+        assert theme in _PYTHIA_THEMES, f"Missing registered theme: {theme}"
+        t = _PYTHIA_THEMES[theme]
+        assert t.primary, f"Theme {theme} missing primary"
+        assert t.background, f"Theme {theme} missing background"
+        assert t.name == theme, f"Theme name mismatch: {t.name}"
+    # dark.tcss (the static layout stylesheet) must define Screen and SearchInput
+    themes_dir = Path(__file__).parent.parent / "src" / "pythia" / "tui" / "themes"
+    content = (themes_dir / "dark.tcss").read_text()
+    assert "Screen" in content, "dark.tcss missing Screen selector"
+    assert "SearchInput" in content, "dark.tcss missing SearchInput selector"
 
 
 # --- Command palette provider ---

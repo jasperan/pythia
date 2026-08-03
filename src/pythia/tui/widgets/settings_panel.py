@@ -16,7 +16,7 @@ class SettingsPanel(Vertical):
     SettingsPanel {
         height: auto;
         padding: 1 2;
-        border: solid #89b4fa;
+        border: solid $primary;
     }
     SettingsPanel Label { margin: 0 0 0 1; }
     SettingsPanel Select { margin: 0 0 1 1; width: 40; }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from rich.text import Text
 from textual.widgets import Static
+from pythia.tui import colors
 
 _BRAILLE = "\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f"
 
@@ -42,8 +43,8 @@ class ActivityIndicator(Static):
             return
         line = Text()
         spinner = _BRAILLE[self._frame]
-        line.append(f"  {spinner} ", style="bold #89dceb")
-        line.append(self._label, style="#89dceb")
+        line.append(f"  {spinner} ", style=f"bold {colors.INFO}")
+        line.append(self._label, style=f"{colors.INFO}")
         self.update(line)
 
     def stop(self) -> None:

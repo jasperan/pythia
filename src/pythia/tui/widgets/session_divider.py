@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from rich.text import Text
 from textual.widgets import Static
+from pythia.tui import colors
 
 
 class SessionDivider(Static):
@@ -11,7 +12,7 @@ class SessionDivider(Static):
     SessionDivider {
         height: 1;
         margin: 1 0;
-        color: #89b4fa;
+        color: $primary;
     }
     """
 
@@ -25,8 +26,8 @@ class SessionDivider(Static):
 
     def _rebuild(self) -> None:
         line = Text()
-        line.append("─── ", style="#89b4fa")
-        line.append(f'"{self._query}"', style="bold #89b4fa")
-        line.append(f" ─── {self._timestamp} ", style="#89b4fa")
-        line.append("─" * 20, style="#89b4fa")
+        line.append("─── ", style=f"{colors.PRIMARY}")
+        line.append(f'"{self._query}"', style=f"bold {colors.PRIMARY}")
+        line.append(f" ─── {self._timestamp} ", style=f"{colors.PRIMARY}")
+        line.append("─" * 20, style=f"{colors.PRIMARY}")
         self.update(line)

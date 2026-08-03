@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from rich.text import Text
 from textual.widgets import Static
+from pythia.tui import colors
 
 
 class SourceList(Static):
@@ -32,12 +33,12 @@ class SourceList(Static):
             self.update("")
             return
         text = Text()
-        text.append("  \u2500\u2500\u2500 Sources \u2500\u2500\u2500\n", style="bold #89b4fa")
+        text.append("  \u2500\u2500\u2500 Sources \u2500\u2500\u2500\n", style=f"bold {colors.PRIMARY}")
         for s in self._sources:
             idx = s.get("index", "?")
             title = s.get("title", "")
             url = s.get("url", "")
-            text.append(f"  [{idx}] ", style="bold #89dceb")
-            text.append(f"{title}\n", style="#cdd6f4")
-            text.append(f"      {url}\n", style="#585b70")
+            text.append(f"  [{idx}] ", style=f"bold {colors.INFO}")
+            text.append(f"{title}\n", style=f"{colors.TEXT}")
+            text.append(f"      {url}\n", style=f"{colors.DIM}")
         self.update(text)
