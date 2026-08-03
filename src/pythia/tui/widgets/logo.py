@@ -15,12 +15,12 @@ _PYTHIA_LINES = [
 _SUBTITLE = "The Oracle Answers"
 
 _CYAN_GRADIENT = [
-    "#00d7ff",
-    "#00c4ee",
-    "#00b1dd",
-    "#009ecc",
-    "#008bbb",
-    "#0078aa",
+    "#89dceb",
+    "#89dceb",
+    "#89dceb",
+    "#89dceb",
+    "#89dceb",
+    "#89dceb",
 ]
 
 
@@ -29,7 +29,7 @@ def build_logo_text() -> Text:
     for i, line in enumerate(_PYTHIA_LINES):
         color = _CYAN_GRADIENT[i % len(_CYAN_GRADIENT)]
         logo.append(f"  {line}\n", style=f"bold {color}")
-    logo.append(f"\n  {_SUBTITLE}\n", style="#5f87ff")
+    logo.append(f"\n  {_SUBTITLE}\n", style="#89b4fa")
     return logo
 
 

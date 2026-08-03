@@ -11,7 +11,7 @@ class ResearchProgressBar(Static):
     ResearchProgressBar {
         height: 1;
         padding: 0 1;
-        background: #2a2a3a;
+        background: #313244;
     }
     """
 
@@ -56,20 +56,20 @@ class ResearchProgressBar(Static):
         total = self._max_rounds
         for i in range(total):
             if i < filled:
-                bar.append("▰", style="bold #00d7ff")
+                bar.append("▰", style="bold #89dceb")
             else:
-                bar.append("▱", style="#666666")
+                bar.append("▱", style="#585b70")
 
-        bar.append(f"  Round {self._current_round}/{self._max_rounds}", style="#e0e0e0")
-        bar.append(f" · {self._findings} findings", style="#b5bd68")
-        bar.append(f" · {self._sources} sources", style="#8abeb7")
+        bar.append(f"  Round {self._current_round}/{self._max_rounds}", style="#cdd6f4")
+        bar.append(f" · {self._findings} findings", style="#a6e3a1")
+        bar.append(f" · {self._sources} sources", style="#89dceb")
 
         elapsed_str = (
             f"{self._elapsed_ms}ms"
             if self._elapsed_ms < 1000
             else f"{self._elapsed_ms / 1000:.1f}s"
         )
-        bar.append(f" · {elapsed_str}", style="#666666")
+        bar.append(f" · {elapsed_str}", style="#585b70")
 
         if self.is_attached:
             self.update(bar)

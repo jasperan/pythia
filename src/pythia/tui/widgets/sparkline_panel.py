@@ -13,7 +13,7 @@ class SparklinePanel(Static):
     SparklinePanel {
         height: 5;
         padding: 1 2;
-        border: solid #5f87ff;
+        border: solid #89b4fa;
     }
     """
 
@@ -22,26 +22,26 @@ class SparklinePanel(Static):
 
         # Response times sparkline
         times = [h.get("response_time_ms", 0) for h in history]
-        text.append("  Response Times\n  ", style="bold #00d7ff")
+        text.append("  Response Times\n  ", style="bold #89dceb")
         if times:
             max_t = max(times) or 1
             for t in times:
                 idx = min(int(t / max_t * (len(_BARS) - 1)), len(_BARS) - 1)
-                text.append(_BARS[idx], style="#00d7ff")
+                text.append(_BARS[idx], style="#89dceb")
             avg = sum(times) // len(times)
             p50 = sorted(times)[len(times) // 2]
-            text.append(f"  avg: {avg}ms  p50: {p50}ms\n\n", style="#666666")
+            text.append(f"  avg: {avg}ms  p50: {p50}ms\n\n", style="#585b70")
         else:
-            text.append("  No data\n\n", style="#666666")
+            text.append("  No data\n\n", style="#585b70")
 
         # Cache hit/miss sparkline
-        text.append("  Cache Hits\n  ", style="bold #b5bd68")
+        text.append("  Cache Hits\n  ", style="bold #a6e3a1")
         for h in history:
             if h.get("cache_hit"):
-                text.append("\u2587", style="#b5bd68")
+                text.append("\u2587", style="#a6e3a1")
             else:
-                text.append("\u2581", style="#cc6666")
+                text.append("\u2581", style="#f38ba8")
         hits = sum(1 for h in history if h.get("cache_hit"))
-        text.append(f"  {hits}/{len(history)} hits\n", style="#666666")
+        text.append(f"  {hits}/{len(history)} hits\n", style="#585b70")
 
         self.update(text)

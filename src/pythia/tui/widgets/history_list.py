@@ -89,37 +89,37 @@ class HistoryList(Static):
             is_selected = i == self._selected_index
 
             if entry.is_research:
-                text.append("  \u25c8 ", style="bold #b294bb")
+                text.append("  \u25c8 ", style="bold #cba6f7")
             elif entry.cache_hit:
-                text.append("  \u25cf ", style="bold #b5bd68")
+                text.append("  \u25cf ", style="bold #a6e3a1")
             else:
-                text.append("  \u25cb ", style="bold #00d7ff")
+                text.append("  \u25cb ", style="bold #89dceb")
 
             if entry.timestamp:
-                text.append(f"{entry.timestamp}  ", style="#666666")
+                text.append(f"{entry.timestamp}  ", style="#585b70")
 
             q = entry.query
             if len(q) > 55:
                 q = q[:52] + "..."
-            style = "bold #e0e0e0" if is_selected else "#e0e0e0"
+            style = "bold #cdd6f4" if is_selected else "#cdd6f4"
             if is_selected:
                 text.append(f"\u25b8 {q}\n", style=style)
             else:
                 text.append(f"  {q}\n", style=style)
 
             if entry.is_research:
-                text.append("              \U0001f52c research", style="#b294bb")
+                text.append("              \U0001f52c research", style="#cba6f7")
             elif entry.cache_hit:
-                text.append("              \u26a1 cache hit", style="#b5bd68")
+                text.append("              \u26a1 cache hit", style="#a6e3a1")
             else:
-                text.append("              \U0001f50d web search", style="#00d7ff")
+                text.append("              \U0001f50d web search", style="#89dceb")
 
             time_str = (
                 f"{entry.response_time_ms}ms"
                 if entry.response_time_ms < 1000
                 else f"{entry.response_time_ms / 1000:.1f}s"
             )
-            text.append(f" \u00b7 {time_str}", style="#666666")
-            text.append(f" \u00b7 {entry.model}\n\n", style="#666666")
+            text.append(f" \u00b7 {time_str}", style="#585b70")
+            text.append(f" \u00b7 {entry.model}\n\n", style="#585b70")
 
         self.update(text)

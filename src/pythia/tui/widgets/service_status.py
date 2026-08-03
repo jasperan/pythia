@@ -16,8 +16,8 @@ class ServiceStatusIndicator(Static):
         height: auto;
         max-height: 2;
         dock: bottom;
-        background: #2a2a3a;
-        color: #808080;
+        background: #313244;
+        color: #6c7086;
         padding: 0 2;
     }
     """
@@ -39,51 +39,51 @@ class ServiceStatusIndicator(Static):
         # API Server status
         api_info = self._services.get("api")
         if api_info:
-            status_text.append("API: ", style="#666666")
+            status_text.append("API: ", style="#585b70")
             dot, style = self._get_dot_style(api_info.status)
             status_text.append(f"{dot} ", style=style)
-            status_text.append(f"{api_info.message} ", style="#808080")
+            status_text.append(f"{api_info.message} ", style="#6c7086")
         else:
-            status_text.append("API: ", style="#666666")
-            status_text.append("○ ", style="#666666")
-            status_text.append("Initializing ", style="#808080")
+            status_text.append("API: ", style="#585b70")
+            status_text.append("○ ", style="#585b70")
+            status_text.append("Initializing ", style="#6c7086")
 
-        status_text.append(" │ ", style="#666666")
+        status_text.append(" │ ", style="#585b70")
 
         # Oracle status
         oracle_info = self._services.get("oracle")
         if oracle_info:
-            status_text.append("Oracle: ", style="#666666")
+            status_text.append("Oracle: ", style="#585b70")
             dot, style = self._get_dot_style(oracle_info.status)
             status_text.append(f"{dot} ", style=style)
-            status_text.append(f"{oracle_info.message} ", style="#808080")
+            status_text.append(f"{oracle_info.message} ", style="#6c7086")
         else:
-            status_text.append("Oracle: ", style="#666666")
-            status_text.append("○ ", style="#666666")
-            status_text.append("Starting ", style="#808080")
+            status_text.append("Oracle: ", style="#585b70")
+            status_text.append("○ ", style="#585b70")
+            status_text.append("Starting ", style="#6c7086")
 
-        status_text.append(" │ ", style="#666666")
+        status_text.append(" │ ", style="#585b70")
 
         # SearXNG status
         searxng_info = self._services.get("searxng")
         if searxng_info:
-            status_text.append("SearXNG: ", style="#666666")
+            status_text.append("SearXNG: ", style="#585b70")
             dot, style = self._get_dot_style(searxng_info.status)
             status_text.append(f"{dot} ", style=style)
-            status_text.append(f"{searxng_info.message}", style="#808080")
+            status_text.append(f"{searxng_info.message}", style="#6c7086")
         else:
-            status_text.append("SearXNG: ", style="#666666")
-            status_text.append("○ ", style="#666666")
-            status_text.append("Starting", style="#808080")
+            status_text.append("SearXNG: ", style="#585b70")
+            status_text.append("○ ", style="#585b70")
+            status_text.append("Starting", style="#6c7086")
 
         self.update(status_text)
 
     def _get_dot_style(self, status: ServiceStatus) -> tuple[str, str]:
         """Get dot character and style for status."""
         if status == ServiceStatus.RUNNING:
-            return "●", "#b5bd68"  # Green
+            return "●", "#a6e3a1"  # Green
         if status == ServiceStatus.STARTING:
-            return "◐", "#ffab40"  # Orange
+            return "◐", "#f9e2af"  # Orange
         if status == ServiceStatus.ERROR:
-            return "●", "#cc6666"  # Red
-        return "○", "#666666"  # Gray
+            return "●", "#f38ba8"  # Red
+        return "○", "#585b70"  # Gray

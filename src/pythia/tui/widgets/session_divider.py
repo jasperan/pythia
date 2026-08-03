@@ -11,7 +11,7 @@ class SessionDivider(Static):
     SessionDivider {
         height: 1;
         margin: 1 0;
-        color: #5f87ff;
+        color: #89b4fa;
     }
     """
 
@@ -25,8 +25,8 @@ class SessionDivider(Static):
 
     def _rebuild(self) -> None:
         line = Text()
-        line.append("─── ", style="#5f87ff")
-        line.append(f'"{self._query}"', style="bold #5f87ff")
-        line.append(f" ─── {self._timestamp} ", style="#5f87ff")
-        line.append("─" * 20, style="#5f87ff")
+        line.append("─── ", style="#89b4fa")
+        line.append(f'"{self._query}"', style="bold #89b4fa")
+        line.append(f" ─── {self._timestamp} ", style="#89b4fa")
+        line.append("─" * 20, style="#89b4fa")
         self.update(line)

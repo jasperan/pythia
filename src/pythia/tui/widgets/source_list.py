@@ -32,12 +32,12 @@ class SourceList(Static):
             self.update("")
             return
         text = Text()
-        text.append("  \u2500\u2500\u2500 Sources \u2500\u2500\u2500\n", style="bold #5f87ff")
+        text.append("  \u2500\u2500\u2500 Sources \u2500\u2500\u2500\n", style="bold #89b4fa")
         for s in self._sources:
             idx = s.get("index", "?")
             title = s.get("title", "")
             url = s.get("url", "")
-            text.append(f"  [{idx}] ", style="bold #8abeb7")
-            text.append(f"{title}\n", style="#e0e0e0")
-            text.append(f"      {url}\n", style="#666666")
+            text.append(f"  [{idx}] ", style="bold #89dceb")
+            text.append(f"{title}\n", style="#cdd6f4")
+            text.append(f"      {url}\n", style="#585b70")
         self.update(text)

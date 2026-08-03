@@ -14,9 +14,9 @@ class SearchInput(Vertical):
         height: auto;
         min-height: 3;
         max-height: 5;
-        border-top: solid #5f87ff;
+        border-top: solid #89b4fa;
         padding: 0 1;
-        background: #1a2535;
+        background: #181825;
     }
 
     SearchInput > Input {
@@ -44,9 +44,9 @@ class SearchInput(Vertical):
     def set_mode(self, deep: bool = False) -> None:
         label = self.query_one("#mode-label", Static)
         if deep:
-            label.update(Text("  Search [DEEP]", style="bold #ffab40"))
+            label.update(Text("  Search [DEEP]", style="bold #f9e2af"))
         else:
-            label.update(Text("  Search", style="#666666"))
+            label.update(Text("  Search", style="#585b70"))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()

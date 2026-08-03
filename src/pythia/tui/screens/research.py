@@ -23,7 +23,7 @@ class ResearchScreen(Screen):
     DEFAULT_CSS = """
     ResearchScreen { layout: vertical; }
     #research-split { height: 1fr; }
-    #research-tree-pane { width: 30; border-right: solid #5f87ff; overflow-y: auto; }
+    #research-tree-pane { width: 30; border-right: solid #89b4fa; overflow-y: auto; }
     #research-main-pane { width: 1fr; overflow-y: auto; padding: 1 2; }
     """
 

@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 class HistoryScreen(Screen):
     DEFAULT_CSS = """
     HistoryScreen { layout: vertical; }
-    #history-filter-bar { height: 1; padding: 0 2; background: #2a2a3a; }
-    #history-filter-input { height: 3; padding: 0 1; border-top: solid #5f87ff; background: #1a2535; }
-    #history-footer { height: 2; dock: bottom; background: #333345; padding: 0 2; }
+    #history-filter-bar { height: 1; padding: 0 2; background: #313244; }
+    #history-filter-input { height: 3; padding: 0 1; border-top: solid #89b4fa; background: #181825; }
+    #history-footer { height: 2; dock: bottom; background: #313244; padding: 0 2; }
     """
 
     BINDINGS = [
@@ -95,11 +95,11 @@ class HistoryScreen(Screen):
         avg_str = f"{avg_ms}ms" if avg_ms < 1000 else f"{avg_ms / 1000:.1f}s"
 
         footer = Text()
-        footer.append(f"  {total} queries", style="#e0e0e0")
-        footer.append(f" \u00b7 {hits} cache hits ({rate})", style="#b5bd68")
-        footer.append(f" \u00b7 avg {avg_str}", style="#666666")
+        footer.append(f"  {total} queries", style="#cdd6f4")
+        footer.append(f" \u00b7 {hits} cache hits ({rate})", style="#a6e3a1")
+        footer.append(f" \u00b7 avg {avg_str}", style="#585b70")
         footer.append(
-            "\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style="#808080"
+            "\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style="#6c7086"
         )
         self.query_one("#history-footer", Static).update(footer)
 

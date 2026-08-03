@@ -42,8 +42,8 @@ class ActivityIndicator(Static):
             return
         line = Text()
         spinner = _BRAILLE[self._frame]
-        line.append(f"  {spinner} ", style="bold #00d7ff")
-        line.append(self._label, style="#00d7ff")
+        line.append(f"  {spinner} ", style="bold #89dceb")
+        line.append(self._label, style="#89dceb")
         self.update(line)
 
     def stop(self) -> None:
