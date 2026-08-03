@@ -56,7 +56,7 @@ class SettingsPanel(Vertical):
             pass
 
     def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id == "model-select" and event.value and event.value != Select.BLANK:
+        if event.select.id == "model-select" and event.value and event.value != Select.NULL:
             self.post_message(self.SettingChanged("model", event.value))
 
     def on_switch_changed(self, event: Switch.Changed) -> None:
