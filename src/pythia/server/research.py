@@ -32,6 +32,7 @@ class ResearchEventType(StrEnum):
     FINDING = "finding"
     GAP_ANALYSIS = "gap_analysis"
     RECALL = "recall"
+    EVOLUTION = "evolution"
     TOKEN = "token"
     VERIFY = "verify"
     COMPLETENESS_CHECK = "completeness_check"
@@ -240,6 +241,40 @@ New sources:
 Write an updated, comprehensive report integrating the new findings."""
 
 
+_EVOLUTION_SYSTEM = """You are a research historian. You are given findings from a PAST research session and NEW findings collected now for the same topic.
+
+Compare the past findings against the new findings and identify how the understanding has changed.
+
+Return a JSON object:
+{{
+  "changes": [
+    {{
+      "type": "contradiction" | "update" | "confirmation",
+      "past_finding": "short quote of the past finding",
+      "new_finding": "short quote of the new finding",
+      "explanation": "what changed and why it matters"
+    }}
+  ]
+}}
+
+Rules:
+- contradiction: new evidence directly contradicts a past finding
+- update: new evidence refines or supersedes a past finding with more detail
+- confirmation: new evidence confirms a past finding
+- Only include substantive changes; skip trivial rephrasing.
+- Return at most 5 changes, contradictions and updates first."""
+
+_EVOLUTION_USER = """Research topic: {query}
+
+Past findings (from earlier research):
+{past_findings}
+
+New findings (collected now):
+{new_findings}
+
+Compare and return JSON with the changes list."""
+
+
 class ResearchAgent:
     """Autonomous deep research agent with verification and provenance tracking."""
 
@@ -407,13 +442,18 @@ class ResearchAgent:
         max_cc = self.config.max_completeness_checks
         report_text = ""
 
+        # Cross-session evolution analysis: what changed vs. past research?
+        evolution = await self._analyze_evolution(query, recalled, all_findings, model)
+        if evolution.get("changes"):
+            yield ResearchEvent(ResearchEventType.EVOLUTION, evolution)
+
         for cc_attempt in range(max_cc + 1):
             yield ResearchEvent(
                 ResearchEventType.STATUS, {"message": "Synthesizing research report..."}
             )
             report_parts = []
             async for token in self._synthesize_report(
-                query, all_findings, all_sources, recalled, model
+                query, all_findings, all_sources, recalled, model, evolution=evolution
             ):
                 report_parts.append(token)
                 yield ResearchEvent(ResearchEventType.TOKEN, {"content": token})
@@ -521,6 +561,7 @@ class ResearchAgent:
             sources=all_sources,
             provenance=provenance,
             kind="research",
+            evolution=evolution,
         )
         provenance.research_files = [corpus_path]
 
@@ -583,6 +624,8 @@ class ResearchAgent:
                 "provenance": provenance.to_dict(),
                 "corpus_path": corpus_path,
                 "failed_findings": sum(1 for f in all_findings if f.error),
+                "evolution_changes": len(evolution.get("changes", [])),
+                "evolution_degraded": evolution.get("degraded", False),
             },
         )
 
@@ -1170,6 +1213,52 @@ class ResearchAgent:
             "fallback": fallback,
         }
 
+    async def _analyze_evolution(
+        self,
+        query: str,
+        recalled: list[dict],
+        findings: list[Finding],
+        model: str,
+        max_changes: int = 5,
+    ) -> dict:
+        """Compare recalled past findings against newly collected findings.
+
+        Returns ``{"changes": [...], "degraded": bool}`` where each change has
+        ``type`` in (contradiction, update, confirmation). Falls back to an
+        empty result (``degraded=True``) when the LLM call fails or when the
+        evolution check is disabled in config.
+        """
+        if not self.config.evolution_check or not recalled or not findings:
+            return {"changes": [], "degraded": False}
+
+        past_text = "\n\n".join(
+            f'- From "{r.get("research_query", "?")}" (similarity {r.get("similarity", 0):.2f}): '
+            f"{r.get('summary', '')[:400]}"
+            for r in recalled[:5]
+        )
+        new_text = "\n\n".join(f"- {f.sub_query}: {f.summary[:400]}" for f in findings[:12])
+        user = _EVOLUTION_USER.format(query=query, past_findings=past_text, new_findings=new_text)
+
+        try:
+            response = await self.ollama.generate(
+                _EVOLUTION_SYSTEM, user, json_mode=True, model=model
+            )
+            data = json.loads(response)
+            changes = data.get("changes", [])
+            if isinstance(changes, list):
+                valid = [
+                    c
+                    for c in changes[:max_changes]
+                    if isinstance(c, dict)
+                    and c.get("type") in {"contradiction", "update", "confirmation"}
+                ]
+                return {"changes": valid, "degraded": False}
+        except (json.JSONDecodeError, KeyError, AttributeError) as e:
+            logger.warning(f"Evolution analysis failed: {e}")
+            return {"changes": [], "degraded": True, "error": type(e).__name__}
+
+        return {"changes": [], "degraded": True, "error": "MalformedResponse"}
+
     async def _synthesize_report(
         self,
         query: str,
@@ -1177,6 +1266,7 @@ class ResearchAgent:
         all_sources: list[dict],
         recalled: list[dict],
         model: str,
+        evolution: dict | None = None,
     ) -> AsyncIterator[str]:
         """Stream the final research report synthesis."""
         findings_text = self._format_findings_for_prompt(findings)
@@ -1191,11 +1281,27 @@ class ResearchAgent:
                 )
             recall_section = "\n".join(recall_parts)
 
+        evolution_section = ""
+        if evolution and evolution.get("changes"):
+            evo_parts = ["\nHow this topic changed since your past research:"]
+            for change in evolution["changes"][:5]:
+                ctype = change.get("type", "confirmation")
+                marker = {
+                    "contradiction": "CONTRADICTS",
+                    "update": "UPDATES",
+                    "confirmation": "CONFIRMS",
+                }.get(ctype, ctype.upper())
+                evo_parts.append(f"- {marker} past finding: {change.get('past_finding', '')[:200]}")
+                evo_parts.append(f"  New evidence: {change.get('new_finding', '')[:200]}")
+                if change.get("explanation"):
+                    evo_parts.append(f"  Why: {change['explanation'][:200]}")
+            evolution_section = "\n".join(evo_parts)
+
         num_rounds = max((f.round_num for f in findings), default=1)
 
         user = _REPORT_USER.format(
             query=query,
-            recall_section=recall_section,
+            recall_section=recall_section + evolution_section,
             num_rounds=num_rounds,
             findings_text=findings_text,
             sources_text=sources_text,
@@ -1277,6 +1383,7 @@ class ResearchAgent:
         provenance: ProvenanceRecord,
         kind: str,
         directive: str | None = None,
+        evolution: dict | None = None,
     ) -> str:
         corpus_dir = self.changelog.workspace_dir / ".pythia" / "research" / slug
         corpus_dir.mkdir(parents=True, exist_ok=True)
@@ -1294,7 +1401,23 @@ class ResearchAgent:
         ]
         if directive:
             lines.append(f"- Directive: {directive}")
-        lines.extend(["", "## Final Report", "", report.strip(), "", "## Findings", ""])
+        lines.extend(["", "## Final Report", "", report.strip()])
+
+        if evolution and evolution.get("changes"):
+            lines.extend(["", "## Knowledge Evolution", ""])
+            for change in evolution["changes"][:5]:
+                ctype = change.get("type", "confirmation")
+                marker = {
+                    "contradiction": "CONTRADICTS",
+                    "update": "UPDATES",
+                    "confirmation": "CONFIRMS",
+                }.get(ctype, ctype.upper())
+                lines.append(f"- {marker} past finding: {change.get('past_finding', '')[:300]}")
+                lines.append(f"  New evidence: {change.get('new_finding', '')[:300]}")
+                if change.get("explanation"):
+                    lines.append(f"  Why: {change['explanation'][:300]}")
+
+        lines.extend(["", "## Findings", ""])
 
         for idx, finding in enumerate(findings, 1):
             lines.extend(

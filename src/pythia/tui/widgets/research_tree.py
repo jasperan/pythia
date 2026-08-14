@@ -37,18 +37,25 @@ class ResearchTree(Static):
         self._active_round: int = 0
         self._recall_count: int = 0
         self._recall_items: list[dict] = []
+        self._evolution_changes: list[dict] = []
 
     def reset(self) -> None:
         self._rounds = []
         self._active_round = 0
         self._recall_count = 0
         self._recall_items = []
+        self._evolution_changes = []
         if self.is_attached:
             self.update("")
 
     def set_recall(self, items: list[dict]) -> None:
         self._recall_items = items
         self._recall_count = len(items)
+        self._rebuild()
+
+    def set_evolution(self, changes: list[dict]) -> None:
+        """Display cross-session knowledge evolution (contradictions/updates)."""
+        self._evolution_changes = changes
         self._rebuild()
 
     def add_plan(self, sub_queries: list[str]) -> None:
@@ -95,9 +102,27 @@ class ResearchTree(Static):
     def _rebuild(self) -> None:
         text = Text()
 
+        if self._evolution_changes:
+            text.append("  \U0001f4c8 Knowledge evolution\n", style="bold")
+            for change in self._evolution_changes[:5]:
+                ctype = change.get("type", "confirmation")
+                marker = {
+                    "contradiction": ("\u26a0", colors.ERROR),
+                    "update": ("\u21bb", colors.INFO),
+                    "confirmation": ("\u2713", colors.SUCCESS),
+                }.get(ctype, ("\u2022", colors.DIM))
+                text.append(f"    {marker[0]} ", style=marker[1])
+                past = change.get("past_finding", "")
+                if len(past) > 32:
+                    past = past[:29] + "..."
+                text.append(f"{past}\n", style=marker[1])
+            text.append("\n")
+
         if self._recall_count > 0:
             text.append("  \U0001f9e0 ", style="bold")
-            text.append(f"Recalled {self._recall_count} prior finding(s)\n", style=f"{colors.SECONDARY}")
+            text.append(
+                f"Recalled {self._recall_count} prior finding(s)\n", style=f"{colors.SECONDARY}"
+            )
             for item in self._recall_items:
                 text.append("    └ ", style=f"{colors.DIM}")
                 text.append(f"{item.get('from_query', '?')}", style=f"{colors.MUTED}")

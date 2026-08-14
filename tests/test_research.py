@@ -24,6 +24,7 @@ def _make_agent(
     config_overrides=None,
     summary_failures_before_success=0,
     summary_always_fails=False,
+    evolution_return=None,
 ):
     """Build a ResearchAgent with mocked dependencies.
 
@@ -66,6 +67,8 @@ def _make_agent(
             idx = min(verification_call_count["n"], len(verification_responses) - 1)
             verification_call_count["n"] += 1
             return verification_responses[idx]
+        if json_mode and "research historian" in system.lower():
+            return evolution_return or '{"changes": []}'
         if json_mode and "completeness" in system.lower():
             return completeness_resp
         if json_mode and "gaps" in system.lower():
@@ -186,9 +189,7 @@ async def test_completeness_parse_failure_is_stuck_not_complete():
 
 @pytest.mark.asyncio
 async def test_completeness_unknown_status_is_stuck():
-    agent, *_ = _make_agent(
-        completeness_return='{"status": "MAYBE", "reasoning": "bad status"}'
-    )
+    agent, *_ = _make_agent(completeness_return='{"status": "MAYBE", "reasoning": "bad status"}')
 
     result = await agent._verify_completeness("query", "report", "test-model")
 
@@ -729,3 +730,147 @@ async def test_refine_research_slug_not_found():
 
     done = next(e for e in events if e.event_type == ResearchEventType.DONE)
     assert "error" in done.data
+
+
+# --- Knowledge evolution detection ---
+
+EVOLUTION_JSON = """{
+  "changes": [
+    {
+      "type": "contradiction",
+      "past_finding": "ARM leads edge AI power efficiency.",
+      "new_finding": "RISC-V now matches ARM on edge AI power efficiency.",
+      "explanation": "RISC-V architecture has caught up."
+    }
+  ]
+}"""
+
+
+@pytest.mark.asyncio
+async def test_evolution_emitted_when_recall_and_findings_exist():
+    """Research should emit an EVOLUTION event when recalled findings exist."""
+    recalled = [
+        {
+            "sub_query": "ARM power efficiency",
+            "summary": "ARM is very power efficient.",
+            "sources": [],
+            "research_query": "ARM vs x86",
+            "similarity": 0.82,
+        }
+    ]
+    agent, _, _, _ = _make_agent(
+        recall_findings=recalled,
+        evolution_return=EVOLUTION_JSON,
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("RISC-V vs ARM for edge AI"):
+        events.append(event)
+
+    types = [e.event_type for e in events]
+    assert ResearchEventType.EVOLUTION in types
+
+    evo = next(e for e in events if e.event_type == ResearchEventType.EVOLUTION)
+    assert len(evo.data["changes"]) == 1
+    assert evo.data["changes"][0]["type"] == "contradiction"
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["evolution_changes"] == 1
+    assert done.data["evolution_degraded"] is False
+
+    # Evolution section must be persisted in the corpus
+    corpus = Path(done.data["corpus_path"]).read_text()
+    assert "## Knowledge Evolution" in corpus
+    assert "CONTRADICTS" in corpus
+
+
+@pytest.mark.asyncio
+async def test_evolution_no_recall_no_event():
+    """No recalled findings -> no evolution analysis, no EVOLUTION event."""
+    agent, _, _, _ = _make_agent(
+        recall_findings=[],
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("fresh topic no history"):
+        events.append(event)
+
+    types = [e.event_type for e in events]
+    assert ResearchEventType.EVOLUTION not in types
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["evolution_changes"] == 0
+
+
+@pytest.mark.asyncio
+async def test_evolution_degraded_on_parse_failure():
+    """Malformed evolution response should degrade gracefully, not crash research."""
+    recalled = [
+        {
+            "sub_query": "ARM power efficiency",
+            "summary": "ARM is very power efficient.",
+            "sources": [],
+            "research_query": "ARM vs x86",
+            "similarity": 0.82,
+        }
+    ]
+    agent, _, _, _ = _make_agent(
+        recall_findings=recalled,
+        evolution_return="not json at all",
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    events = []
+    async for event in agent.research("RISC-V vs ARM for edge AI"):
+        events.append(event)
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["evolution_changes"] == 0
+    assert done.data["evolution_degraded"] is True
+    assert any(e.event_type == ResearchEventType.DONE for e in events)
+
+
+@pytest.mark.asyncio
+async def test_evolution_disabled_by_config():
+    """evolution_check=False should skip the LLM call entirely."""
+    recalled = [
+        {
+            "sub_query": "ARM power efficiency",
+            "summary": "ARM is very power efficient.",
+            "sources": [],
+            "research_query": "ARM vs x86",
+            "similarity": 0.82,
+        }
+    ]
+    agent, mock_ollama, _, _ = _make_agent(
+        recall_findings=recalled,
+        evolution_return=EVOLUTION_JSON,
+        config_overrides={
+            "max_rounds": 1,
+            "deep_scrape": False,
+            "max_completeness_checks": 0,
+            "evolution_check": False,
+        },
+    )
+
+    # Track every generate() system prompt to prove the historian call is skipped
+    seen_systems: list[str] = []
+    original_generate = mock_ollama.generate
+
+    async def recording_generate(system, user, json_mode=False, model=None):
+        seen_systems.append(system)
+        return await original_generate(system, user, json_mode=json_mode, model=model)
+
+    mock_ollama.generate = recording_generate
+
+    events = []
+    async for event in agent.research("RISC-V vs ARM for edge AI"):
+        events.append(event)
+
+    types = [e.event_type for e in events]
+    assert ResearchEventType.EVOLUTION not in types
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["evolution_changes"] == 0
+
+    assert not any("historian" in system.lower() for system in seen_systems)

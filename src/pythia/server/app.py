@@ -97,7 +97,12 @@ def create_app(config: PythiaConfig) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    orchestrator = SearchOrchestrator(ollama=ollama, cache=cache, searxng=searxng)
+    orchestrator = SearchOrchestrator(
+        ollama=ollama,
+        cache=cache,
+        searxng=searxng,
+        cache_max_age_hours=config.oracle.cache_max_age_hours,
+    )
 
     def _make_agent(max_rounds: int | None) -> ResearchAgent:
         research_config = config.research

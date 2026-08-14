@@ -8,14 +8,68 @@ import re
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pythia.server.grounding import verify_grounding
 from pythia.server.llm_client import LLMClient
 from pythia.server.ollama import build_search_prompt
-from pythia.server.oracle_cache import OracleCache
+from pythia.server.oracle_cache import CacheEntry, OracleCache
 from pythia.server.searxng import SearxngClient
 from pythia.scraper import scrape_urls
+
+
+# Signals that a query is time-sensitive: the user wants current information, so
+# a stale cached answer is worse than paying the cost of a fresh web search.
+_TIME_SENSITIVE_WORDS = frozenset(
+    {
+        "latest",
+        "breaking",
+        "news",
+        "today",
+        "current",
+        "now",
+        "recent",
+        "recently",
+        "updated",
+        "update",
+        "this week",
+        "this month",
+        "this year",
+        "as of",
+        "price",
+        "prices",
+        "stock",
+        "stocks",
+        "forecast",
+        "election",
+        "results",
+        "score",
+        "live",
+        "release",
+        "released",
+        "launched",
+        "announced",
+        "version",
+        "release notes",
+        "status",
+    }
+)
+
+_YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
+
+
+def is_time_sensitive(query: str) -> bool:
+    """Heuristic: does this query want current/fresh information?
+
+    Matches explicit time markers (a 4-digit year, words like ``latest``) and
+    implicit ones (``price``, ``stock``, ``release``). Used to decide whether a
+    stale cache entry should be bypassed in favor of a live web search.
+    """
+    lowered = query.lower()
+    if _YEAR_RE.search(lowered):
+        return True
+    return any(marker in lowered for marker in _TIME_SENSITIVE_WORDS)
 
 
 class EventType(StrEnum):
@@ -39,10 +93,34 @@ def _count_citations(text: str) -> int:
 
 
 class SearchOrchestrator:
-    def __init__(self, ollama: LLMClient, cache: OracleCache, searxng: SearxngClient):
+    def __init__(
+        self,
+        ollama: LLMClient,
+        cache: OracleCache,
+        searxng: SearxngClient,
+        cache_max_age_hours: float = 0.0,
+    ):
         self.ollama = ollama
         self.cache = cache
         self.searxng = searxng
+        self.cache_max_age_hours = cache_max_age_hours
+
+    def _is_stale_cache_entry(self, cached: CacheEntry, query: str) -> bool:
+        """True when a cache entry is old enough that a time-sensitive query
+        should re-search the web instead of serving the cached answer."""
+        if self.cache_max_age_hours <= 0:
+            return False
+        if not is_time_sensitive(query):
+            return False
+        if cached.created_at is None:
+            return False
+        created = cached.created_at
+        if created.tzinfo is None:
+            created = created.replace(
+                tzinfo=timezone.utc
+            )  # Oracle SYSTIMESTAMP is server-local; treat as UTC
+        age = (datetime.now(timezone.utc) - created).total_seconds() / 3600
+        return age > self.cache_max_age_hours
 
     async def rewrite_query(self, query: str, model: str | None = None) -> str:
         """Use LLM to rewrite a conversational query into a search-optimized one."""
@@ -83,7 +161,7 @@ class SearchOrchestrator:
 
         cached, query_embedding = await cache_task
 
-        if cached:
+        if cached and not self._is_stale_cache_entry(cached, query):
             search_task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await search_task
@@ -131,6 +209,18 @@ class SearchOrchestrator:
                 },
             )
             return
+
+        # Cache entry exists but is stale for a time-sensitive query.
+        if cached:
+            yield SearchEvent(
+                EventType.STATUS,
+                {
+                    "message": (
+                        f"Cache entry is older than {self.cache_max_age_hours:g}h; "
+                        "re-searching web for fresh results..."
+                    )
+                },
+            )
 
         # Cache miss — web search is already running
         yield SearchEvent(EventType.STATUS, {"message": "Searching web..."})

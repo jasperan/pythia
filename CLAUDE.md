@@ -61,8 +61,10 @@ server:   { host: "0.0.0.0", port: 8900 }
 ollama:   { base_url: "http://localhost:11434", model: "qwen3.5:9b" }
 searxng:  { base_url: "http://localhost:8889", max_results: 8, categories: [general] }
 oracle:   { dsn: "localhost:1523/FREEPDB1", user: "pythia", password: "pythia",  # pragma: allowlist secret
-            cache_similarity_threshold: 0.85, embedding_model: "ALL_MINILM_L6_V2" }
-research: { max_rounds: 3, max_sub_queries: 5, deep_scrape: true, recall_threshold: 0.70 }
+            cache_similarity_threshold: 0.85, embedding_model: "ALL_MINILM_L6_V2",
+            cache_max_age_hours: 0 }
+research: { max_rounds: 3, max_sub_queries: 5, deep_scrape: true, recall_threshold: 0.70,
+            evolution_check: true }
 tui:      { theme: "dark" }
 ```
 

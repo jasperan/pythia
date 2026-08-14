@@ -53,6 +53,7 @@ Cache stats, response time sparklines, model picker, and cache management.
 Ask a question, get a cited answer instantly, cached semantically so similar future queries return in milliseconds.
 
 - **Semantic cache**: Oracle AI Vector Search finds similar past queries (cosine similarity >= 0.85) and returns cached answers instantly
+- **Freshness-aware caching**: cached answers never go stale for time-sensitive queries. Set `oracle.cache_max_age_hours` (e.g. `2`); queries about `latest`/`news`/`2026 prices`/`release` automatically bypass entries older than the limit and re-search the web
 - **Real-time streaming**: tokens appear as they're generated via SSE
 - **Source citations**: inline `[1]`, `[2]` citations from web results
 - **Deep scraping**: Scrapling scrapes full page content instead of snippets
@@ -75,6 +76,8 @@ pythia research "What are the tradeoffs between RISC-V and ARM for edge AI?"
 7. **Synthesize**: produces a structured, cited research report with sections
 
 **The knowledge accumulation advantage:** Every research session stores individual findings as embeddings in Oracle. Over time, your Pythia instance builds a personal knowledge base. When you research "RISC-V for edge AI" next month, it recalls relevant fragments from your previous research on "ARM vs x86 power efficiency". No stateless search engine can do this.
+
+**Knowledge evolution detection:** When a research session recalls findings from *past* sessions, Pythia compares them against the new findings and surfaces how your understanding changed — `contradiction` (new evidence conflicts with old), `update` (new evidence refines old), or `confirmation` (old findings still hold). The result is a **"What changed since your last research"** section in the report, an `evolution` SSE event, and a **Knowledge Evolution** section in the corpus file. Set `research.evolution_check: false` in `pythia.yaml` to disable.
 
 ### Full-Screen TUI
 Multi-screen terminal interface built with Textual. 4 screens (Search, Research, History, Dashboard), command palette, 4 themes, global keybindings. See [screenshots above](#screenshots).
@@ -530,12 +533,14 @@ oracle:
   password: "pythia"  # pragma: allowlist secret
   cache_similarity_threshold: 0.85
   embedding_model: "ALL_MINILM_L6_V2"
+  cache_max_age_hours: 0     # 0 = unlimited; >0 bypasses stale cache for time-sensitive queries
 
 research:
   max_rounds: 3              # Max iterative search rounds
   max_sub_queries: 5         # Max sub-questions per decomposition
   deep_scrape: true          # Scrape full page content during research
   recall_threshold: 0.70     # Similarity threshold for cross-session recall
+  evolution_check: true      # Detect contradictions/updates vs. recalled past findings
 
 tui:
   theme: "dark"

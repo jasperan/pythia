@@ -45,3 +45,57 @@ def test_reset():
     tree.reset()
     assert tree._rounds == []
     assert tree._recall_count == 0
+
+
+def test_set_evolution():
+    tree = ResearchTree()
+    tree.set_evolution(
+        [
+            {
+                "type": "contradiction",
+                "past_finding": "ARM leads edge AI power efficiency.",
+                "new_finding": "RISC-V matches ARM now.",
+                "explanation": "RISC-V caught up.",
+            }
+        ]
+    )
+    assert len(tree._evolution_changes) == 1
+    assert tree._evolution_changes[0]["type"] == "contradiction"
+
+
+def test_set_evolution_rebuilds_content():
+    from textual.app import App, ComposeResult
+
+    class _TreeHost(App):
+        def compose(self) -> ComposeResult:
+            yield ResearchTree()
+
+    async def _run():
+        app = _TreeHost()
+        async with app.run_test():
+            tree = app.query_one(ResearchTree)
+            tree.set_evolution(
+                [{"type": "update", "past_finding": "old claim", "new_finding": "new detail"}]
+            )
+            assert "Knowledge evolution" in str(tree.render())
+            tree.set_evolution(
+                [
+                    {
+                        "type": "contradiction",
+                        "past_finding": "ARM leads.",
+                        "new_finding": "RISC-V leads now.",
+                    }
+                ]
+            )
+            assert "Knowledge evolution" in str(tree.render())
+
+    import asyncio
+
+    asyncio.run(_run())
+
+
+def test_reset_clears_evolution():
+    tree = ResearchTree()
+    tree.set_evolution([{"type": "confirmation", "past_finding": "x", "new_finding": "y"}])
+    tree.reset()
+    assert tree._evolution_changes == []

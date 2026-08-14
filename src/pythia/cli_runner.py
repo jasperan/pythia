@@ -76,7 +76,12 @@ async def run_query(
             )
             use_cache = False
 
-    orchestrator = SearchOrchestrator(ollama=ollama, cache=cache, searxng=searxng)
+    orchestrator = SearchOrchestrator(
+        ollama=ollama,
+        cache=cache,
+        searxng=searxng,
+        cache_max_age_hours=cfg.oracle.cache_max_age_hours,
+    )
 
     try:
         if stream:
@@ -210,6 +215,7 @@ async def _flat_research_events(
     findings = []
     plan = []
     recalled = []
+    evolution = []
     done_data = {}
 
     async for event in event_stream:
@@ -221,6 +227,8 @@ async def _flat_research_events(
             plan = event.data.get("sub_queries", [])
         elif event.event_type == ResearchEventType.RECALL:
             recalled = event.data.get("findings", [])
+        elif event.event_type == ResearchEventType.EVOLUTION:
+            evolution = event.data.get("changes", [])
         elif event.event_type == ResearchEventType.DONE:
             done_data = event.data
         elif event.event_type == ResearchEventType.STATUS:
@@ -234,6 +242,7 @@ async def _flat_research_events(
         "sub_queries": plan,
         "findings": findings,
         "recalled_findings": recalled,
+        "knowledge_evolution": evolution,
         "rounds_used": done_data.get("rounds_used", 0),
         "total_findings": done_data.get("total_findings", 0),
         "total_sources": done_data.get("total_sources", 0),

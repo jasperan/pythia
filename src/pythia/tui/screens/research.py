@@ -122,6 +122,11 @@ class ResearchScreen(Screen):
                             findings = data.get("findings", [])
                             tree.set_recall(findings)
 
+                        elif event_type == "evolution":
+                            changes = data.get("changes", [])
+                            if changes:
+                                tree.set_evolution(changes)
+
                         elif event_type == "plan":
                             sub_queries = data.get("sub_queries", [])
                             tree.add_plan(sub_queries)
