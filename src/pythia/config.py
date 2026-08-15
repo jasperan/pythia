@@ -60,9 +60,8 @@ class OracleConfig(BaseModel):
     password: str = ""
     cache_similarity_threshold: float = 0.85
     embedding_model: str = "ALL_MINILM_L6_V2"
-    cache_max_age_hours: float = (
-        0.0  # 0 = unlimited; >0 bypasses stale cache for time-sensitive queries
-    )
+    # 0 = unlimited; >0 bypasses stale cache for time-sensitive queries
+    cache_max_age_hours: float = 0.0
 
     @model_validator(mode="before")
     @classmethod
@@ -86,9 +85,8 @@ class ResearchConfig(BaseModel):
     deep_scrape: bool = True
     recall_threshold: float = 0.70
     max_completeness_checks: int = 2
-    evolution_check: bool = (
-        True  # cross-session contradiction/update detection against recalled findings
-    )
+    # Cross-session contradiction/update detection against recalled findings
+    evolution_check: bool = True
 
 
 class TuiConfig(BaseModel):

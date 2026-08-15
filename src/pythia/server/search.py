@@ -21,55 +21,26 @@ from pythia.scraper import scrape_urls
 
 # Signals that a query is time-sensitive: the user wants current information, so
 # a stale cached answer is worse than paying the cost of a fresh web search.
-_TIME_SENSITIVE_WORDS = frozenset(
-    {
-        "latest",
-        "breaking",
-        "news",
-        "today",
-        "current",
-        "now",
-        "recent",
-        "recently",
-        "updated",
-        "update",
-        "this week",
-        "this month",
-        "this year",
-        "as of",
-        "price",
-        "prices",
-        "stock",
-        "stocks",
-        "forecast",
-        "election",
-        "results",
-        "score",
-        "live",
-        "release",
-        "released",
-        "launched",
-        "announced",
-        "version",
-        "release notes",
-        "status",
-    }
+_TIME_SENSITIVE_RE = re.compile(
+    r"\b(?:"
+    r"latest|breaking|news|today|current(?:ly)?|now|recent(?:ly)?|updated?|"
+    r"prices?|stocks?|forecast|election|results?|score|live|released?|"
+    r"launch(?:es|ed)?|announc(?:es|ed)?|versions?|status|"
+    r"as of|release notes|this week|this month|this year"
+    r")\b|\b(?:19|20)\d{2}\b",
+    re.IGNORECASE,
 )
-
-_YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 
 
 def is_time_sensitive(query: str) -> bool:
     """Heuristic: does this query want current/fresh information?
 
     Matches explicit time markers (a 4-digit year, words like ``latest``) and
-    implicit ones (``price``, ``stock``, ``release``). Used to decide whether a
-    stale cache entry should be bypassed in favor of a live web search.
+    implicit ones (``price``, ``stock``, ``release``) at word boundaries. Used
+    to decide whether a stale cache entry should be bypassed in favor of a live
+    web search.
     """
-    lowered = query.lower()
-    if _YEAR_RE.search(lowered):
-        return True
-    return any(marker in lowered for marker in _TIME_SENSITIVE_WORDS)
+    return _TIME_SENSITIVE_RE.search(query) is not None
 
 
 class EventType(StrEnum):

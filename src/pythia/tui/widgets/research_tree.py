@@ -21,6 +21,12 @@ _ICONS = {
     NodeState.COMPLETE: ("◉", f"{colors.SUCCESS}"),
 }
 
+_EVOLUTION_MARKERS = {
+    "contradiction": ("\u26a0", colors.ERROR),
+    "update": ("\u21bb", colors.INFO),
+    "confirmation": ("\u2713", colors.SUCCESS),
+}
+
 
 class ResearchTree(Static):
     DEFAULT_CSS = """
@@ -106,11 +112,7 @@ class ResearchTree(Static):
             text.append("  \U0001f4c8 Knowledge evolution\n", style="bold")
             for change in self._evolution_changes[:5]:
                 ctype = change.get("type", "confirmation")
-                marker = {
-                    "contradiction": ("\u26a0", colors.ERROR),
-                    "update": ("\u21bb", colors.INFO),
-                    "confirmation": ("\u2713", colors.SUCCESS),
-                }.get(ctype, ("\u2022", colors.DIM))
+                marker = _EVOLUTION_MARKERS.get(ctype, ("\u2022", colors.DIM))
                 text.append(f"    {marker[0]} ", style=marker[1])
                 past = change.get("past_finding", "")
                 if len(past) > 32:

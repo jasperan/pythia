@@ -275,6 +275,26 @@ New findings (collected now):
 Compare and return JSON with the changes list."""
 
 
+_EVOLUTION_MARKERS = {
+    "contradiction": "CONTRADICTS",
+    "update": "UPDATES",
+    "confirmation": "CONFIRMS",
+}
+
+
+def _format_evolution_lines(changes: list[dict], max_len: int = 200) -> list[str]:
+    """Render knowledge-evolution changes as human-readable bullet lines."""
+    lines: list[str] = []
+    for change in changes[:5]:
+        ctype = change.get("type", "confirmation")
+        marker = _EVOLUTION_MARKERS.get(ctype, ctype.upper())
+        lines.append(f"- {marker} past finding: {change.get('past_finding', '')[:max_len]}")
+        lines.append(f"  New evidence: {change.get('new_finding', '')[:max_len]}")
+        if change.get("explanation"):
+            lines.append(f"  Why: {change['explanation'][:max_len]}")
+    return lines
+
+
 class ResearchAgent:
     """Autonomous deep research agent with verification and provenance tracking."""
 
@@ -1253,8 +1273,8 @@ class ResearchAgent:
                     and c.get("type") in {"contradiction", "update", "confirmation"}
                 ]
                 return {"changes": valid, "degraded": False}
-        except (json.JSONDecodeError, KeyError, AttributeError) as e:
-            logger.warning(f"Evolution analysis failed: {e}")
+        except Exception as e:  # best-effort analysis; never fail research on LLM errors
+            logger.warning("Evolution analysis failed: %s", e)
             return {"changes": [], "degraded": True, "error": type(e).__name__}
 
         return {"changes": [], "degraded": True, "error": "MalformedResponse"}
@@ -1284,17 +1304,7 @@ class ResearchAgent:
         evolution_section = ""
         if evolution and evolution.get("changes"):
             evo_parts = ["\nHow this topic changed since your past research:"]
-            for change in evolution["changes"][:5]:
-                ctype = change.get("type", "confirmation")
-                marker = {
-                    "contradiction": "CONTRADICTS",
-                    "update": "UPDATES",
-                    "confirmation": "CONFIRMS",
-                }.get(ctype, ctype.upper())
-                evo_parts.append(f"- {marker} past finding: {change.get('past_finding', '')[:200]}")
-                evo_parts.append(f"  New evidence: {change.get('new_finding', '')[:200]}")
-                if change.get("explanation"):
-                    evo_parts.append(f"  Why: {change['explanation'][:200]}")
+            evo_parts.extend(_format_evolution_lines(evolution["changes"]))
             evolution_section = "\n".join(evo_parts)
 
         num_rounds = max((f.round_num for f in findings), default=1)
@@ -1405,18 +1415,7 @@ class ResearchAgent:
 
         if evolution and evolution.get("changes"):
             lines.extend(["", "## Knowledge Evolution", ""])
-            for change in evolution["changes"][:5]:
-                ctype = change.get("type", "confirmation")
-                marker = {
-                    "contradiction": "CONTRADICTS",
-                    "update": "UPDATES",
-                    "confirmation": "CONFIRMS",
-                }.get(ctype, ctype.upper())
-                lines.append(f"- {marker} past finding: {change.get('past_finding', '')[:300]}")
-                lines.append(f"  New evidence: {change.get('new_finding', '')[:300]}")
-                if change.get("explanation"):
-                    lines.append(f"  Why: {change['explanation'][:300]}")
-
+            lines.extend(_format_evolution_lines(evolution["changes"], max_len=300))
         lines.extend(["", "## Findings", ""])
 
         for idx, finding in enumerate(findings, 1):

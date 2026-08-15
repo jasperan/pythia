@@ -832,6 +832,42 @@ async def test_evolution_degraded_on_parse_failure():
 
 
 @pytest.mark.asyncio
+async def test_evolution_degraded_on_llm_error():
+    """A hard LLM failure (e.g. timeout) must degrade, never crash research."""
+    recalled = [
+        {
+            "sub_query": "ARM power efficiency",
+            "summary": "ARM is very power efficient.",
+            "sources": [],
+            "research_query": "ARM vs x86",
+            "similarity": 0.82,
+        }
+    ]
+    agent, mock_ollama, _, _ = _make_agent(
+        recall_findings=recalled,
+        config_overrides={"max_rounds": 1, "deep_scrape": False, "max_completeness_checks": 0},
+    )
+
+    # Make only the evolution (historian) LLM call raise a hard error.
+    real_generate = mock_ollama.generate
+
+    async def flaky_generate(system, user, json_mode=False, model=None):
+        if json_mode and "research historian" in system.lower():
+            raise TimeoutError("ollama unreachable")
+        return await real_generate(system, user, json_mode=json_mode, model=model)
+
+    mock_ollama.generate = flaky_generate
+
+    events = []
+    async for event in agent.research("RISC-V vs ARM for edge AI"):
+        events.append(event)
+
+    done = next(e for e in events if e.event_type == ResearchEventType.DONE)
+    assert done.data["evolution_changes"] == 0
+    assert done.data["evolution_degraded"] is True
+
+
+@pytest.mark.asyncio
 async def test_evolution_disabled_by_config():
     """evolution_check=False should skip the LLM call entirely."""
     recalled = [

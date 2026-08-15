@@ -33,6 +33,16 @@ def test_is_time_sensitive_negative():
     assert not is_time_sensitive("history of the Roman Empire")
 
 
+def test_is_time_sensitive_word_boundaries():
+    # Markers must not match as substrings of longer words (false positives).
+    assert not is_time_sensitive("How does knowledge distillation work?")  # "now"
+    assert not is_time_sensitive("Read the newspaper archives")  # "news"
+    assert not is_time_sensitive("The package was delivered")  # "live"
+    # Inflected forms and phrases still count.
+    assert is_time_sensitive("currently best practices")
+    assert is_time_sensitive("what changed this week")
+
+
 # --- Stale cache bypass ---
 
 
