@@ -13,9 +13,15 @@ DEFAULT_CONFIG_NAME = "pythia.yaml"
 
 
 class ServerConfig(BaseModel):
-    host: str = "0.0.0.0"
+    # Loopback by default: the API has no authentication, so binding every interface would expose
+    # search/research endpoints (and cache deletion) to the local network.
+    host: str = "127.0.0.1"
     port: int = 8900
-    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    # Explicit localhost origins rather than a wildcard, which would let any website the user visits
+    # read this API's responses.
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
+    )
 
 
 class OllamaConfig(BaseModel):

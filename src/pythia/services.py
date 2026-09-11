@@ -41,7 +41,7 @@ class ServiceManager:
     def __init__(
         self,
         config_path: str = "pythia.yaml",
-        host: str = "0.0.0.0",
+        host: str = "127.0.0.1",
         port: int = 8900,
         docker_compose_path: str | None = None,
     ) -> None:

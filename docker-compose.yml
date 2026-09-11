@@ -3,7 +3,7 @@ services:
     image: container-registry.oracle.com/database/free:latest-lite
     container_name: pythia-oracle
     ports:
-      - "1523:1521"
+      - "127.0.0.1:1523:1521"
     environment:
       - ORACLE_PWD=Welcome12345*
     volumes:
@@ -20,7 +20,7 @@ services:
     image: searxng/searxng:latest
     container_name: pythia-searxng
     ports:
-      - "8889:8080"
+      - "127.0.0.1:8889:8080"
     volumes:
       - ./searxng:/etc/searxng
     environment:
