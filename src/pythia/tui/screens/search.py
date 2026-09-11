@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 from datetime import datetime
 
 import httpx
@@ -24,6 +25,8 @@ from pythia.tui.widgets.session_divider import SessionDivider
 from pythia.tui.widgets.source_list import SourceList
 from pythia.tui.widgets.status_bar import PythiaStatusBar
 from pythia.tui.widgets.suggestions import Suggestions
+
+logger = logging.getLogger(__name__)
 
 
 class SearchScreen(Screen):
@@ -87,13 +90,16 @@ class SearchScreen(Screen):
             status_widget = self.query_one("#service-status", ServiceStatusIndicator)
             if status_widget:
                 status_widget.update_services(statuses)
-        except Exception:
-            pass
+        except Exception as exc:
+            # The status strip is cosmetic; a failure here must not interrupt a search.
+            logger.debug("service status update skipped: %s", exc)
 
     async def _check_health(self) -> None:
         try:
             status = self.query_one(PythiaStatusBar)
-        except Exception:
+        except Exception as exc:
+            # Only reachable when the bar is not mounted; anything else should stay visible.
+            logger.debug("health check skipped, status bar unavailable: %s", exc)
             return
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
