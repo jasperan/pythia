@@ -100,7 +100,8 @@ class HistoryScreen(Screen):
         footer.append(f" \u00b7 {hits} cache hits ({rate})", style=f"{colors.SUCCESS}")
         footer.append(f" \u00b7 avg {avg_str}", style=f"{colors.DIM}")
         footer.append(
-            "\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter", style=f"{colors.MUTED}"
+            "\n  \u2191\u2193/jk Navigate  Enter Re-run  r Research  / Filter",
+            style=f"{colors.MUTED}",
         )
         self.query_one("#history-footer", Static).update(footer)
 

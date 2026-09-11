@@ -33,7 +33,9 @@ class SourceList(Static):
             self.update("")
             return
         text = Text()
-        text.append("  \u2500\u2500\u2500 Sources \u2500\u2500\u2500\n", style=f"bold {colors.PRIMARY}")
+        text.append(
+            "  \u2500\u2500\u2500 Sources \u2500\u2500\u2500\n", style=f"bold {colors.PRIMARY}"
+        )
         for s in self._sources:
             idx = s.get("index", "?")
             title = s.get("title", "")
