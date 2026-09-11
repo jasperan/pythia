@@ -538,7 +538,9 @@ def test_all_theme_files_exist():
     from pythia.tui.app import PythiaApp, _PYTHIA_THEMES
     from pythia.config import PythiaConfig
 
-    app = PythiaApp(PythiaConfig(), auto_start=False)
+    # Constructing the app is kept for its registration side effects; the assertions below
+    # read the module-level _PYTHIA_THEMES registry, so the instance itself is not needed.
+    PythiaApp(PythiaConfig(), auto_start=False)
     # Every AVAILABLE_THEMES entry must have a registered Theme with colors
     for theme in AVAILABLE_THEMES:
         assert theme in _PYTHIA_THEMES, f"Missing registered theme: {theme}"
