@@ -5,7 +5,7 @@ services:
     ports:
       - "127.0.0.1:1523:1521"
     environment:
-      - ORACLE_PWD=Welcome12345*
+      - ORACLE_PWD=${PYTHIA_ORACLE_PASSWORD:?Set PYTHIA_ORACLE_PASSWORD}
     volumes:
       - oracle-data:/opt/oracle/oradata
     restart: unless-stopped
@@ -25,6 +25,9 @@ services:
       - ./searxng:/etc/searxng
     environment:
       - SEARXNG_BASE_URL=http://localhost:8889
+      # Overrides server.secret_key in the mounted settings.yml, whose value is a tracked
+      # placeholder. Upstream: "Is overwritten by ${SEARXNG_SECRET}" (searx/settings.yml).
+      - SEARXNG_SECRET=${PYTHIA_SEARXNG_SECRET:?Set PYTHIA_SEARXNG_SECRET}
     restart: unless-stopped
 
 volumes:
