@@ -1,21 +1,16 @@
-"""Catppuccin Mocha design tokens — single source of truth for TUI colors.
+"""Research desk palette for Rich markup; Textual surfaces use theme tokens."""
 
-Canonical palette (see docs/tui-design-tokens.md). Theme .tcss files define
-the same tokens as TCSS variables; this module exposes them to Python code
-(Rich markup style strings cannot reference TCSS variables).
-"""
-
-BG = "#1e1e2e"
-SURFACE = "#181825"
-ELEVATED = "#313244"
-HIGHEST = "#45475a"
-TEXT = "#cdd6f4"
-SUBTEXT = "#a6adc8"
-MUTED = "#6c7086"
-DIM = "#585b70"
-PRIMARY = "#89b4fa"
-SECONDARY = "#cba6f7"
-INFO = "#89dceb"
-SUCCESS = "#a6e3a1"
-WARNING = "#f9e2af"
-ERROR = "#f38ba8"
+BG = "#141715"
+SURFACE = "#1a1e1b"
+ELEVATED = "#252b25"
+HIGHEST = "#3b443b"
+TEXT = "#e9e5da"
+SUBTEXT = "#c3cbbc"
+MUTED = "#a4ad9f"
+DIM = "#727e70"
+PRIMARY = "#e5b567"
+SECONDARY = "#b6c9a7"
+INFO = "#f4d5a1"
+SUCCESS = "#a6c59a"
+WARNING = "#edc583"
+ERROR = "#e88b82"

@@ -4,23 +4,15 @@ from rich.text import Text
 from textual.widgets import Static
 from pythia.tui import colors
 
-_PYTHIA_LINES = [
-    "██████╗  ██╗   ██╗████████╗██╗  ██╗██╗ █████╗ ",
-    "██╔══██╗ ╚██╗ ██╔╝╚══██╔══╝██║  ██║██║██╔══██╗",
-    "██████╔╝  ╚████╔╝    ██║   ███████║██║███████║",
-    "██╔═══╝    ╚██╔╝     ██║   ██╔══██║██║██╔══██║",
-    "██║         ██║      ██║   ██║  ██║██║██║  ██║",
-    "╚═╝         ╚═╝      ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝",
-]
-
-_SUBTITLE = "The Oracle Answers"
+_SUBTITLE = "THE RESEARCH DESK  /  Search. Connect. Understand."
 
 
 def build_logo_text() -> Text:
     logo = Text()
-    for line in _PYTHIA_LINES:
-        logo.append(f"  {line}\n", style=f"bold {colors.INFO}")
-    logo.append(f"\n  {_SUBTITLE}\n", style=f"{colors.PRIMARY}")
+    logo.append("◈  P Y T H I A\n", style=f"bold {colors.PRIMARY}")
+    logo.append(f"{_SUBTITLE}\n", style=colors.MUTED)
+    logo.append("\n01  SEARCH    02  RESEARCH    03  HISTORY    04  SYSTEM", style=colors.SUBTEXT)
+    logo.append("\nType a question below · /help for commands", style=colors.MUTED)
     return logo
 
 

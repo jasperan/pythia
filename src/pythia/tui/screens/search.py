@@ -54,6 +54,7 @@ class SearchScreen(Screen):
         yield PythiaStatusBar()
 
     def on_mount(self) -> None:
+        self.query_one("#results-area").border_title = "FIELD NOTES / SEARCH RESULTS"
         self._health_check_interval = self.set_interval(2.0, self._check_health)
         self._try_connect_service_manager()
         # Check for pending search query from history re-run
