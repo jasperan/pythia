@@ -1,5 +1,13 @@
 # Pythia
 
+## The research desk
+
+An amber and forest terminal interface with a compact masthead, framed research notes, and a prominent question input. Theme switching, streaming results, research navigation, and keyboard controls remain available.
+
+![Pythia's research desk: amber typography, structured field notes, and a keyboard-first search input](docs/screenshots/research-desk.png)
+
+This is the running Textual interface with illustrative research content, captured without connecting to search or model services. Regenerate the source SVG with `.venv/bin/python scripts/capture_visual_showcase.py`.
+
 <div align="center">
 
 **[View Interactive Presentation](docs/slides/presentation.html)** | Animated overview of the project
@@ -26,6 +34,8 @@
 Named after the priestess at the Oracle of Delphi who answered questions (a double meaning with Oracle Database as the backend).
 
 ## Screenshots
+
+The captures below document the earlier interface; the research desk above shows the current default theme.
 
 ### Search Screen
 Streaming answers with source citations, semantic cache hits, and result scrollback.
