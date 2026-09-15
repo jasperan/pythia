@@ -45,7 +45,7 @@ def _load_required_config(
 
 @app.command()
 def serve(
-    host: str = typer.Option("0.0.0.0", help="API server host"),
+    host: str = typer.Option("127.0.0.1", help="API server host"),
     port: int = typer.Option(8900, help="API server port"),
     config: str = typer.Option("pythia.yaml", help="Config file path"),
     backend: str = typer.Option("", help="Override LLM backend (ollama or oci-genai)"),

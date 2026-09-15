@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import httpx
 from textual.app import ComposeResult
 from textual.containers import Vertical
@@ -9,6 +11,8 @@ from textual.message import Message
 from textual.widgets import Label, Select, Switch
 
 from pythia.config import PythiaConfig
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsPanel(Vertical):
@@ -52,8 +56,9 @@ class SettingsPanel(Vertical):
                 if models:
                     select = self.query_one("#model-select", Select)
                     select.set_options(models)
-        except Exception:
-            pass
+        except Exception as exc:
+            # The Ollama model list is a convenience; the configured model stays selected.
+            logger.debug("model list refresh skipped: %s", exc)
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id == "model-select" and event.value and event.value != Select.NULL:

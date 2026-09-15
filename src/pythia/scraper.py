@@ -7,11 +7,40 @@ import ipaddress
 import logging
 import socket
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from scrapling.fetchers import Fetcher
 
 logger = logging.getLogger(__name__)
+
+_MAX_REDIRECTS = 5
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+
+
+def _fetch_public(url: str, *, max_redirects: int = _MAX_REDIRECTS) -> tuple[object, str]:
+    """Fetch ``url``, validating every redirect hop before it is followed.
+
+    ``_is_public_http_url`` can only vet the URL it is handed, so letting the fetcher follow
+    redirects internally gave a public host a way to reach a private address: the redirect target
+    was never checked. Redirects are therefore followed one hop at a time here, and each Location is
+    passed through the same predicate before another request is made.
+
+    Returns the response and the URL that produced it.
+    """
+    current = url
+    for _ in range(max_redirects + 1):
+        page = Fetcher.get(current, timeout=10, follow_redirects=False)
+        if getattr(page, "status", 200) not in _REDIRECT_STATUSES:
+            return page, current
+        headers = getattr(page, "headers", None) or {}
+        location = headers.get("location") or headers.get("Location")
+        if not location:
+            return page, current
+        next_url = urljoin(current, location)
+        if not _is_public_http_url(next_url):
+            raise ValueError(f"blocked redirect to non-public URL: {next_url}")
+        current = next_url
+    raise ValueError(f"too many redirects from {url}")
 
 
 @dataclass
@@ -33,7 +62,7 @@ def _scrape_one_sync(url: str, fallback_snippet: str) -> ScrapedContent:
         )
 
     try:
-        page = Fetcher.get(url, timeout=10)
+        page, _final_url = _fetch_public(url)
         text = page.get_all_text(ignore_tags=("script", "style", "nav", "footer", "header"))
         if not text or len(text.strip()) < 50:
             return ScrapedContent(
